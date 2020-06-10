@@ -3,7 +3,7 @@
 Welcome to the repo for the UCLH ED crowding research. 
 
 To make best use of Github, please: 
-1. Create a sub-folder for whatever you are working on eg network-analysis and initialist it with a README.md file. To create a sub-folder when on Github web, click Create new file then enter the name of the folder with a backslash after it. When you add the backslash Github will ask you to name your file - simply create an empty README.md file and your folder will be ready. Alternatively, if you have cloned this repo to your virtual desktop, create your subfolder inside the repo using File Manager or Command Prompt in Windows
+1. Create a sub-folder for whatever you are working on (eg network-analysis) and initialise it with a README.md file. To create a sub-folder when on Github web, click Create new file then enter the name of the folder with a backslash after it. When you add the backslash Github will ask you to name your file - simply create an empty README.md file and your folder will be ready. Alternatively, if you have cloned this repo to your virtual desktop, create your subfolder inside the repo using File Manager or Command Prompt in Windows
 2. Create a branch for your analysis, and save your work in progress inside this branch locally while working on the virtual desktop
 3. Periodically commit your local work in progress branch to the remote version of your branch
 4. When ready, create a pull request to merge your branch with the master branch. Github will confirm whether your branch can be safely merged without conflicts
