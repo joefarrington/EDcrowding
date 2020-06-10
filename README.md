@@ -1,4 +1,11 @@
-# try-emap
+# EDcrowding
+
+Welcome to the repo for the UCLH ED crowding research. 
+
+# A message from try-emap
+
+This has been forked from the UCLH [try-emap](https://github.com/inform-health-informatics/try-emap) repo. This READ.me retains their information about how to get set up with some additional notes from @zmek
+
 Welcome to UCLH's Data Science Desktop. This is a short guide to getting up and running with data science in R. We will get your tool kit ready including R, RStudio, and version control. We will then explore EMAP using dbForge and RStudio through a couple of brief vignettes.
 
 
