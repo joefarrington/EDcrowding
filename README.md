@@ -22,10 +22,17 @@ Welcome to UCLH's Data Science Desktop. This is a short guide to getting up and 
 
 See the example `.Rprofile` and `.Renviron` files in `example-config-files`. The former just sets the CRAN mirror, and can be a good place to create paths to local installs for R packages. The latter is a good place to store local usernames and passwords, but make sure that you exclude it from version control.
 
+Additional note from @zmek: 
+* sounds obvious but you need to put your local usernames and passwords inside quote marks
+* in RStudio, file.edit('~/.Renviron') is a useful command to see what is in your `.Renviron` file
 
 ## Setting up git
 
 Git-Bash and SourceTree are both available. You may need to set-up the http.proxy. This can either be done inside the options of SourceTree, or by writing your own '~/.gitconfig' using the example file. Git needs the proxy addresses in the .gitconfig file to work. You can check this using `git config --global --list`.
+
+Additional note from @zmek about SourceTree: 
+* I had a create a Bitbucket account to open SourceTree for the first time, but was later able to change my default user information within SourceTree to be my usual Github user and email address. To make this change, go to Tools > Options then select General from the top menu
+* I initially had trouble with SourceTree not being able to find the repos I was trying to clone. Solved this by entering the http proxy information into SourceTree; go to Tools > Options then select Network from the top menu. Enter the proxy information (found in the `.Renviron` file in `example-config-files` in this repo) where it says `Use custom proxy setting`. You can only enter one, but this seemed to do the trick
 
 ## Setting up DBForge
 
