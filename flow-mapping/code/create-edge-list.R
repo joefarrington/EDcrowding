@@ -10,6 +10,18 @@ library(lubridate)
 # Define functions
 # ================
 
+# define level of granularity for node
+# if in ED use room, else use ward name
+
+get_node <- function(dept, room) {
+  if (dept == "ED") {
+    node <- room
+  }
+  else {
+    node <- dept
+  }
+}
+
 # for a single encounter, this function generates an edge list of 
 # moves between locations, with a timestamp
 # locations are provided to it in a tibble called sites
@@ -25,10 +37,10 @@ get_edgelist <- function(sites) {
     ~to,
     ~dttm)
   
-  from_node = as.character(sites$room3[1])
+  from_node = get_node(as.character(sites$dept2[1]), as.character(sites$room3[1]))
   for (j in 1:nrow(sites)) {
     if (j != nrow(sites)) {
-      to_node <- as.character(sites$room3[j + 1] )
+      to_node <- get_node(as.character(sites$dept2[j+1]), as.character(sites$room3[j+1]))
       if (from_node != to_node) {
         
         edgelist <- edgelist %>% add_row(tibble_row(
@@ -40,6 +52,17 @@ get_edgelist <- function(sites) {
         ))
       }
       from_node <- to_node
+    }
+    else {
+      
+      edgelist <- edgelist %>% add_row(tibble_row(
+        mrn = sites$mrn[j],
+        csn = sites$csn[j],
+        from = to_node,
+        to = "Discharge",
+        dttm = sites$discharge_dttm[j]
+      ))
+      
     }
   }
   return(edgelist)
@@ -71,6 +94,10 @@ get_care_site_flows <- function(visits) {
     ~dttm)
   
   for (i in (1:nrow(visits_gt1))) {
+    
+    if (i%%100 == 0) {
+      print(paste("Processed",i,"visits"))
+    }
     visit_csn = visits_gt1$csn[i]
     num_visits = visits_gt1$num_visit_details[i]
     
@@ -98,11 +125,13 @@ load(inFile)
 
 
 edgedf <- get_care_site_flows(ED_bed_moves %>% 
-                                select(mrn, csn, room3, admission, discharge))
+                                filter(admission_dttm < "2020-03-01") %>% 
+                                select(mrn, csn, dept2, room3, admission, admission_dttm, discharge, discharge_dttm))
+
+
 
 # save data for future use
-setwd("//uclcmddprafss21/Home/zelking1/Documents/EDcrowding/flow-mapping")
-outFile = paste0("data-raw/ED_edge_list_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
 

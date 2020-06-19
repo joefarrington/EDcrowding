@@ -14,24 +14,114 @@ split_location <- function(hl7_location, n) {
 }
 split_location <- Vectorize(split_location)
 
+# shorten ward names
+clean_wardnames5 <- function(x) {
+  # If any ward has a name in brackets use the text in brackets as ward name e.g. "UCH T07 SOUTH (T07S)" becomes T07S
+  if (grepl("\\(",x))  {
+    start <- regexpr("\\(",x)[[1]]
+    end <- regexpr("\\)",x)[[1]]
+    x <- substr(x,start+1,end-1)
+  }
+  # Any West Moreland St location becomes Outside Tower
+  else if (grepl("WMS",x)) {
+    x <- "Outside Tower"
+  } 
+  # Any EGA location becomes  Outside Tower
+  else if (grepl("EGA",x)) {
+    x <- "Outside Tower"
+  }
+  # Any MCC location becomes  Outside Tower
+  else if (grepl("MCC",x)) {
+    x <- "Outside Tower"
+  }
+  # Any NHNN location becomes Outside Tower
+  else if (grepl("NHNN",x)) {
+    x <- "Outside Tower"
+  }
+  # Any RNTNE location becomes Outside Tower
+  else if (grepl("RNTNE",x)) {
+    x <- "Outside Tower"
+  }
+  # Anything with OFF in location becomes OFF
+  else if (grepl("OFF",x)) {
+    x <- "OFF"
+  }
+  # Anything with OUT in location becomes Outside Tower
+  else if (grepl("OUT",x)) {
+    x <- "Outside Tower"
+  }
+  # Anything with CRF in location becomes CRF
+  else if (grepl("CRF",x)) {
+    x <- "CRF"
+  }
+  # Anything with HARLEY in location becomes HARLEY
+  else if (grepl("HARLEY",x)) {
+    x <- "HARLEY"
+  }
+  # Anything with LOUNGE in location becomes LOUNGE
+  else if (grepl("LOUNGE",x)) {
+    x <- "LOUNGE"
+  }
+  x <- gsub("UCH ","",x) #remove UCH from any name
+  x <- gsub("THEATRE SUITE","THR",x)
+  x <- gsub(" CRITICAL CARE","",x)
+  x <- gsub(" WARD","",x)
+  x <- gsub(" SURG ","",x)
+  x <- gsub(" SURGICAL ITU","SURG ITU",x)
+  
+  if (grepl("EMERGENCY DEPT",x)) {
+    x <- "ED"
+  } 
+  if (grepl("EMERGENCY AU",x)) {
+    x <- "AMU/EAU"
+  }
+  if (grepl("ACUTE MEDICAL",x)) {
+    x <- "AMU/EAU"
+  }
+  if (grepl("T00",x)) {
+    x <- "AMU/EAU"
+  }
+  if (grepl("P03 CV|P03 THR",x)) {
+    x <- "ICU"
+  }
+  if (grepl("T03 INTENSIVE CARE",x)) {
+    x <- "ICU"
+  }
+  if (grepl("HDRU",x)) {
+    x <- "HDRU"
+  }
+  if (grepl("T07",x)) { #leave as is for now
+    x <- "T07"
+  }
+  else if (grepl("T08|T09", x)) {
+    x <- "T08/09" # leave as is for now
+  }
+  else if (grepl("T02", x)) {
+    x <- "T02" # leave as is for now
+  }
+  else if (grepl("T[0-9][0-9]",x)) {
+    x <- "Tower"
+  }
+  
+  return(x)
+}
 
+clean_wardnames5 <- Vectorize(clean_wardnames5)
 
 # clean room data
 clean_room_names <- function(x) {
-  # x = gsub("UCHED ","",x)
-  # x = gsub(" BY[0-9]{2}", "", x)
-  # x = gsub("BY[0-9]{2} ", "", x)
-  # x = gsub(" SR[0-9]{2}", "", x)
-  # x = gsub("SR[0-9]{2} ", "", x)
-  # x = gsub(" CB[0-9]{2}", "", x)
+  x = gsub("UCHED ","",x)
+  # x = gsub("BY[0-9]{2}", "BY", x)
+  # x = gsub("SR[0-9]{2}", "SR", x)
+  # x = gsub("CB[0-9]{2}", "CB", x)
   # if (length( grep("^T[0-9]{2}",x)) == 0) {
   #   x = gsub("[0-9]", "", x)
   # }
   x = gsub("CHAIR [0-9]{2}", "CHAIR", x)
-  x = gsub("[0-9]{2}", "BED", x)
+  x = gsub("[0-9]{2}", "99", x)
   x = gsub("MAJ-CHAIR","MAJORS CHAIR",x)
   x = gsub("RAT-CHAIR","RAT CHAIR",x)
-  x = gsub("UCHED RATBED","RAT BED",x)
+  x = gsub("RATBED","RATBED",x)
   x = gsub("^UTC [A-z]+ ROOM","UTC O/P/T ROOM",x)
   x = gsub(" $","",x)
   return(x)
@@ -48,9 +138,13 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       password = Sys.getenv("UDS_PWD"),
                       dbname = "uds")
 
-## Either get bed moves from Star
+## EITHER load if data already saved
+inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_","2020-06-15",".rda")
+load(inFile)
+rm(inFile)
 
-# First retrieve bed_moves
+
+# OR get bed moves from Star
 
 sqlQuery <- "SELECT *
   FROM star.bed_moves bm"
@@ -79,22 +173,20 @@ bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>%
 bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>% 
   mutate(ED_row = ifelse(department == "UCH EMERGENCY DEPT", 1, 0))
 
+# identify admission rows (first for each encounter)
+bed_moves <- bed_moves %>% 
+  mutate(admission_row = ifelse(admission == admission_dttm, TRUE, FALSE))
+
+# identify ED rows (moves within ED)
+bed_moves <- bed_moves %>% 
+  group_by(mrn, csn, encounter_id) %>% 
+  mutate(ED_row = ifelse(department == "UCH EMERGENCY DEPT", 1, 0))
+
 # save data for future loading
-setwd("//uclcmddprafss21/Home/zelking1/Documents/EDcrowding/flow-mapping")
-outFile = paste0("/EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
 save(bed_moves, file = outFile)
 rm(outFile)
 
-## Or if data already saved
-inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_","2020-06-15",".rda")
-load(inFile)
-rm(inFile)
-
-bed_moves <- bed_moves %>% mutate(admission_row = ifelse(admission == admission_dttm, TRUE, FALSE))
-bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>% 
-  mutate(ED_row = ifelse(department == "UCH EMERGENCY DEPT", 1, 0))
-
-ED_bed_moves <- ED_bed_moves %>% mutate(duration_row = difftime(discharge, admission, units = "hours"))
 
 
 # Select only encounters involving ED
@@ -102,15 +194,18 @@ ED_bed_moves <- ED_bed_moves %>% mutate(duration_row = difftime(discharge, admis
 
 # EITHER generate from bed_moves
 # Create summary of all encounters  
-csn_summ <- bed_moves %>% group_by(mrn, csn, encounter_id, admission_dttm, discharge_dttm) %>% 
+csn_summ <- bed_moves %>% 
+  group_by(mrn, csn, encounter_id, admission_dttm, discharge_dttm) %>% 
   summarise(duration = difftime(max(discharge),min(admission), units = "hours"),
             nUm_ED_rows = sum(ED_row)) %>% ungroup()
 
 # denote whether encounter was before or after covid changes
-csn_summ <- csn_summ %>% mutate(covid = ifelse(admission_dttm < "2020-03-20 00:00:00", "Before", "After"))
+csn_summ <- csn_summ %>% 
+  mutate(covid = ifelse(admission_dttm < "2020-03-20 00:00:00", "Before", "After"))
 
 # select only encounters with one or more bed_moves involving ED
-ED_csn_summ <- csn_summ %>% filter(nUm_ED_rows > 0) 
+ED_csn_summ <- csn_summ %>% 
+  filter(nUm_ED_rows > 0) 
 
 # save data for future use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",today(),".rda")
@@ -123,27 +218,55 @@ load(inFile)
 # Data cleaning for encounters involving ED
 # =========================================
 
-
 # get bed_moves data for those encounters
-ED_bed_moves <- left_join(ED_csn_summ, bed_moves)
+ED_bed_moves <- left_join(ED_csn_summ, bed_moves) %>% 
+  arrange(admission_dttm, admission)
+
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(duration_row = difftime(discharge, admission, units = "hours"))
 
 # hl7_location seems to have more complete info in some cases where room and bed are NA
-ED_bed_moves <- ED_bed_moves %>% mutate(room2 = case_when(is.na(room) & hl7_location != "ED^null^null" ~ split_location(hl7_location, 2),
-                                                          TRUE ~ room))
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(room2 = case_when(is.na(room) & hl7_location != "ED^null^null" ~
+                             split_location(hl7_location, 2),
+                           TRUE ~ room))
+# shorten ward name
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(dept2 = clean_wardnames5(department))
+# use this to see which room names the function clean_wardnames5 has grouped: 
+d <- ED_bed_moves %>% group_by(department, dept2) %>% summarise(total = n()) 
 
 # clean room names
-ED_bed_moves <- ED_bed_moves %>% mutate(room3 = clean_room_names(room2))
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(room3 = clean_room_names(room2))
+
 # use this to see which room names the function clean_room_names has grouped: 
-e <- ED_bed_moves %>% filter(department == "UCH EMERGENCY DEPT") %>%  group_by(room3, room) %>% summarise(total = n()) 
+e <- ED_bed_moves %>% group_by(dept2, room2, room3) %>% summarise(total = n()) 
 
 
 # Replace NAs with None for use in edge list
-ED_bed_moves <- ED_bed_moves %>% mutate(room3 = ifelse(is.na(room3), "None", room3))
+ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & admission_row ~ "Arrival",
+                                                          is.na(room3) ~ "None", 
+                                                          TRUE ~ room3))
 
 # looking at COVID locations - looks like first demaraction of COVID locations happened on 20/3
-ED_bed_moves %>% filter(room2 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(admission_dttm))
+ED_bed_moves %>% filter(room3 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(admission_dttm))
 # ED_bed_moves <- ED_bed_moves %>% mutate(covid = ifelse(admission_dttm < "2020-03-20 12:00:00", "Before", "After"))
 ED_bed_moves %>% group_by(covid) %>% summarise(n())
+
+# look at outliers
+
+ggplot(ED_bed_moves %>% filter(ED_row == 1), # one clear outlier
+       aes(x=1, y = duration_row)) + 
+        geom_boxplot()
+
+# without that one, majority of long durations rows are OTF (off the floor)
+ggplot(ED_bed_moves %>% filter(ED_row == 1, duration_row < 400), aes(x=room3, y = duration_row)) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
+
+# remove one outlier
+ED_bed_moves <- ED_bed_moves %>% filter(ED_row == 1, duration_row > 400)
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",today(),".rda")
 save(ED_bed_moves, file = outFile)
