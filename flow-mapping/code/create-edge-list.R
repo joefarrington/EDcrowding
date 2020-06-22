@@ -155,7 +155,11 @@ edgedf <- get_care_site_flows(ED_bed_moves %>%
 
 
 
+<<<<<<< HEAD
 # save edge list for future use
+=======
+# save data for future use
+>>>>>>> 1740104a62146777ef8a56c3814e6a70ea7b459d
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
