@@ -146,12 +146,8 @@ clean_room_names <- function(x) {
   #   x = gsub("[0-9]", "", x)
   # }
   x = gsub("CHAIR [0-9]{2}", "CHAIR", x)
-<<<<<<< .merge_file_a22044
-  x = gsub("[0-9]{2}", "99", x)  
-  x = gsub("[0-9]{2}", " 99", x)
-=======
   x = gsub("[0-9]{2}", "99", x)
->>>>>>> .merge_file_a28984
+  x = gsub("[0-9]{2}", " 99", x)
   x = gsub("MAJ-CHAIR","MAJORS CHAIR",x)
   x = gsub("RAT-CHAIR","RAT CHAIR",x)
   x = gsub("RATBED","RATBED",x)
@@ -173,11 +169,7 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       dbname = "uds")
 
 ## EITHER load if data already saved
-<<<<<<< .merge_file_a22044
 inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_","2020-06-19",".rda")
-=======
-inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_","2020-06-15",".rda")
->>>>>>> .merge_file_a28984
 load(inFile)
 rm(inFile)
 
@@ -331,13 +323,9 @@ ggplot(ED_bed_moves %>% filter(ED_row == 1, duration_row < 400), aes(x=room3, y 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 
 # remove one outlier
-<<<<<<< .merge_file_a22044
 ED_bed_moves <- ED_bed_moves %>% filter(ED_row == 1, duration_row < 400)
 
 # save ED_bed_moves for later use
-=======
-ED_bed_moves <- ED_bed_moves %>% filter(ED_row == 1, duration_row > 400)
->>>>>>> .merge_file_a28984
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",today(),".rda")
 save(ED_bed_moves, file = outFile)
