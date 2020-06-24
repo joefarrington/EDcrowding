@@ -158,6 +158,29 @@ clean_room_names <- function(x) {
 }
 clean_room_names <- Vectorize(clean_room_names)
 
+# simple function to return whether location denotes admission
+calc_admission <- function(dept) {
+  if (dept != "ED") {
+    return("Admission")
+  }
+  else
+    return("Still in ED")
+}
+
+calc_admission <- Vectorize(calc_admission)
+
+
+# simple function to return whether location involves pediatrics in ED
+calc_pediatric <- function(room) {
+  if (length(grep("PAEDS", room)) >0 ) {
+    return(TRUE)
+  }
+  else
+    return(FALSE)
+}
+
+calc_pediatric <- Vectorize(calc_pediatric)
+
 # Load bed_move data
 # ==================
 
@@ -200,17 +223,12 @@ bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>%
   arrange(mrn, csn, admission)
 
 # identify ED rows
-bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>% 
+bed_moves <- bed_moves %>% 
   mutate(ED_row = ifelse(department == "UCH EMERGENCY DEPT", 1, 0))
 
 # identify admission rows (first for each encounter)
 bed_moves <- bed_moves %>% 
   mutate(admission_row = ifelse(admission == admission_dttm, TRUE, FALSE))
-
-# identify ED rows (moves within ED)
-bed_moves <- bed_moves %>% 
-  group_by(mrn, csn, encounter_id) %>% 
-  mutate(ED_row = ifelse(department == "UCH EMERGENCY DEPT", 1, 0))
 
 # save data for future loading
 outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
@@ -245,24 +263,6 @@ save(ED_csn_summ, file = outFile)
 inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-06-19",".rda")
 load(inFile)
 
-# Get patient summary
-# ===================
-
-pats <- bed_moves %>% group_by(mrn, csn, encounter_id, admission_dttm, discharge_dttm) %>% 
-  summarise(duration = difftime(max(discharge),min(admission), units = "hours"),
-            nUm_ED_rows = sum(ED_row)) %>% ungroup()
-
-pats <- pats %>% 
-  mutate(covid = ifelse(admission_dttm < "2020-03-20 00:00:00", "Before", "After"))
-
-
-ED_pats <- pats %>% filter(nUm_ED_rows > 0) 
-
-# save data for later use
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_pats_",today(),".rda")
-save(ED_pats, file = outFile)
-rm(outFile)
-
 
 # Data cleaning for encounters involving ED
 # =========================================
@@ -282,22 +282,20 @@ ED_bed_moves <- ED_bed_moves %>%
 # shorten ward name
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(dept2 = clean_wardnames5(department))
-<<<<<<< .merge_file_a22044
 # use d to see which room names the function clean_wardnames5 has grouped: 
-=======
-# use this to see which room names the function clean_wardnames5 has grouped: 
->>>>>>> .merge_file_a28984
+
 d <- ED_bed_moves %>% group_by(department, dept2) %>% summarise(total = n()) 
+
+# apply simple function to denote whether location denotes admission (used in edge list)
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(dept3 = calc_admission(dept2))
+
 
 # clean room names
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(room3 = clean_room_names(room2))
 
-<<<<<<< .merge_file_a22044
 # use e to see which room names the function clean_room_names has grouped: 
-=======
-# use this to see which room names the function clean_room_names has grouped: 
->>>>>>> .merge_file_a28984
 e <- ED_bed_moves %>% group_by(dept2, room2, room3) %>% summarise(total = n()) 
 
 
@@ -306,10 +304,17 @@ ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & admissi
                                                           is.na(room3) ~ "None", 
                                                           TRUE ~ room3))
 
+
+# apply function to denote whether location involves pediatrics (used in edge list)
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(pediatric_row = calc_pediatric(room3))
+
 # looking at COVID locations - looks like first demaraction of COVID locations happened on 20/3
 ED_bed_moves %>% filter(room3 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(admission_dttm))
 # ED_bed_moves <- ED_bed_moves %>% mutate(covid = ifelse(admission_dttm < "2020-03-20 12:00:00", "Before", "After"))
 ED_bed_moves %>% group_by(covid) %>% summarise(n())
+
+
 
 # look at outliers
 
@@ -323,7 +328,8 @@ ggplot(ED_bed_moves %>% filter(ED_row == 1, duration_row < 400), aes(x=room3, y 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 
 # remove one outlier
-ED_bed_moves <- ED_bed_moves %>% filter(ED_row == 1, duration_row < 400)
+ED_bed_moves <- ED_bed_moves %>% filter(duration_row < 400) %>% 
+  arrange(mrn, csn, admission)
 
 # save ED_bed_moves for later use
 

@@ -24,10 +24,10 @@ library(lubridate)
 # ================
 
 # define level of granularity for node
-# if in ED use room, else use ward name
+# if in ED use room, else node set to Admission for all wards
 
 get_node <- function(dept, room) {
-  if (dept == "ED") {
+  if (dept == "Still in ED") {
     node <- room
   }
   else {
@@ -50,10 +50,10 @@ get_edgelist <- function(sites) {
     ~to,
     ~dttm)
   
-  from_node = get_node(as.character(sites$dept2[1]), as.character(sites$room3[1]))
+  from_node = get_node(as.character(sites$dept3[1]), as.character(sites$room3[1]))
   for (j in 1:nrow(sites)) {
     if (j != nrow(sites)) {
-      to_node <- get_node(as.character(sites$dept2[j+1]), as.character(sites$room3[j+1]))
+      to_node <- get_node(as.character(sites$dept3[j+1]), as.character(sites$room3[j+1]))
       if (from_node != to_node) {
         
         edgelist <- edgelist %>% add_row(tibble_row(
@@ -148,20 +148,27 @@ load(inFile)
 # Create edge list for network graph
 # ==================================
 
+# work out csns to ignore if involve pediatrics 
+pediatric_csn <- ED_bed_moves %>% group_by(mrn, csn, admission_dttm) %>% 
+  summarise(tot = sum(pediatric_row)) %>% 
+  filter(tot > 0) %>% 
+  select(mrn, csn) %>% distinct()
+
 # create on edge list which contains one row per bed move per patient with a time stamp
 edgedf <- get_care_site_flows(ED_bed_moves %>% 
-                                filter(admission_dttm < "2020-03-01") %>% 
-                                select(mrn, csn, dept2, room3, admission, admission_dttm, discharge, discharge_dttm))
+                                filter(admission_dttm < "2020-03-01", 
+                                       !csn %in% pediatric_csn$csn) %>% 
+                                select(mrn, csn, dept2, dept3, room3, admission, admission_dttm, discharge, discharge_dttm))
 
 
 
 # save edge list for future use
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_exc_ped",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
 
 # OR load edge list if already saved
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_","2020-06-19",".rda")
+inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_exc_ped","2020-06-19",".rda")
 load(inFile)
 
 # summarise edge list
