@@ -219,7 +219,7 @@ bed_moves <- bed_moves %>% left_join(encounter %>% select(encounter_id, encounte
 
 # derive admission and discharge dates
 bed_moves <- bed_moves %>% group_by(mrn, csn, encounter_id) %>% 
-  mutate(admission_dttm = min(admission), discharge_dttm = max(discharge)) %>% 
+  mutate(arrival_dttm = min(admission), discharge_dttm = max(discharge)) %>% 
   arrange(mrn, csn, admission)
 
 # identify ED rows
@@ -228,7 +228,7 @@ bed_moves <- bed_moves %>%
 
 # identify admission rows (first for each encounter)
 bed_moves <- bed_moves %>% 
-  mutate(admission_row = ifelse(admission == admission_dttm, TRUE, FALSE))
+  mutate(admission_row = ifelse(admission == arrival_dttm, TRUE, FALSE))
 
 # save data for future loading
 outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
@@ -243,13 +243,13 @@ rm(outFile)
 # EITHER generate from bed_moves
 # Create summary of all encounters  
 csn_summ <- bed_moves %>% 
-  group_by(mrn, csn, encounter_id, admission_dttm, discharge_dttm) %>% 
+  group_by(mrn, csn, encounter_id, arrival_dttm, discharge_dttm) %>% 
   summarise(duration = difftime(max(discharge),min(admission), units = "hours"),
             nUm_ED_rows = sum(ED_row)) %>% ungroup()
 
 # denote whether encounter was before or after covid changes
 csn_summ <- csn_summ %>% 
-  mutate(covid = ifelse(admission_dttm < "2020-03-20 00:00:00", "Before", "After"))
+  mutate(covid = ifelse(arrival_dttm < "2020-03-20 00:00:00", "Before", "After"))
 
 # select only encounters with one or more bed_moves involving ED
 ED_csn_summ <- csn_summ %>% 
@@ -258,6 +258,7 @@ ED_csn_summ <- csn_summ %>%
 # save data for future use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",today(),".rda")
 save(ED_csn_summ, file = outFile)
+rm(outFile)
 
 # OR LOAD saved data
 inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-06-19",".rda")
@@ -269,7 +270,7 @@ load(inFile)
 
 # get bed_moves data for those encounters
 ED_bed_moves <- left_join(ED_csn_summ, bed_moves) %>% 
-  arrange(admission_dttm, admission)
+  arrange(arrival_dttm, admission)
 
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(duration_row = difftime(discharge, admission, units = "hours"))
@@ -310,8 +311,8 @@ ED_bed_moves <- ED_bed_moves %>%
   mutate(pediatric_row = calc_pediatric(room3))
 
 # looking at COVID locations - looks like first demaraction of COVID locations happened on 20/3
-ED_bed_moves %>% filter(room3 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(admission_dttm))
-# ED_bed_moves <- ED_bed_moves %>% mutate(covid = ifelse(admission_dttm < "2020-03-20 12:00:00", "Before", "After"))
+ED_bed_moves %>% filter(room3 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(arrival_dttm))
+# ED_bed_moves <- ED_bed_moves %>% mutate(covid = ifelse(arrival_dttm < "2020-03-20 12:00:00", "Before", "After"))
 ED_bed_moves %>% group_by(covid) %>% summarise(n())
 
 
@@ -371,8 +372,8 @@ dev.off()
 
 png("EDCrowding/flow-mapping/media/Numbers in ED by day.png", width = 1077, height = 659)
 ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(date(admission_dttm), covid) %>% summarise(num_pats = n()) %>%  
-  ggplot(aes(x=`date(admission_dttm)`, y=num_pats, fill = fct_rev(covid))) + 
+  group_by(date(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
+  ggplot(aes(x=`date(arrival_dttm)`, y=num_pats, fill = fct_rev(covid))) + 
   geom_bar(stat = "identity") +
   labs(title = "Number of patients in ED by day",
        subtitle = "Source: Star",
@@ -393,9 +394,9 @@ difftime("2020-06-15","2020-03-22", units = "weeks")
 
 png("EDCrowding/flow-mapping/media/Mean numbers in ED by day of week.png", width = 1077, height = 659)
 ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(covid, weekdays(admission_dttm)) %>% summarise(mean_pats = n()/12) %>%  
-  ggplot(aes(x=factor(`weekdays(admission_dttm)`, levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")), 
-             y=mean_pats, fill = `weekdays(admission_dttm)`)) + 
+  group_by(covid, weekdays(arrival_dttm)) %>% summarise(mean_pats = n()/12) %>%  
+  ggplot(aes(x=factor(`weekdays(arrival_dttm)`, levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")), 
+             y=mean_pats, fill = `weekdays(arrival_dttm)`)) + 
   geom_bar(stat = "identity") +
   labs(title = "Mean number of patients admitted to ED by day of week, before and after COVID-19 (20.3.20)",
        subtitle = "Source: Star",
@@ -413,9 +414,9 @@ dev.off()
 
 png("EDCrowding/flow-mapping/-mapping/media/Total ED arrivals by time of day.png", width = 1077, height = 659)
 ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(hour(admission_dttm), covid) %>% summarise(num_pats = n()) %>%  
-  ggplot(aes(x=`hour(admission_dttm)`, 
-             y=num_pats, fill = `hour(admission_dttm)`)) + 
+  group_by(hour(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
+  ggplot(aes(x=`hour(arrival_dttm)`, 
+             y=num_pats, fill = `hour(arrival_dttm)`)) + 
   geom_bar(stat = "identity") +
   labs(title = "Total number of patients in ED by time of admission, before and after COVID-19 (20.3.20)",
        subtitle = "Source: Star",... = 

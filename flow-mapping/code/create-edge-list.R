@@ -149,16 +149,16 @@ load(inFile)
 # ==================================
 
 # work out csns to ignore if involve pediatrics 
-pediatric_csn <- ED_bed_moves %>% group_by(mrn, csn, admission_dttm) %>% 
+pediatric_csn <- ED_bed_moves %>% group_by(mrn, csn, arrival_dttm) %>% 
   summarise(tot = sum(pediatric_row)) %>% 
   filter(tot > 0) %>% 
   select(mrn, csn) %>% distinct()
 
 # create on edge list which contains one row per bed move per patient with a time stamp
 edgedf <- get_care_site_flows(ED_bed_moves %>% 
-                                filter(admission_dttm < "2020-03-01", 
+                                filter(arrival_dttm < "2020-03-01", 
                                        !csn %in% pediatric_csn$csn) %>% 
-                                select(mrn, csn, dept2, dept3, room3, admission, admission_dttm, discharge, discharge_dttm))
+                                select(mrn, csn, dept2, dept3, room3, admission, arrival_dttm, discharge, discharge_dttm))
 
 
 
@@ -174,6 +174,12 @@ load(inFile)
 # summarise edge list
 edgelist_summ <- edgedf %>% group_by(from, to) %>% summarise(weight = n()) %>% arrange(desc(weight))
 
+# Clean edge list
+# ===============
+
+# remove moves that occur after admission
+edgelist_summ <- edgelist_summ %>% filter(from != "Admission")
+
 # look for the right cut point for eliminating edges
 ggplot(edgelist_summ, aes(x=1, y = weight)) + 
   geom_boxplot() # wide band at bottom of box plot
@@ -186,12 +192,10 @@ ggplot(edgelist_summ %>% filter(weight < 500), aes(x=1, y = weight)) +
 # get reduced edgelist
 keep <- keep_edges(edgelist_summ, 100)
 
-# write edgelist to file
+# write reduced edgelist to file
 outFile <- paste0("EDcrowding/flow-mapping/data-raw/edgelist_summ_gt100",today(),".rda")
 save(keep, file = outFile)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-raw/edgelist_summ_gt100",today(),".csv")
 write.csv2(keep, file = outFile, row.names = FALSE)
-
-
 
