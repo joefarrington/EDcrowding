@@ -161,7 +161,7 @@ clean_room_names <- Vectorize(clean_room_names)
 # simple function to return whether location denotes admission
 calc_admission <- function(dept) {
   if (dept != "ED") {
-    return("Admission")
+    return("Admitted")
   }
   else
     return("Still in ED")
@@ -205,6 +205,14 @@ sqlQuery <- gsub('\n','',sqlQuery)
 
 bed_moves <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
+# remove rows where admission == discharge; 
+# these are rows where a patient spent no time in a location
+# to see the number: 
+bed_moves %>% filter(admission == discharge) %>% n_distinct() # 180
+
+# to remove these rows
+bed_moves <- bed_moves %>% filter(admission != discharge)
+
 # join to get encounter_id for each encounter
 # encounter_id is used as key on patient_fact
 
@@ -228,7 +236,7 @@ bed_moves <- bed_moves %>%
 
 # identify admission rows (first for each encounter)
 bed_moves <- bed_moves %>% 
-  mutate(admission_row = ifelse(admission == arrival_dttm, TRUE, FALSE))
+  mutate(arrival_row = ifelse(admission == arrival_dttm, TRUE, FALSE))
 
 # save data for future loading
 outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
@@ -245,7 +253,7 @@ rm(outFile)
 csn_summ <- bed_moves %>% 
   group_by(mrn, csn, encounter_id, arrival_dttm, discharge_dttm) %>% 
   summarise(duration = difftime(max(discharge),min(admission), units = "hours"),
-            nUm_ED_rows = sum(ED_row)) %>% ungroup()
+            num_ED_rows = sum(ED_row)) %>% ungroup()
 
 # denote whether encounter was before or after covid changes
 csn_summ <- csn_summ %>% 
@@ -253,7 +261,7 @@ csn_summ <- csn_summ %>%
 
 # select only encounters with one or more bed_moves involving ED
 ED_csn_summ <- csn_summ %>% 
-  filter(nUm_ED_rows > 0) 
+  filter(num_ED_rows > 0) 
 
 # save data for future use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",today(),".rda")
@@ -274,6 +282,12 @@ ED_bed_moves <- left_join(ED_csn_summ, bed_moves) %>%
 
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(duration_row = difftime(discharge, admission, units = "hours"))
+
+# some bed move rows have no department information 
+# identify any csns to which this applies
+no_dept_csns <- ED_bed_moves %>% filter(is.na(department)) %>% group_by(mrn, encounter_id, csn) %>% select(csn) %>% distinct()
+# check whether any ED bed moves are in this category
+ED_bed_moves %>% filter(csn %in% no_dept_csns$csn)
 
 # hl7_location seems to have more complete info in some cases where room and bed are NA
 ED_bed_moves <- ED_bed_moves %>% 
@@ -301,7 +315,7 @@ e <- ED_bed_moves %>% group_by(dept2, room2, room3) %>% summarise(total = n())
 
 
 # Replace NAs with None for use in edge list
-ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & admission_row ~ "Arrival",
+ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & arrival_row ~ "Arrival",
                                                           is.na(room3) ~ "None", 
                                                           TRUE ~ room3))
 
