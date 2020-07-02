@@ -8,6 +8,9 @@ data/*
 # You will need to specifically add outputs you want to publish to .gitkeep
 media/*
 
+# Pycharm folders
+.idea/*
+
 # Temp files
 
 # History files
