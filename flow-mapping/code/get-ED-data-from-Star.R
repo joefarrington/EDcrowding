@@ -243,7 +243,9 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
 save(bed_moves, file = outFile)
 rm(outFile)
 
-
+# or load 
+inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_2020-07-01.rda")
+load(inFile)
 
 # Select only encounters involving ED
 # ===================================
@@ -262,6 +264,19 @@ csn_summ <- csn_summ %>%
 # select only encounters with one or more bed_moves involving ED
 ED_csn_summ <- csn_summ %>% 
   filter(num_ED_rows > 0) 
+
+# join with bed_moves to get duration in ED
+ED_csn_summ <- ED_csn_summ %>% 
+  left_join(bed_moves %>% 
+              filter(ED_row == 1) %>%
+              group_by(mrn, csn, encounter_id, arrival_dttm, discharge_dttm) %>% 
+              summarise(ED_discharge_dttm = max(discharge)) %>% 
+              select(mrn, csn, encounter_id, arrival_dttm, ED_discharge_dttm),
+            by = c("mrn", "csn", "encounter_id", "arrival_dttm"))
+
+# calculate duration in ED
+ED_csn_summ <- ED_csn_summ %>% 
+  mutate(ED_duration= difftime(ED_discharge_dttm,arrival_dttm, units = "hours"))
 
 # save data for future use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",today(),".rda")

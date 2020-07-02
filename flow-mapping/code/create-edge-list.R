@@ -163,7 +163,7 @@ odd_csn %>% select(csn) %>% n_distinct() #110
 # some ED rows have no information about which room someone was in  
 no_room_csn <-  ED_bed_moves %>% filter(room3 == "None") %>% select(csn)
 # to see the number of csns removed: 
-no_room_csn %>% select(csn) %>% n_distinct() #20
+no_room_csn %>% select(csn) %>% n_distinct() #19
 
 # create edge list which contains one row per bed move per patient with a time stamp
 edgedf <- get_care_site_flows(ED_bed_moves %>% 
@@ -209,8 +209,17 @@ transition <- transition %>%
 transition %>%
   mutate(check = rowSums(.[1:ncol(transition)]))
 
-# Clean edge list
-# ===============
+# reorder cols by most likely route from Arrival
+# and rows by most lik
+col_order <- order(transition[1,], decreasing = TRUE)
+row_order <- order(transition[,ncol(transition)])
+transition <- transition[row_order,col_order]
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-",today(),".csv")
+write.csv2(transition, file = outFile, row.names = FALSE)
+
+# Clean edge list for network diagram
+# ===================================
 
 # remove moves that occur after admission
 edgelist_summ <- edgelist_summ %>% filter(from != "Admission")
