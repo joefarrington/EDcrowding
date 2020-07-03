@@ -41,4 +41,22 @@ load(inFile)
 ED_csn_detail <- ED_csn_summ %>% filter(arrival_dttm < "2020-03-01") %>% select(-covid) %>% 
   left_join(edgedf %>% filter(to == "Discharge") %>% select(-to),
             by = c("mrn", "csn", "discharge_dttm" = "dttm")) %>%  #need to think about people who are not discharged yet
-  rename(ED_last_location = from)
+  rename(discharge_from_loc = from)
+
+# the above doesn't capture the last ED location for admitted patients
+ED_csn_detail <- ED_csn_detail %>% 
+  left_join(edgedf %>% filter(to == "Admitted") %>% select(-to, dttm),
+            by = c("mrn", "csn")) %>%  #need to think about people who are not discharged yet
+  rename(admitted_from_loc = from)
+
+# consolidate last ED location
+ED_csn_detail <- ED_csn_detail %>% 
+  mutate(ED_last_loc = ifelse(is.na(admitted_from_loc), discharge_from_loc, admitted_from_loc))
+
+# create admitted/discharged
+ED_csn_detail <- ED_csn_detail %>% 
+  mutate(ED_last_status = ifelse(is.na(admitted_from_loc), "Discharged", "Admitted"))
+
+# write to file
+outFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_detail",today(),".rda")
+save(ED_csn_detail, file = outFile)
