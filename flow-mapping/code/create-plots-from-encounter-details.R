@@ -124,7 +124,7 @@ p4 <- ED_csn_detail %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TA
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 
 
-# plot of average length of stay for those admitted
+# plot of EDaverage length of stay for those admitted
 p5 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>% 
   group_by(date = date(arrival_dttm)) %>% 
   summarise(los = sum(duration)/n()) %>% 
@@ -158,6 +158,21 @@ p6 <- ED_csn_detail %>%
   theme_classic()  + 
   theme(legend.position="bottom")
 
+# plot of ED length of stay for those admitted
+p7 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>% 
+  group_by(date = date(arrival_dttm)) %>% 
+  summarise(los = sum(ED_duration)/n()) %>% 
+  ggplot(aes(x=date, y = los, fill = weekdays(date))) + 
+  geom_bar(stat = "identity") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(title = "Average ED length of stay for patients who were later admitted",
+       subtitle = "Source: Star",
+       x = "",
+       y = "Length of stay (hours)"
+  ) +
+  theme_classic()  + 
+  theme(legend.position="bottom")
+
 
 plot_charts <- function(p) {
   file <- paste0("EDCrowding/flow-mapping/media/",p$labels$title,".png")
@@ -166,7 +181,7 @@ plot_charts <- function(p) {
   dev.off()
 }
 
-p <- p6
+p <- p7
 file <- paste0("EDCrowding/flow-mapping/media/",p$labels$title,".png")
 png(file, width = 1077, height = 659)
 p

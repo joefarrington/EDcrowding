@@ -137,26 +137,51 @@ clean_wardnames5 <- function(x) {
 clean_wardnames5 <- Vectorize(clean_wardnames5)
 
 # clean room data
-clean_room_names <- function(x) {
-  x = gsub("UCHED ","",x)
-  # x = gsub("BY[0-9]{2}", "BY", x)
-  # x = gsub("SR[0-9]{2}", "SR", x)
-  # x = gsub("CB[0-9]{2}", "CB", x)
-  # if (length( grep("^T[0-9]{2}",x)) == 0) {
-  #   x = gsub("[0-9]", "", x)
-  # }
-  x = gsub("CHAIR [0-9]{2}", "CHAIR", x)
-  x = gsub("[0-9]{2}", "99", x)
-  x = gsub("[0-9]{2}", " 99", x)
-  x = gsub("MAJ-CHAIR","MAJORS CHAIR",x)
-  x = gsub("RAT-CHAIR","RAT CHAIR",x)
-  x = gsub("RATBED","RATBED",x)
-  x = gsub("^UTC [A-z]+ ROOM","UTC O/P/T ROOM",x)
-  x = gsub("  "," ",x)
-  x = gsub(" $","",x)
-  return(x)
+# function removes bay and chair numbers
+clean_room_names <- function(dept, room) {
+  if (dept == "ED") {
+    room = gsub("UCHED ","",room)
+    # room = gsub("BY[0-9]{2}", "BY", room)
+    # room = gsub("SR[0-9]{2}", "SR", room)
+    # room = gsub("CB[0-9]{2}", "CB", room)
+    # if (length( grep("^T[0-9]{2}",room)) == 0) {
+    #   room = gsub("[0-9]", "", room)
+    # }
+    # room = gsub("CHAIR [0-9]{2}", "CHAIR", room)
+    # room = gsub("[0-9]{2}", "99", room)
+    # room = gsub("[0-9]{2}", " 99", room)
+    # room = gsub("MAJ-CHAIR","MAJORS CHAIR",room)
+    # room = gsub("RAT-CHAIR","RAT CHAIR",room)
+    # room = gsub("RATBED","RATBED",room)
+    room = gsub("CHAIR [0-9]{2}", "", room)
+    room = gsub("[0-9]{2}", "", room)
+    room = gsub("[0-9]{2}", "", room)
+    room = gsub("MAJ-CHAIR","MAJORS",room)
+    room = gsub("RAT-CHAIR","RAT",room)
+    room = gsub("RATBED","RAT",room)
+#    room = gsub("^UTC [A-z]+ ROOM","UTC",room)
+    room = gsub("  "," ",room)
+    room = gsub(" $","",room)
+  }
+  return(room)
 }
 clean_room_names <- Vectorize(clean_room_names)
+
+# function to group room names
+# NB RAT COVID MAJORS could be both - need to check which to prioritise
+group_room_names <- function(room) {
+  room_ <- case_when(
+    length(grep("UTC", room)) >0 ~ "UTC",
+    length(grep("RAT", room)) >0 ~ "RAT",
+    length(grep("MAJORS", room)) >0 ~ "MAJORS",
+    length(grep("PAEDS TRIAGE", room)) >0 ~ "PAEDS TRIAGE",
+    length(grep("TRIAGE", room)) >0 ~ "TRIAGE",
+    TRUE ~ room)
+  return(room_)
+}
+
+group_room_names <- Vectorize(group_room_names)
+
 
 # simple function to return whether location denotes admission
 calc_admission <- function(dept) {
@@ -191,13 +216,7 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       password = Sys.getenv("UDS_PWD"),
                       dbname = "uds")
 
-## EITHER load if data already saved
-inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_","2020-06-19",".rda")
-load(inFile)
-rm(inFile)
-
-
-# OR get bed moves from Star
+## EITHER get bed moves from Star
 
 sqlQuery <- "SELECT *
   FROM star.bed_moves bm"
@@ -243,7 +262,8 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
 save(bed_moves, file = outFile)
 rm(outFile)
 
-# or load 
+# OR LOAD EXISTING FILE
+
 inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_2020-07-01.rda")
 load(inFile)
 
@@ -284,7 +304,7 @@ save(ED_csn_summ, file = outFile)
 rm(outFile)
 
 # OR LOAD saved data
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-06-19",".rda")
+inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-07-02",".rda")
 load(inFile)
 
 
@@ -320,14 +340,35 @@ d <- ED_bed_moves %>% group_by(department, dept2) %>% summarise(total = n())
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(dept3 = calc_admission(dept2))
 
-
 # clean room names
 ED_bed_moves <- ED_bed_moves %>% 
-  mutate(room3 = clean_room_names(room2))
+  mutate(room3 = clean_room_names(dept2, room2))
 
 # use e to see which room names the function clean_room_names has grouped: 
-e <- ED_bed_moves %>% group_by(dept2, room2, room3) %>% summarise(total = n()) 
+e <- ED_bed_moves %>% filter(dept2 == "ED") %>% 
+  group_by(dept2, room2, room3) %>% summarise(total = n()) 
 
+# Note, in e there are a lot of rows with "ED" as dept and no room 
+e %>% filter(is.na(room3)) 
+
+# to see mapping from room to room3 (note room 3 has more values because we used the HL7 field)
+g <- ED_bed_moves %>% 
+  filter(department == "UCH EMERGENCY DEPT") %>% 
+  group_by(room, room3) %>% 
+  summarise(tot = n()) %>% 
+  select(room, room3, tot) %>%
+  pivot_wider(names_from = room3, values_from = tot)
+
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(room4 = group_room_names(room3))
+
+# to see mapping from room3 to room4 (note this function prioritises RAT over MAJORS)
+h <- ED_bed_moves %>% 
+  filter(department == "UCH EMERGENCY DEPT") %>% 
+  group_by(room3, room4) %>% 
+  summarise(tot = n()) %>% 
+  select(room3, room4, tot) %>%
+  pivot_wider(names_from = room4, values_from = tot) 
 
 # Replace NAs with None for use in edge list
 ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & arrival_row ~ "Arrival",
@@ -441,7 +482,7 @@ dev.off()
 
 # Plot of day of week in ED
 
-png("EDCrowding/flow-mapping/-mapping/media/Total ED arrivals by time of day.png", width = 1077, height = 659)
+png("EDCrowding/flow-mapping//media/Total ED arrivals by time of day.png", width = 1077, height = 659)
 ED_pats %>% filter(!is.na(covid)) %>%
   group_by(hour(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
   ggplot(aes(x=`hour(arrival_dttm)`, 
@@ -458,3 +499,22 @@ ED_pats %>% filter(!is.na(covid)) %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
   facet_wrap(~fct_rev(covid))
 dev.off()
+
+png("EDCrowding/flow-mapping/media/Numbers in location by day.png", width = 1077, height = 1077)
+ED_bed_moves %>% filter(dept2 == "ED", !is.na(room3)) %>% 
+  group_by(date = date(arrival_dttm), room3) %>% summarise(num_pats = n()) %>%  
+  ggplot(aes(x=date, 
+             y=num_pats)) + 
+  geom_bar(stat = "identity") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  theme_classic()  + 
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.x=element_blank()) +
+  theme(legend.position="none") +
+  facet_grid(rows = vars(room3), switch = "y") +
+  theme(strip.text.y.left = element_text(angle = 0))
+dev.off()
+
+
+
