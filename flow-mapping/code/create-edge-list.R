@@ -244,7 +244,7 @@ edgelist_summ <- edgedf %>% group_by(from, to) %>%
 transition <- create_transition_matrix(edgelist_summ)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-grouped-",today(),".csv")
-write.csv2(transition, file = outFile, row.names = FALSE)
+write.csv2(transition, file = outFile, row.names = TRUE)
 
 
 # just Jan and Feb rows
@@ -257,7 +257,7 @@ edgelist_summ_JanFeb <- edgedf %>%
 transition_JanFeb <- create_transition_matrix(edgelist_summ_JanFeb)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-grouped-JanFeb-",today(),".csv")
-write.csv2(transition_JanFeb, file = outFile, row.names = FALSE)
+write.csv2(transition_JanFeb, file = outFile, row.names = TRUE)
 
 
 # just breachless flow in Jan and Feb
@@ -292,9 +292,6 @@ ggplot(edgelist_summ_JanFeb %>% filter(weight < 500), aes(x=1, y = weight)) +
 keep <- keep_edges(edgelist_summ_JanFeb, 50)
 
 # write reduced edgelist to file
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_grouped_JanFeb_",today(),".rda")
-save(keep, file = outFile)
-
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_grouped_JanFeb_",today(),".csv")
 write.csv2(keep, file = outFile, row.names = FALSE)
 
@@ -305,5 +302,5 @@ write.csv2(keep, file = outFile, row.names = FALSE)
 keep <- keep_edges(edgelist_summ_JanFeb_breachless, 50)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breachless_",today(),".csv")
-write.csv2(transition, file = outFile, row.names = FALSE)
+write.csv2(keep, file = outFile, row.names = FALSE)
 
