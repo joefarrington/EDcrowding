@@ -25,9 +25,19 @@ library(lubridate)
 inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_",today(),".rda")
 load(inFile)
 
-# temporary fix - remove rows with NA in ED_last_loc 
-# need to look into why this is happening
+# Some rows have NA in ED_last_loc 
+# These are all encounters that were excluded from edgedf
+# Some have only one ED row so no moves of interest - to see these
+ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows == 1) %>% summarise(n_distinct(csn))
+# some have odd encounter details (these are filtered out in "create-encounter-details.R") 
+# or involve pediatrics or have a row where Room was "None"
+ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows >1, !csn %in% odd_csn$csn, !csn %in% pediatric_csn$csn, !csn %in% no_room_csn$csn)
 
+# Currently this leaves one row with inconsisent information
+# ED_bed_moves has one row, but ED_csn_detail records 2 rows 
+# ED_bed_moves %>% filter(csn == "1018734672")
+
+# Therefore remove rows with NA in ED_last_loc 
 ED_csn_detail <- ED_csn_detail %>% filter(!is.na(ED_last_loc))
 
 # group last ED into summary factor
@@ -51,8 +61,6 @@ ED_csn_detail <- ED_csn_detail %>%
            factor(ED_last_loc2,
                   levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
 
-ED_csn_detail <- ED_csn_detail %>% 
-  mutate(seen4hrs = ifelse(ED_duration < hours(4), "Seen in 4 hours", "Breach"))
 
 
 # create plots

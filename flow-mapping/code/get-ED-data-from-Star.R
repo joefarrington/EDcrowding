@@ -11,12 +11,11 @@
 # grouped into Tower Other and Outside Tower
 #
 # Within ED, room names are cleaned so that all bay numbers
-# have been replaced with 99, so they are grouped together. 
-# Chair numbers are removed, but the fact that a patient is in a 
-# chair is retained. 
+# and chairs are combined 
 #
 # Treatment rooms in the UTC (plaster, opthamology, treatment) are
-# grouped as numbers in these are quite low
+# grouped 
+#
 #
 # This script also creates summary charts which are saved in /media
 
@@ -277,9 +276,11 @@ csn_summ <- bed_moves %>%
   summarise(duration = difftime(max(discharge),min(admission), units = "hours"),
             num_ED_rows = sum(ED_row)) %>% ungroup()
 
-# denote whether encounter was before or after covid changes
-csn_summ <- csn_summ %>% 
-  mutate(covid = ifelse(arrival_dttm < "2020-03-20 00:00:00", "Before", "After"))
+# save data for future loading
+outFile = paste0("EDcrowding/flow-mapping/data-raw/csn_summ_",today(),".rda")
+save(csn_summ, file = outFile)
+rm(outFile)
+
 
 # select only encounters with one or more bed_moves involving ED
 ED_csn_summ <- csn_summ %>% 
@@ -304,7 +305,7 @@ save(ED_csn_summ, file = outFile)
 rm(outFile)
 
 # OR LOAD saved data
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-07-02",".rda")
+inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-07-06",".rda")
 load(inFile)
 
 
@@ -359,32 +360,34 @@ g <- ED_bed_moves %>%
   select(room, room3, tot) %>%
   pivot_wider(names_from = room3, values_from = tot)
 
+
+# Label arrival rows (no longer marking room 3 as "None")
+ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & arrival_row ~ "Arrival",
+#                                                          is.na(room3) ~ "None", 
+                                                          TRUE ~ room3))
+
+# Create grouped room name column
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(room4 = group_room_names(room3))
 
-# to see mapping from room3 to room4 (note this function prioritises RAT over MAJORS)
+# to see mapping from room3 to room4 (note this function prioritises RAT over MAJORS but that only affects 28 rows)
 h <- ED_bed_moves %>% 
   filter(department == "UCH EMERGENCY DEPT") %>% 
   group_by(room3, room4) %>% 
   summarise(tot = n()) %>% 
   select(room3, room4, tot) %>%
-  pivot_wider(names_from = room4, values_from = tot) 
+  pivot_wider(names_from = room4, values_from = tot)
 
-# Replace NAs with None for use in edge list
-ED_bed_moves <- ED_bed_moves %>% mutate(room3 = case_when(is.na(room3) & arrival_row ~ "Arrival",
-                                                          is.na(room3) ~ "None", 
-                                                          TRUE ~ room3))
+# save data on mappings for reference
+
+outFile = paste0("EDcrowding/flow-mapping/data-output/room_mappings_",today(),".rda")
+save(h, file = outFile)
+rm(outFile)
 
 
 # apply function to denote whether location involves pediatrics (used in edge list)
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(pediatric_row = calc_pediatric(room3))
-
-# looking at COVID locations - looks like first demaraction of COVID locations happened on 20/3
-ED_bed_moves %>% filter(room3 %in% c( "COVID UTC", "NON COVID UTC", "NON COVID UTC CHAIR")) %>% summarise(min(arrival_dttm))
-# ED_bed_moves <- ED_bed_moves %>% mutate(covid = ifelse(arrival_dttm < "2020-03-20 12:00:00", "Before", "After"))
-ED_bed_moves %>% group_by(covid) %>% summarise(n())
-
 
 
 # look at outliers
