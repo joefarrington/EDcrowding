@@ -205,6 +205,16 @@ calc_pediatric <- function(room) {
 
 calc_pediatric <- Vectorize(calc_pediatric)
 
+calc_chair <- function(room) {
+  if (length(grep("CHAIR", room)) >0 ) {
+    return(TRUE)
+  }
+  else
+    return(FALSE)
+}
+
+calc_chair <- Vectorize(calc_chair)
+
 # Load bed_move data
 # ==================
 
@@ -519,5 +529,28 @@ ED_bed_moves %>% filter(dept2 == "ED", !is.na(room3)) %>%
   theme(strip.text.y.left = element_text(angle = 0))
 dev.off()
 
+# Plot showing use of chairs
 
+png("EDCrowding/flow-mapping/media/Use of chairs in ED Jan to June.png", width = 1077, height = 1077)
+ED_bed_moves %>% filter(dept2 == "ED", !is.na(room2)) %>% 
+  mutate(chair = calc_chair(room2)) %>% 
+  group_by(date = date(arrival_dttm), room2, chair) %>% summarise(num_pats = n()) %>%  
+  ggplot(aes(x=date, 
+             y=num_pats,
+             fill = chair)) + 
+  geom_bar(stat = "identity", position = "fill") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  labs(title = "Use of chair locations in ED",
+       subtitle = "Source: Star",
+         x = "",
+       y = "Number of patients",
+       fill = "Chair location"
+        ) +  
+  theme_classic()  + 
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.x=element_blank()) +
+  theme(legend.position="bottom") +
+  theme(strip.text.y.left = element_text(angle = 0))
+dev.off()
 
