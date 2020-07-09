@@ -13,53 +13,33 @@ library(tidyverse)
 library(lubridate)
 
 
-
-# Define functions
-# ================
-
-
-
 # Load data
 # =========
 
 inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_",today(),".rda")
 load(inFile)
 
-# Some rows have NA in ED_last_loc 
-# These are all encounters that were excluded from edgedf
-# Some have only one ED row so no moves of interest - to see these
-ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows == 1) %>% summarise(n_distinct(csn))
-# some have odd encounter details (these are filtered out in "create-encounter-details.R") 
-# or involve pediatrics or have a row where Room was "None"
-ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows >1, !csn %in% odd_csn$csn, !csn %in% pediatric_csn$csn, !csn %in% no_room_csn$csn)
 
-# Currently this leaves one row with inconsisent information
-# ED_bed_moves has one row, but ED_csn_detail records 2 rows 
-# ED_bed_moves %>% filter(csn == "1018734672")
-
-# Therefore remove rows with NA in ED_last_loc 
-ED_csn_detail <- ED_csn_detail %>% filter(!is.na(ED_last_loc))
-
-# group last ED into summary factor
-ED_csn_detail <- ED_csn_detail %>% mutate(ED_last_loc2 = case_when(
-  ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
-  ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
-  ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
-  ED_last_loc %in% c("DIAGNOSTICS") ~ "Diagnostics",
-  ED_last_loc %in% c("OTF") ~ "OTF",
-  ED_last_loc %in% c("RAT 99 COVID MAJORS","RAT 99","NON COVID MAJORS 99", "RAT CHAIR") ~ "RAT",
-  ED_last_loc %in% c("Arrival") ~ "Arrival",
-  ED_last_loc %in% c("TAF 99") ~ "TAF",
-  ED_last_loc %in% c("RESUS 99") ~ "Resus",
-  ED_last_loc %in% c("WAITING ROOM") ~ "Waiting Room",
-  TRUE ~ "Other"  
-))
-
-# order factor (NB this excludes Arrival, Waiting Room and TAF)
-ED_csn_detail <- ED_csn_detail %>% 
-  mutate(ED_last_loc3 =
-           factor(ED_last_loc2,
-                  levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
+# # group last ED into summary factor
+# ED_csn_detail <- ED_csn_detail %>% mutate(ED_last_loc2 = case_when(
+#   ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
+#   ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
+#   ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
+#   ED_last_loc %in% c("DIAGNOSTICS") ~ "Diagnostics",
+#   ED_last_loc %in% c("OTF") ~ "OTF",
+#   ED_last_loc %in% c("RAT 99 COVID MAJORS","RAT 99","NON COVID MAJORS 99", "RAT CHAIR") ~ "RAT",
+#   ED_last_loc %in% c("Arrival") ~ "Arrival",
+#   ED_last_loc %in% c("TAF 99") ~ "TAF",
+#   ED_last_loc %in% c("RESUS 99") ~ "Resus",
+#   ED_last_loc %in% c("WAITING ROOM") ~ "Waiting Room",
+#   TRUE ~ "Other"  
+# ))
+# 
+# # order factor (NB this excludes Arrival, Waiting Room and TAF)
+# ED_csn_detail <- ED_csn_detail %>% 
+#   mutate(ED_last_loc3 =
+#            factor(ED_last_loc2,
+#                   levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
 
 
 

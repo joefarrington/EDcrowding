@@ -236,7 +236,7 @@ bed_moves <- as_tibble(dbGetQuery(ctn, sqlQuery))
 # remove rows where admission == discharge; 
 # these are rows where a patient spent no time in a location
 # to see the number: 
-bed_moves %>% filter(admission == discharge) %>% n_distinct() # 180
+bed_moves %>% filter(admission == discharge) %>% n_distinct() # 188
 
 # to remove these rows
 bed_moves <- bed_moves %>% filter(admission != discharge)
@@ -273,7 +273,7 @@ rm(outFile)
 
 # OR LOAD EXISTING FILE
 
-inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_2020-07-01.rda")
+inFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_2020-07-xx.rda")
 load(inFile)
 
 # Select only encounters involving ED
@@ -315,7 +315,7 @@ save(ED_csn_summ, file = outFile)
 rm(outFile)
 
 # OR LOAD saved data
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-07-06",".rda")
+inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","2020-07-xx",".rda")
 load(inFile)
 
 
