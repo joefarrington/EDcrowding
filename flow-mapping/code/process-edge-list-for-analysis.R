@@ -161,16 +161,16 @@ edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_deta
 
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
-write.csv2(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
+write.csv(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_",today(),".csv")
-write.csv2(edgelist_stats_JanFeb, file = outFile, row.names = FALSE)
+write.csv(edgelist_stats_JanFeb, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
-write.csv2(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
+write.csv(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_",today(),".csv")
-write.csv2(edgelist_stats_JanFeb_breach, file = outFile, row.names = FALSE)
+write.csv(edgelist_stats_JanFeb_breach, file = outFile, row.names = FALSE)
 
 
 # Create transition matrix
@@ -188,7 +188,7 @@ write.csv2(transition, file = outFile, row.names = TRUE)
 transition_JanFeb <- create_transition_matrix(edgelist_summ_JanFeb)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-grouped-JanFeb-",today(),".csv")
-write.csv2(transition_JanFeb, file = outFile, row.names = TRUE)
+write.csv(transition_JanFeb, file = outFile, row.names = TRUE)
 
 
 
@@ -210,7 +210,7 @@ keep <- keep_edges(edgelist_summ_JanFeb, 50)
 
 # write reduced edgelist to file
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_grouped_JanFeb_",today(),".csv")
-write.csv2(keep, file = outFile, row.names = FALSE)
+write.csv(keep, file = outFile, row.names = FALSE)
 
 
 # get reduced edgelist for Jan and Feb breachless flows
@@ -219,7 +219,7 @@ write.csv2(keep, file = outFile, row.names = FALSE)
 keep <- keep_edges(edgelist_summ_JanFeb_breachless, 50)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breachless_",today(),".csv")
-write.csv2(keep, file = outFile, row.names = FALSE)
+write.csv(keep, file = outFile, row.names = FALSE)
 
 
 # get reduced edgelist for Jan and Feb breach flows
@@ -228,5 +228,5 @@ write.csv2(keep, file = outFile, row.names = FALSE)
 keep <- keep_edges(edgelist_summ_JanFeb_breach, 50)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breach_",today(),".csv")
-write.csv2(keep, file = outFile, row.names = FALSE)
+write.csv(keep, file = outFile, row.names = FALSE)
 
