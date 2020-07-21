@@ -47,12 +47,12 @@ calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats 
         summarise(weight_mean = mean(weight),
                   weight_lQ = quantile(weight, 0.25),
                   weight_uQ = quantile(weight, 0.75),
-                  pct_disc_mean = mean(pct_disc),
-                  pct_disc_lQ = quantile(pct_disc, 0.25),
-                  pct_disc_uQ = quantile(pct_disc, 0.75),
-                  pct_breach_mean = mean(pct_breach),
-                  pct_breach_lQ = quantile(pct_breach, 0.25),
-                  pct_breach_uQ = quantile(pct_breach, 0.75),
+                  pct_disc_mean = mean(pct_disc, na.rm = TRUE),
+                  pct_disc_lQ = quantile(pct_disc, 0.25, na.rm = TRUE),
+                  pct_disc_uQ = quantile(pct_disc, 0.75, na.rm = TRUE),
+                  pct_breach_mean = mean(pct_breach, na.rm = TRUE),
+                  pct_breach_lQ = quantile(pct_breach, 0.25, na.rm = TRUE),
+                  pct_breach_uQ = quantile(pct_breach, 0.75, na.rm = TRUE),
                   ) %>% 
         arrange(desc(weight_mean))
         } 
@@ -127,10 +127,10 @@ keep_edges <- function(edgelist_summ, min_weight) {
 # =========
 
 # load latest full edge list
-load("~/EDcrowding/flow-mapping/data-raw/ED_edge_list_exc_ped_full_grouped_2020-07-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_grouped_2020-07-09.rda")
 
 # load latest encounter detail
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_2020-07-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_2020-07-09.rda")
 
 
 
@@ -159,6 +159,18 @@ edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_deta
                                                "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                                detail = TRUE, stats = TRUE)
 
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
+write.csv2(edgelist_summ_JanFeb, file = outFile, row.names = TRUE)
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_",today(),".csv")
+write.csv2(edgelist_stats_JanFeb, file = outFile, row.names = TRUE)
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
+write.csv2(edgelist_summ_JanFeb_breach, file = outFile, row.names = TRUE)
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_",today(),".csv")
+write.csv2(edgelist_stats_JanFeb_breach, file = outFile, row.names = TRUE)
 
 
 # Create transition matrix

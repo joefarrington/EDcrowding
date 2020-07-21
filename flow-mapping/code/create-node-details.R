@@ -82,8 +82,7 @@ stuck_in_otf_taf %>% group_by(csn) %>% filter(admission == max(admission)) %>% s
 #stuck_in_otf_taf_csn <- stuck_in_otf_taf %>% group_by(csn) %>% filter(admission == max(admission), room4 %in% c("OTF", "TAF")) %>% select(csn)
 stuck_in_otf_taf_csn <- stuck_in_otf_taf %>% group_by(csn) %>% filter(ED_row == 1) %>% filter(admission == max(admission), room4 %in% c("OTF", "TAF")) %>% select(csn)
 # Note that doing two separate filters in the above code - picked up 5 more this way
-stuck_in_otf_taf_csn <- b %>% 
-  
+
 # One is genuinely weird - spent 2 months in ED but only one row
 ED_bed_moves %>% filter(csn == "1018734672")
 
@@ -161,15 +160,27 @@ ED_bed_moves_adj <- ED_bed_moves %>%
     !csn == "1018734672") %>% 
   select(mrn, csn, arrival_dttm, discharge_dttm, admission, discharge, dept2, room4) %>% 
   group_by(csn) %>%
-  # add a column to contain the discharge time of the next tow
+  # add a column to contain the discharge time of the next row
   mutate(next_location = lead(room4),
                                     next_dttm = lead(discharge)) %>% 
   # use the date for the next row as the discharge time when next row is OTF, diagnostics or Waiting room
   mutate(discharge_new = case_when(next_location %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM") ~ next_dttm,
                                                               TRUE ~ discharge)) %>% 
-  mutate(duration_row_new = difftime(discharge_new, admission, units = "hours"))     
+  mutate(duration_row_new = difftime(discharge_new, admission, units = "hours"))   
+
+# Merge with csn details
+ED_bed_moves_adj <- ED_bed_moves_adj %>% 
+  left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs))
+
+# save data for future loading 
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_adj_JanFeb_",today(),".rda")
+save(ED_bed_moves_adj, file = outFile)
 
 
+
+
+# Create node summaries
+# ====================
 
 # Final calculation of node durations 
 node_duration_adj <- ED_bed_moves_adj %>% 
@@ -177,6 +188,50 @@ node_duration_adj <- ED_bed_moves_adj %>%
   group_by(date, room4) %>% 
   summarise(daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
             daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) 
+
+
+
+# Node durations with breach info 
+node_duration_adj_seen4hrs <- ED_bed_moves_adj %>% 
+  filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
+  mutate(date = date(admission)) %>% 
+  group_by(date, seen4hrs, room4) %>% 
+  summarise(daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
+            daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) 
+
+
+# Save node summaries for Python
+
+node_duration_adj_summ <- node_duration_adj %>% 
+  filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
+  group_by(room4) %>% 
+  summarise(duration_mean = mean(daily_duration_mean),
+            duration_sd = sd(daily_duration_mean)) %>% 
+  # add mean and SD for breach only
+  left_join(
+    node_duration_adj_seen4hrs %>% 
+      filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
+             seen4hrs == 'Breach') %>% 
+      group_by(room4) %>% 
+      summarise(duration_mean_breach = mean(daily_duration_mean),
+                duration_sd_breach = sd(daily_duration_mean))
+  ) %>% 
+  # add mean and SD for not breach (seen 4 hours) only
+  left_join(
+    node_duration_adj_seen4hrs %>% 
+      filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
+             seen4hrs == 'Seen in 4 hours') %>% 
+      group_by(room4) %>% 
+      summarise(duration_mean_seen4hrs = mean(daily_duration_mean),
+                duration_sd_seen4hrs = sd(daily_duration_mean))
+  )
+
+
+outFile = paste0("EDcrowding/flow-mapping/data-output/node_duration_adj_summ_JanFeb_",today(),".csv")
+write.csv2(node_duration_adj_summ, file = outFile, row.names = FALSE)
+
+# Create charts
+# =============
 
 # chart of mean for each location by day (through Jan and Feb)
 
@@ -200,25 +255,7 @@ node_duration_adj %>%
   ggplot(aes(x = room4, y = duration_mean)) + geom_bar(stat = "identity")
 
 
-
-# Looking at breach and admissions
-# ================================
-
-# Merge with csn details
-ED_bed_moves_adj <- ED_bed_moves_adj %>% 
-  left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs))
-
-
-# Node durations with breach info 
-node_duration_adj_seen4hrs <- ED_bed_moves_adj %>% 
-  filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
-  mutate(date = date(admission)) %>% 
-  group_by(date, seen4hrs, room4) %>% 
-  summarise(daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
-            daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) 
-
-
-# chart of mean for each location by day (through Jan and Feb)
+# chart of mean for each location by day (through Jan and Feb) - with breach information
 
 node_duration_adj_seen4hrs %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4),
@@ -237,7 +274,7 @@ node_duration_adj_seen4hrs %>%
   
 
 
-# chart of mean over the whole of Jan and Feb
+# chart of mean over the whole of Jan and Feb - with breach information
 
 node_duration_adj_seen4hrs %>% 
   group_by(seen4hrs) %>% 
