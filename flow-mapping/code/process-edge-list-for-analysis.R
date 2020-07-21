@@ -161,16 +161,16 @@ edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_deta
 
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
-write.csv2(edgelist_summ_JanFeb, file = outFile, row.names = TRUE)
+write.csv2(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_",today(),".csv")
-write.csv2(edgelist_stats_JanFeb, file = outFile, row.names = TRUE)
+write.csv2(edgelist_stats_JanFeb, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
-write.csv2(edgelist_summ_JanFeb_breach, file = outFile, row.names = TRUE)
+write.csv2(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_",today(),".csv")
-write.csv2(edgelist_stats_JanFeb_breach, file = outFile, row.names = TRUE)
+write.csv2(edgelist_stats_JanFeb_breach, file = outFile, row.names = FALSE)
 
 
 # Create transition matrix
