@@ -186,8 +186,9 @@ save(ED_bed_moves_adj, file = outFile)
 node_duration_adj <- ED_bed_moves_adj %>% 
   mutate(date = date(admission)) %>% 
   group_by(date, room4) %>% 
-  summarise(daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
-            daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) 
+  summarise(daily_num_pat = n(),
+            daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
+            daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) #this creates daily SD
 
 
 
@@ -196,7 +197,8 @@ node_duration_adj_seen4hrs <- ED_bed_moves_adj %>%
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   mutate(date = date(admission)) %>% 
   group_by(date, seen4hrs, room4) %>% 
-  summarise(daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
+  summarise(daily_num_pat = n(),
+            daily_duration_mean = mean(as.numeric(duration_row_new, units = "hours")), #this creates daily mean
             daily_duration_sd = sd(as.numeric(duration_row_new, units = "hours"))) 
 
 
@@ -205,7 +207,9 @@ node_duration_adj_seen4hrs <- ED_bed_moves_adj %>%
 node_duration_adj_summ <- node_duration_adj %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   group_by(room4) %>% 
-  summarise(duration_mean = mean(daily_duration_mean),
+  summarise(num_pat_mean = mean(daily_num_pat),
+            num_pat_sd = sd(daily_num_pat),
+            duration_mean = mean(daily_duration_mean),
             duration_sd = sd(daily_duration_mean)) %>% 
   # add mean and SD for breach only
   left_join(
@@ -213,7 +217,9 @@ node_duration_adj_summ <- node_duration_adj %>%
       filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
              seen4hrs == 'Breach') %>% 
       group_by(room4) %>% 
-      summarise(duration_mean_breach = mean(daily_duration_mean),
+      summarise(num_pat_mean_breach = mean(daily_num_pat),
+                num_pat_sd_beach = sd(daily_num_pat),
+                duration_mean_breach = mean(daily_duration_mean),
                 duration_sd_breach = sd(daily_duration_mean))
   ) %>% 
   # add mean and SD for not breach (seen 4 hours) only
@@ -222,7 +228,9 @@ node_duration_adj_summ <- node_duration_adj %>%
       filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
              seen4hrs == 'Seen in 4 hours') %>% 
       group_by(room4) %>% 
-      summarise(duration_mean_seen4hrs = mean(daily_duration_mean),
+      summarise(num_pat_mean_seen4hrs = mean(daily_num_pat),
+                num_pat_sd_seen4hrs = sd(daily_num_pat),
+                duration_mean_seen4hrs = mean(daily_duration_mean),
                 duration_sd_seen4hrs = sd(daily_duration_mean))
   )
 

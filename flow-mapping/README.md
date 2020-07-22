@@ -44,3 +44,22 @@ input
 
 input
 - edgedf
+- ED_csn_detail
+
+output (various options)
+- edgelist_summ 
+- edgelist_stats
+
+## Create-node-details.R
+
+input
+- ED_bed_moves
+- ED_csn_detail
+
+
+## Python files
+
+### create-viz-from-edge-list.py
+
+input
+- - edgelist_stats
