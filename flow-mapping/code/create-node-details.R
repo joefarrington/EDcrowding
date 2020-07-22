@@ -109,7 +109,7 @@ ED_bed_moves %>% filter(
 
 # Calculate node durations
 
-node_duration <- ED_bed_moves %>% 
+node_stats <- ED_bed_moves %>% 
   filter(
     ED_row ==  1,
     date(arrival_dttm) < "2020-03-01",
@@ -128,13 +128,13 @@ node_duration <- ED_bed_moves %>%
 
 # chart of mean for each location by day (through Jan and Feb)
 
-node_duration %>% 
+node_stats %>% 
   ggplot(aes(x = date, y = daily_duration_mean)) + geom_bar(stat = "identity") +
   facet_grid(room4 ~.) 
 
 # chart of mean over the whole of Jan and Feb
 
-node_duration %>% 
+node_stats %>% 
   group_by(room4) %>% 
   summarise(duration_mean = mean(daily_duration_mean),
             duration_sd = sd(daily_duration_mean)) %>% # calculating the standard deviation of the mean
@@ -183,7 +183,7 @@ save(ED_bed_moves_adj, file = outFile)
 # ====================
 
 # Final calculation of node durations 
-node_duration_adj <- ED_bed_moves_adj %>% 
+node_stats_adj <- ED_bed_moves_adj %>% 
   mutate(date = date(admission)) %>% 
   group_by(date, room4) %>% 
   summarise(daily_num_pat = n(),
@@ -193,7 +193,7 @@ node_duration_adj <- ED_bed_moves_adj %>%
 
 
 # Node durations with breach info 
-node_duration_adj_seen4hrs <- ED_bed_moves_adj %>% 
+node_stats_adj_seen4hrs <- ED_bed_moves_adj %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   mutate(date = date(admission)) %>% 
   group_by(date, seen4hrs, room4) %>% 
@@ -204,7 +204,7 @@ node_duration_adj_seen4hrs <- ED_bed_moves_adj %>%
 
 # Save node summaries for Python
 
-node_duration_adj_summ <- node_duration_adj %>% 
+node_stats_adj_summ <- node_stats_adj %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   group_by(room4) %>% 
   summarise(num_pat_mean = mean(daily_num_pat),
@@ -213,7 +213,7 @@ node_duration_adj_summ <- node_duration_adj %>%
             duration_sd = sd(daily_duration_mean)) %>% 
   # add mean and SD for breach only
   left_join(
-    node_duration_adj_seen4hrs %>% 
+    node_stats_adj_seen4hrs %>% 
       filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
              seen4hrs == 'Breach') %>% 
       group_by(room4) %>% 
@@ -224,7 +224,7 @@ node_duration_adj_summ <- node_duration_adj %>%
   ) %>% 
   # add mean and SD for not breach (seen 4 hours) only
   left_join(
-    node_duration_adj_seen4hrs %>% 
+    node_stats_adj_seen4hrs %>% 
       filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4), 
              seen4hrs == 'Seen in 4 hours') %>% 
       group_by(room4) %>% 
@@ -235,15 +235,15 @@ node_duration_adj_summ <- node_duration_adj %>%
   )
 
 
-outFile = paste0("EDcrowding/flow-mapping/data-output/node_duration_adj_summ_JanFeb_",today(),".csv")
-write.csv2(node_duration_adj_summ, file = outFile, row.names = FALSE)
+outFile = paste0("EDcrowding/flow-mapping/data-output/node_stats_adj_summ_JanFeb_",today(),".csv")
+write.csv2(node_stats_adj_summ, file = outFile, row.names = FALSE)
 
 # Create charts
 # =============
 
 # chart of mean for each location by day (through Jan and Feb)
 
-node_duration_adj %>% 
+node_stats_adj %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   ggplot(aes(x = date, y = daily_duration_mean)) + geom_bar(stat = "identity") +
   facet_grid(room4 ~.) +
@@ -256,7 +256,7 @@ node_duration_adj %>%
 
 # chart of mean over the whole of Jan and Feb
 
-node_duration_adj %>% 
+node_stats_adj %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4)) %>% 
   group_by(room4) %>% 
   summarise(duration_mean = mean(daily_duration_mean)) %>% 
@@ -265,7 +265,7 @@ node_duration_adj %>%
 
 # chart of mean for each location by day (through Jan and Feb) - with breach information
 
-node_duration_adj_seen4hrs %>% 
+node_stats_adj_seen4hrs %>% 
   filter(!room4  %in% c("DIAGNOSTICS", "OTF", "WAITING ROOM"), !is.na(room4),
          !is.na(seen4hrs)) %>% 
   group_by(room4) %>%   
@@ -284,7 +284,7 @@ node_duration_adj_seen4hrs %>%
 
 # chart of mean over the whole of Jan and Feb - with breach information
 
-node_duration_adj_seen4hrs %>% 
+node_stats_adj_seen4hrs %>% 
   group_by(seen4hrs) %>% 
   summarise(duration_mean = mean(daily_duration_mean)) %>% 
   ggplot(aes(x = room4, y = duration_mean)) + geom_bar(stat = "identity")
