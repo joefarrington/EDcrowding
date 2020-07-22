@@ -235,7 +235,7 @@ node_stats_adj_summ <- node_stats_adj %>%
   )
 
 
-outFile = paste0("EDcrowding/flow-mapping/data-output/node_stats_adj_summ_JanFeb_",today(),".csv")
+outFile = paste0("EDcrowding/flow-mapping/data-output/node_stats_JanFeb_",today(),".csv")
 write.csv2(node_stats_adj_summ, file = outFile, row.names = FALSE)
 
 # Create charts
