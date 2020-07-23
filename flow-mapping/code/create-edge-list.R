@@ -88,7 +88,7 @@ for (i in (1:nrow(ED_bed_moves))) {
       csn = ED_bed_moves$csn[i],
       from = to_node,
       to = "Discharged",
-      dttm = ED_bed_moves$discharge_dttm[j]
+      dttm = ED_bed_moves$discharge_dttm[i]
     ))
     
     current_csn <- ED_bed_moves$csn[i+1]
