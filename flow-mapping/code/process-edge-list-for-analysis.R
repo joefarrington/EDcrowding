@@ -16,7 +16,6 @@
 # Load libraries
 # ==============
 
-library(DBI)
 library(dplyr)
 library(tidyverse)
 library(lubridate)
@@ -126,11 +125,11 @@ keep_edges <- function(edgelist_summ, min_weight) {
 # Load data
 # =========
 
-# load latest full edge list
-load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_grouped_2020-07-09.rda")
+# load edge list
+load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_grouped_2020-07-22.rda")
 
-# load latest encounter detail
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_2020-07-09.rda")
+# load encounter details
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-22.rda")
 
 
 
@@ -139,22 +138,22 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_2020-07-09.rda")
 
 # just Jan and Feb rows
 
-edgelist_summ_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs)), 
+edgelist_summ_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
                                         "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                         detail = TRUE, stats = FALSE)
 
 
-edgelist_stats_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs)), 
+edgelist_stats_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
                                          "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                         detail = TRUE, stats = TRUE)
 
-edgelist_summ_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs)) %>% 
+edgelist_summ_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
                                                  filter(seen4hrs == "Breach"), 
                                                "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                                detail = TRUE, stats = FALSE)
 
 
-edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs)) %>% 
+edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
                                                  filter(seen4hrs == "Breach"), 
                                                "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                                detail = TRUE, stats = TRUE)

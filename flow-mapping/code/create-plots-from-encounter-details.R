@@ -16,12 +16,12 @@ library(lubridate)
 # Load data
 # =========
 
-inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_2020-07-09.rda")
+inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-xx.rda")
 load(inFile)
 
 
 # # group last ED into summary factor
-# ED_csn_detail <- ED_csn_detail %>% mutate(ED_last_loc2 = case_when(
+# ED_csn_summ <- ED_csn_summ %>% mutate(ED_last_loc2 = case_when(
 #   ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
 #   ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
 #   ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
@@ -36,7 +36,7 @@ load(inFile)
 # ))
 # 
 # # order factor (NB this excludes Arrival, Waiting Room and TAF)
-# ED_csn_detail <- ED_csn_detail %>% 
+# ED_csn_summ <- ED_csn_summ %>% 
 #   mutate(ED_last_loc3 =
 #            factor(ED_last_loc2,
 #                   levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
@@ -47,7 +47,7 @@ load(inFile)
 # ============
 
 # plot of ED arrivals by date
-p1 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_status) %>% 
+p1 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_status) %>% 
   summarise(tot = n()) %>% 
   ggplot(aes(x=date, y = tot, fill = ED_last_status)) + 
   geom_bar(stat = "identity") + 
@@ -63,7 +63,7 @@ p1 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_status) %>%
 p1
 
 # plot of ED arrivals by last ED area - detailed
-p2 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_loc) %>% 
+p2 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_loc) %>% 
   summarise(tot = n()) %>% 
   ggplot(aes(x=date, y = tot, fill = ED_last_loc)) + 
   geom_bar(stat = "identity") +
@@ -79,7 +79,7 @@ p2 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_loc) %>%
 p2
 
 # # plot of ED arrivals by last ED area - summary
-# p3 <- ED_csn_detail %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99")) %>% 
+# p3 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99")) %>% 
 #   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
 #   summarise(tot = n()) %>% 
 #   ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
@@ -95,7 +95,7 @@ p2
 #   theme(legend.position="bottom") 
 
 # # plot of ED arrivals in May and June
-# p4 <- ED_csn_detail %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99"),
+# p4 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99"),
 #                          arrival_dttm > "2020-04-30") %>% 
 #   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
 #   summarise(tot = n()) %>% 
@@ -114,7 +114,7 @@ p2
 
 
 # plot of ED length of stay for those admitted
-p5 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>% 
+p5 <- ED_csn_summ %>% filter(ED_last_status == "Admitted") %>% 
   group_by(date = date(arrival_dttm)) %>% 
   summarise(los = sum(ED_duration)/n()) %>% 
   ggplot(aes(x=date, y = los, fill = weekdays(date))) + 
@@ -130,7 +130,7 @@ p5 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>%
 p5
 
 # plot of % less than 4 hours
-p6 <- ED_csn_detail %>%  
+p6 <- ED_csn_summ %>%  
   group_by(date = date(arrival_dttm), seen4hrs) %>% 
   summarise(tot = n()) %>% 
   ggplot(aes(x=date, y = tot, fill = seen4hrs)) + 
@@ -150,8 +150,8 @@ p6
 
 # Distribution of number of ED moves - by whether admitted
 
-mu <- ED_csn_detail %>% group_by(ED_last_status) %>% summarise(mu = mean(num_ED_rows))
-ED_csn_detail %>% 
+mu <- ED_csn_summ %>% group_by(ED_last_status) %>% summarise(mu = mean(num_ED_rows))
+ED_csn_summ %>% 
   ggplot(aes(x = num_ED_rows)) + 
   geom_bar() +
   scale_x_continuous(limits = c(1, 16), breaks = seq(1,13,1)) +
@@ -162,8 +162,8 @@ ED_csn_detail %>%
 
 # Distribution of number of ED moves - by whether breached
 
-mu2 <- ED_csn_detail %>% group_by(seen4hrs) %>% summarise(mu = mean(num_ED_rows))
-ED_csn_detail %>% 
+mu2 <- ED_csn_summ %>% group_by(seen4hrs) %>% summarise(mu = mean(num_ED_rows))
+ED_csn_summ %>% 
   ggplot(aes(x = num_ED_rows)) + 
   geom_bar() +
   scale_x_continuous(limits = c(1, 16), breaks = seq(1,13,1)) +
@@ -174,7 +174,7 @@ ED_csn_detail %>%
 
 
 # Distribution of number of ED moves - breach
-ED_csn_detail %>% 
+ED_csn_summ %>% 
   filter(seen4hrs == "Breach") %>% 
   ggplot(aes(x = num_ED_rows)) + 
   geom_bar() +
