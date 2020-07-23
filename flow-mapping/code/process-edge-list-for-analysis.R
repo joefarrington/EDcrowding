@@ -126,10 +126,10 @@ keep_edges <- function(edgelist_summ, min_weight) {
 # =========
 
 # load edge list
-load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_grouped_2020-07-22.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_2020-07-23.rda")
 
 # load encounter details
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-22.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-23.rda")
 
 
 
@@ -138,19 +138,19 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-22.rda")
 
 # just Jan and Feb rows
 
-edgelist_summ_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
-                                        "2020-01-01", "2020-02-29",  # note - dates are inclusive
-                                        detail = TRUE, stats = FALSE)
+# edgelist_summ_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
+#                                         "2020-01-01", "2020-02-29",  # note - dates are inclusive
+#                                         detail = TRUE, stats = FALSE)
 
 
 edgelist_stats_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
                                          "2020-01-01", "2020-02-29",  # note - dates are inclusive
                                         detail = TRUE, stats = TRUE)
 
-edgelist_summ_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
-                                                 filter(seen4hrs == "Breach"), 
-                                               "2020-01-01", "2020-02-29",  # note - dates are inclusive
-                                               detail = TRUE, stats = FALSE)
+# edgelist_summ_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
+#                                                  filter(seen4hrs == "Breach"), 
+#                                                "2020-01-01", "2020-02-29",  # note - dates are inclusive
+#                                                detail = TRUE, stats = FALSE)
 
 
 edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
@@ -159,14 +159,14 @@ edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ
                                                detail = TRUE, stats = TRUE)
 
 
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
-write.csv(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
+# outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
+# write.csv(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_",today(),".csv")
 write.csv(edgelist_stats_JanFeb, file = outFile, row.names = FALSE)
 
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
-write.csv(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
+# outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
+# write.csv(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_",today(),".csv")
 write.csv(edgelist_stats_JanFeb_breach, file = outFile, row.names = FALSE)
