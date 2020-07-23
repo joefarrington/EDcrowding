@@ -5,16 +5,12 @@
 # Creates an edge list, which contains one row per bed move per patient
 # and has a timestamp. 
 #
-# This patient level data is summarised into a grouped edge list 
-# with weights, ready for network analysis. 
-#
-# In order to decide on the cut point for edge weights, 
-# some plots are generated
+# Note that this does not do any grouping of nodes
+# that is done in the script called 'Get-ED-data-from-Star.R'
 
 # Load libraries
 # ==============
 
-library(DBI)
 library(dplyr)
 library(tidyverse)
 library(lubridate)
@@ -35,272 +31,77 @@ get_node <- function(dept, room) {
   }
 }
 
-# for a single encounter, this function generates an edge list of 
-# moves between locations, with a timestamp
-# locations are provided to it in a tibble called sites
-# sites needs 5 attributes: mrn, csn, location, time of admission to location, 
-# and time of discharge from location
 
-get_edgelist <- function(sites) {
-  
-  edgelist <- tribble(
-    ~mrn,
-    ~csn,
-    ~from,
-    ~to,
-    ~dttm)
-  
-  from_node = get_node(as.character(sites$dept3[1]), as.character(sites$room4[1]))
-  for (j in 1:nrow(sites)) {
-    if (j != nrow(sites)) {
-      to_node <- get_node(as.character(sites$dept3[j+1]), as.character(sites$room4[j+1]))
-      
-      # in any of the following cases, ignore the to node and move to next row
-      if (!(to_node %in% c("OTF", "DIAGNOSTICS", "WAITING ROOM")) && !is.na(to_node)) {
-        if (from_node != to_node) {
-          
-          edgelist <- edgelist %>% add_row(tibble_row(
-            mrn = sites$mrn[j],
-            csn = sites$csn[j],
-            from = from_node,
-            to = to_node,
-            dttm = sites$discharge[j]
-          ))
-        }
-        from_node <- to_node
-      }
-    }
-    else {
-      if (!(to_node %in% c("OTF", "DIAGNOSTICS", "WAITING ROOM")) && !is.na(to_node)) {
-        
-        edgelist <- edgelist %>% add_row(tibble_row(
-          mrn = sites$mrn[j],
-          csn = sites$csn[j],
-          from = to_node,
-          to = "Discharged",
-          dttm = sites$discharge_dttm[j]
-        ))
-      }
-      else {
-        
-        # added new code here - need to check it works 
-        
-        edgelist <- edgelist %>% add_row(tibble_row(
-          mrn = sites$mrn[j],
-          csn = sites$csn[j],
-          from = from_node,
-          to = "Discharged",
-          dttm = sites$discharge_dttm[j]
-        ))
-      }
-    }
-  }
-  return(edgelist)
-}
+# Load data
+# =========
 
-
-# for  group of encounters, this function generates an edge list of 
-# all moves between locations, with a timestamp for each move
-# locations are provided to it in a tibble called visits
-# visits needs 5 attributes: mrn, csn, location, time of admission to location, 
-# time of discharge from location
-
-
-get_care_site_flows <- function(visits) {
-
-  # filter only those visits with more than one room move
-  visits_gt1 <- visits %>% 
-    group_by(mrn, csn) %>% 
-    summarise("num_visit_details" = n(), "earliest_visit_ts" = min(admission)) %>% 
-    filter(num_visit_details > 1)
-  
-  # then create edge list for all visits
-  
-  edgedf <- tribble(
-    ~mrn,
-    ~csn,
-    ~from,
-    ~to,
-    ~dttm)
-  
-  for (i in (1:nrow(visits_gt1))) {
-    
-    if (i%%100 == 0) {
-      print(paste("Processed",i,"visits"))
-    }
-    visit_csn = visits_gt1$csn[i]
-    num_visits = visits_gt1$num_visit_details[i]
-    
-    #get all visit detail records for this visit occurence
-    sites <- visits %>% filter(csn == visit_csn) %>% arrange(admission)
-    
-    # create edgelist if the visit involved change of site
-    edgelist <- get_edgelist(sites)
-    if (nrow(edgelist) > 0) {
-      edgedf <- edgedf %>% add_row(edgelist)
-    }
-  }
-  return(edgedf)
-}
-
-
-# function to select only edges with a minimum weight
-keep_edges <- function(edgelist_summ, min_weight) {
-  # remove minority edges
-  keep <- edgelist_summ %>% filter(weight > min_weight)  %>% select(from, to, weight)
-  
-  # name the edges
-  keep <- keep %>% mutate(edge = paste0(from,"~",to)) %>% arrange(from,desc(weight))
-}
-
-
-# Create transition matrix
-create_transition_matrix <- function(edgelist) {
-  
-  transition <- edgelist %>% 
-    group_by(from, to) %>%
-    summarise(n = sum(weight)) %>%
-    mutate(freq = n / sum(n)) %>% 
-    arrange(desc(n)) %>% 
-    select(-n) %>%
-    pivot_wider(names_from = to, values_from = freq) %>% 
-    column_to_rownames("from") %>% 
-    replace(is.na(.), 0) 
-  
-  transition <- transition %>% 
-    select(colnames(transition %>% select(-Discharged)), Discharged)
-  
-  # # check all rows sum to one
-  # transition %>%
-  #   mutate(check = rowSums(.[1:ncol(transition)]))
-  
-  # reorder cols by most likely route from Arrival
-  # and rows by most lik
-  col_order <- order(transition[1,], decreasing = TRUE)
-  row_order <- order(transition[,ncol(transition)])
-  transition <- transition[row_order,col_order]
-  
-  return(transition)
-}
-
-
-# Load ED bed move data
-# ==================
-
-# generated by get-ED-data-from-Star.R
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_","2020-07-06",".rda")
+# ED bed move data generated by "get-ED-data-from-Star.R"
+inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_","2020-07-22",".rda")
 load(inFile)
 
+# Summary for ED CSNs generated by "get-ED-data-from-Star.R"
+# Note - need to load summary not detail data
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-09.rda")
 
-# Create edge list for network graph
-# ==================================
 
-# work out csns to ignore if involve pediatrics 
-pediatric_csn <- ED_bed_moves %>% group_by(mrn, csn, arrival_dttm) %>% 
-  summarise(tot = sum(pediatric_row)) %>% 
-  filter(tot > 0) %>% 
-  select(mrn, csn) %>% distinct()
-
-# some csns have rows where the discharge time is earlier than the admission time
-odd_csn <- ED_bed_moves %>% filter(discharge < admission) %>% select(csn)
-# to see the number of csns removed: 
-odd_csn %>% select(csn) %>% n_distinct() #110
-
-# some ED rows have no information about which room someone was in
-no_room_csn <-  ED_bed_moves %>% filter(is.na(room4)) %>% select(csn)
-# to see the number of csns removed:
-no_room_csn %>% select(csn) %>% n_distinct() #19
+# Create edge list
+# ================
 
 # create edge list which contains one row per bed move per patient with a time stamp
-edgedf <- get_care_site_flows(ED_bed_moves %>% 
-                                filter(
-#                                  arrival_dttm < "2020-03-01", 
-                                       !csn %in% pediatric_csn$csn,
-                                       !csn %in% odd_csn$csn) %>% 
-                                select(mrn, csn, dept2, dept3, room4, admission, arrival_dttm, discharge, discharge_dttm))
+# note this is currently using room4_new, which is the grouped version of room and
+# that it subsumes OTF into the previous node 
+
+edgedf <- tribble(
+  ~mrn,
+  ~csn,
+  ~from,
+  ~to,
+  ~dttm)
+
+current_csn = ED_bed_moves$csn[1]
+
+for (i in (1:nrow(ED_bed_moves))) {
+  
+  if (i%%1000 == 0) {
+    print(paste("Processed",i,"rows"))
+  }
+  
+  from_node <- get_node(as.character(ED_bed_moves$dept3[i]), as.character(ED_bed_moves$room4_new[i]))
+  
+  if (ED_bed_moves$csn[i+1] == current_csn) {
+    
+    to_node <- get_node(as.character(ED_bed_moves$dept3[i+1]), as.character(ED_bed_moves$room4_new[i+1]))
+    
+    if (from_node != to_node) {
+      edgedf <- edgedf %>% add_row(tibble_row(
+        mrn = ED_bed_moves$mrn[i],
+        csn = ED_bed_moves$csn[i],
+        from = from_node,
+        to = to_node,
+        dttm = ED_bed_moves$discharge_new[i]
+      ))
+    }
+  }
+  else {# last row for current csn
+    edgedf <- edgedf %>% add_row(tibble_row(
+      mrn = ED_bed_moves$mrn[i],
+      csn = ED_bed_moves$csn[i],
+      from = to_node,
+      to = "Discharged",
+      dttm = ED_bed_moves$discharge_dttm[i]
+    ))
+    
+    current_csn <- ED_bed_moves$csn[i+1]
+  }
+}
+
 
 # save edge list for future use
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edge_list_exc_ped_full_grouped_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edgelist_full_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
 
 # OR load edge list if already saved
-load("~/EDcrowding/flow-mapping/data-raw/ED_edge_list_exc_ped_full_grouped_2020-07-06.rda")
-
-# short term measure to remove from nodes; these will be handled in get_care_site_flows() from now
-edgedf <- edgedf %>% filter(!from %in% c("WAITING ROOM", "DIAGNOSTICS", "OTF"))
-
-# summarise edge list
-edgelist_summ <- edgedf %>% group_by(from, to) %>% 
-  summarise(weight = n()) %>% arrange(desc(weight))
-
-# # remove the edge that goes from Admission to Discharge (not interesting for inital purposes)
-# edgelist_summ <- edgelist_summ %>% filter(!(from == "Admission" & to == "Discharged"))
-
-# Create transition matrix
-# ========================
-
-# all rows in edge list
-transition <- create_transition_matrix(edgelist_summ)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-grouped-",today(),".csv")
-write.csv2(transition, file = outFile, row.names = TRUE)
 
 
-# just Jan and Feb rows
-
-edgelist_summ_JanFeb <- edgedf %>% 
-  filter(dttm < "2020-03-01") %>% # note this will truncate encounters
-  group_by(from, to) %>% 
-  summarise(weight = n()) %>% arrange(desc(weight))
-
-transition_JanFeb <- create_transition_matrix(edgelist_summ_JanFeb)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/transition-matrix-grouped-JanFeb-",today(),".csv")
-write.csv2(transition_JanFeb, file = outFile, row.names = TRUE)
-
-
-# just breachless flow in Jan and Feb
-
-edgedf_outcome <- edgedf %>% 
-  filter(dttm < "2020-03-01") %>% 
-  left_join(ED_csn_detail %>% select(csn, ED_last_status, seen4hrs))
-
-edgelist_summ_JanFeb_breachless <- edgedf_outcome %>% 
-  filter(dttm < "2020-03-01", seen4hrs != "Breach") %>% # note this will truncate encounters
-  group_by(from, to) %>% 
-  summarise(weight = n()) %>% arrange(desc(weight))
-
-
-
-# Clean edge list for network diagram
-# ===================================
-
-# remove moves that occur after admission
-edgelist_summ_JanFeb <- edgelist_summ_JanFeb %>% filter(from != "Admission")
-
-# look for the right cut point for eliminating edges
-ggplot(edgelist_summ_JanFeb, aes(x=1, y = weight)) + 
-  geom_boxplot() # wide band at bottom of box plot
-
-
-ggplot(edgelist_summ_JanFeb %>% filter(weight < 500), aes(x=1, y = weight)) + 
-  geom_boxplot() # zooming in suggests 100 is a reasonable cut point
-
-
-# get reduced edgelist for Jan and Feb
-keep <- keep_edges(edgelist_summ_JanFeb, 50)
-
-# write reduced edgelist to file
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_grouped_JanFeb_",today(),".csv")
-write.csv2(keep, file = outFile, row.names = FALSE)
-
-
-# get reduced edgelist for Jan and Feb breachless flows
-
-# get reduced edgelist for Jan and Feb
-keep <- keep_edges(edgelist_summ_JanFeb_breachless, 50)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breachless_",today(),".csv")
-write.csv2(keep, file = outFile, row.names = FALSE)
 

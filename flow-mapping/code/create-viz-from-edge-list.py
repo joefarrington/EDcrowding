@@ -3,56 +3,102 @@ import pandas as pd
 import numpy as np
 import pygraphviz as pgv
 
+# Create graph for all patients
+# =============================
+
 # read data
 
-filename = 'flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breachless_2020-07-06.csv'
-df = pd.read_csv(filename, sep = ';')
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_2020-07-23.csv'
+edgelist_stats = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
-# initialise graph for example 1
-G = pgv.AGraph(name='Jan-Feb-breachless', directed=True)
+filename = 'flow-mapping/data-output/node_stats_JanFeb_2020-07-23.csv'
+node_stats = pd.read_csv(filename, sep =',')
+
+# cheat workaround to get mean to round
+edgelist_stats.weight_mean = edgelist_stats.weight_mean.astype(int)
+
+# create node label
+node_label_num = ' ('+node_stats['num_pat_mean'].astype(int).copy().astype(str)+')'
+node_stats['node_label'] = node_stats['room4_new'].str.cat(node_label_num)
+
+# initialise graph
+G = pgv.AGraph(name='Jan-Feb-all', directed=True,
+               labelloc = 't', label='\nDaily means for all patients in Jan and Feb', fontsize = '20')
 G.node_attr['shape'] = 'ellipse'
 G.node_attr['fixedsize'] = 'false'
-G.node_attr['fontsize'] = '20'
+G.node_attr['fontsize'] = '10'
 
-for index, row in df.iterrows():
-    if row['from'] != 'Admitted':
+# add all nodes to graph
+
+for index, row in node_stats.iterrows():
+    G.add_node(row['room4_new'],
+               label = row['node_label']
+               )
+
+# add all edges to graph - only where weight > 3
+for index, row in edgelist_stats[edgelist_stats['weight_mean']>3].iterrows():
+    if row['from'] != 'Admitted' and row['weight_mean'] > 1:
         G.add_edge(row['from'], row['to'],
-                   weight=row['weight'],
-                   label=row['weight'],
+                   weight=row['weight_mean'],
+                   label=row['weight_mean'],
                    dir="forward",
+                   fontsize='10',
                    arrowhead="normal",
                    arrowsize=1,
                    style="solid",
                    color='darkseagreen',
      #              penwidth=np.log10(row['weight'],
-                   penwidth=100 * row['weight'] / sum(df['weight'])
+                   penwidth=100 * row['weight_mean'] / sum(edgelist_stats['weight_mean'])
                    )
 
-G.draw("flow-mapping/media/Jan-Feb-breachless.png", prog='dot')
+G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
 
-filename = 'flow-mapping/data-output/edgelist_summ_grouped_JanFeb_2020-07-06.csv'
-df = pd.read_csv(filename, sep = ';')
+# Create graph for breach patients
+# ================================
 
-# initialise graph for example 2
-G2 = pgv.AGraph(name='Jan-Feb', directed=True)
-G2.node_attr['shape'] = 'ellipse'
-G2.node_attr['fixedsize'] = 'false'
-G2.node_attr['fontsize'] = '20'
+# read data
 
-for index, row in df.iterrows():
-    if row['from'] != 'Admitted':
-        G2.add_edge(row['from'], row['to'],
-                    weight=row['weight'],
-                    label=row['weight'],
-                    dir="forward",
-                    arrowhead="normal",
-                    arrowsize=1,
-                    style="solid",
-                    color='darkseagreen',
-                    penwidth=100 * row['weight'] / sum(df['weight']))
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_2020-07-23.csv'
+edgelist_stats_JanFeb_breach = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
-G2.draw("flow-mapping/media/Jan-Feb.png", prog='dot')
+# cheat workaround to get mean to round
+edgelist_stats_JanFeb_breach.weight_mean = edgelist_stats_JanFeb_breach.weight_mean.astype(int)
 
+# create node label
+node_label_num_breach = ' ('+node_stats['num_pat_mean_breach'].astype(int).copy().astype(str)+')'
+node_stats['node_label_breach'] = node_stats['room4_new'].str.cat(node_label_num_breach)
+
+# initialise graph
+G = pgv.AGraph(name='Jan-Feb-breach', directed=True,
+               labelloc = 't', label='\nDaily means for patients who breached in Jan and Feb', fontsize = '20')
+G.node_attr['shape'] = 'ellipse'
+G.node_attr['fixedsize'] = 'false'
+G.node_attr['fontsize'] = '10'
+
+# add all nodes to graph
+
+for index, row in node_stats.iterrows():
+    G.add_node(row['room4_new'],
+               label = row['node_label_breach']
+               )
+
+# add all edges to graph - only where weight > 2
+for index, row in edgelist_stats_JanFeb_breach[edgelist_stats_JanFeb_breach['weight_mean']>2].iterrows():
+    if row['from'] != 'Admitted' and row['weight_mean'] > 1:
+        G.add_edge(row['from'], row['to'],
+                   weight=row['weight_mean'],
+                   label=row['weight_mean'],
+                   dir="forward",
+                   fontsize='10',
+                   arrowhead="normal",
+                   arrowsize=1,
+                   style="solid",
+                   color='DarkSalmon',
+     #              penwidth=np.log10(row['weight'],
+                   penwidth=100 * row['weight_mean'] / sum(edgelist_stats_JanFeb_breach['weight_mean'])
+                   )
+
+G.draw("flow-mapping/media/Jan-Feb-breach-wtgt2.png", prog='dot')
 
 
 

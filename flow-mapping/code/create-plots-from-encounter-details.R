@@ -13,53 +13,33 @@ library(tidyverse)
 library(lubridate)
 
 
-
-# Define functions
-# ================
-
-
-
 # Load data
 # =========
 
-inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_detail_full_",today(),".rda")
+inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-xx.rda")
 load(inFile)
 
-# Some rows have NA in ED_last_loc 
-# These are all encounters that were excluded from edgedf
-# Some have only one ED row so no moves of interest - to see these
-ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows == 1) %>% summarise(n_distinct(csn))
-# some have odd encounter details (these are filtered out in "create-encounter-details.R") 
-# or involve pediatrics or have a row where Room was "None"
-ED_csn_detail %>% filter(is.na(ED_last_loc), num_ED_rows >1, !csn %in% odd_csn$csn, !csn %in% pediatric_csn$csn, !csn %in% no_room_csn$csn)
 
-# Currently this leaves one row with inconsisent information
-# ED_bed_moves has one row, but ED_csn_detail records 2 rows 
-# ED_bed_moves %>% filter(csn == "1018734672")
-
-# Therefore remove rows with NA in ED_last_loc 
-ED_csn_detail <- ED_csn_detail %>% filter(!is.na(ED_last_loc))
-
-# group last ED into summary factor
-ED_csn_detail <- ED_csn_detail %>% mutate(ED_last_loc2 = case_when(
-  ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
-  ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
-  ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
-  ED_last_loc %in% c("DIAGNOSTICS") ~ "Diagnostics",
-  ED_last_loc %in% c("OTF") ~ "OTF",
-  ED_last_loc %in% c("RAT 99 COVID MAJORS","RAT 99","NON COVID MAJORS 99", "RAT CHAIR") ~ "RAT",
-  ED_last_loc %in% c("Arrival") ~ "Arrival",
-  ED_last_loc %in% c("TAF 99") ~ "TAF",
-  ED_last_loc %in% c("RESUS 99") ~ "Resus",
-  ED_last_loc %in% c("WAITING ROOM") ~ "Waiting Room",
-  TRUE ~ "Other"  
-))
-
-# order factor (NB this excludes Arrival, Waiting Room and TAF)
-ED_csn_detail <- ED_csn_detail %>% 
-  mutate(ED_last_loc3 =
-           factor(ED_last_loc2,
-                  levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
+# # group last ED into summary factor
+# ED_csn_summ <- ED_csn_summ %>% mutate(ED_last_loc2 = case_when(
+#   ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
+#   ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
+#   ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
+#   ED_last_loc %in% c("DIAGNOSTICS") ~ "Diagnostics",
+#   ED_last_loc %in% c("OTF") ~ "OTF",
+#   ED_last_loc %in% c("RAT 99 COVID MAJORS","RAT 99","NON COVID MAJORS 99", "RAT CHAIR") ~ "RAT",
+#   ED_last_loc %in% c("Arrival") ~ "Arrival",
+#   ED_last_loc %in% c("TAF 99") ~ "TAF",
+#   ED_last_loc %in% c("RESUS 99") ~ "Resus",
+#   ED_last_loc %in% c("WAITING ROOM") ~ "Waiting Room",
+#   TRUE ~ "Other"  
+# ))
+# 
+# # order factor (NB this excludes Arrival, Waiting Room and TAF)
+# ED_csn_summ <- ED_csn_summ %>% 
+#   mutate(ED_last_loc3 =
+#            factor(ED_last_loc2,
+#                   levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
 
 
 
@@ -67,7 +47,7 @@ ED_csn_detail <- ED_csn_detail %>%
 # ============
 
 # plot of ED arrivals by date
-p1 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_status) %>% 
+p1 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_status) %>% 
   summarise(tot = n()) %>% 
   ggplot(aes(x=date, y = tot, fill = ED_last_status)) + 
   geom_bar(stat = "identity") + 
@@ -80,10 +60,10 @@ p1 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_status) %>%
   ) +
   theme_classic()  + 
   theme(legend.position="bottom") 
-
+p1
 
 # plot of ED arrivals by last ED area - detailed
-p2 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_loc) %>% 
+p2 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_loc) %>% 
   summarise(tot = n()) %>% 
   ggplot(aes(x=date, y = tot, fill = ED_last_loc)) + 
   geom_bar(stat = "identity") +
@@ -96,78 +76,45 @@ p2 <- ED_csn_detail %>% group_by(date = date(arrival_dttm), ED_last_loc) %>%
   ) +
   theme_classic()  + 
   theme(legend.position="bottom") 
+p2
 
-# plot of ED arrivals by last ED area - summary
-p3 <- ED_csn_detail %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99")) %>% 
-  group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
-  summarise(tot = n()) %>% 
-  ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
-  geom_bar(stat = "identity") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  labs(title = "ED arrivals by date, grouped by last ED location (summary)",
-       subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
-       x = "",
-       y = "Number of patients",
-       fill = "Last ED location"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="bottom") 
+# # plot of ED arrivals by last ED area - summary
+# p3 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99")) %>% 
+#   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
+#   summarise(tot = n()) %>% 
+#   ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
+#   geom_bar(stat = "identity") +
+#   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+#   labs(title = "ED arrivals by date, grouped by last ED location (summary)",
+#        subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
+#        x = "",
+#        y = "Number of patients",
+#        fill = "Last ED location"
+#   ) +
+#   theme_classic()  + 
+#   theme(legend.position="bottom") 
 
-# plot of ED arrivals in May and June
-p4 <- ED_csn_detail %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99"),
-                         arrival_dttm > "2020-04-30") %>% 
-  group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
-  summarise(tot = n()) %>% 
-  ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
-  geom_bar(stat = "identity") +
-  scale_x_date(date_breaks = "1 week", date_labels = "%d%b") +
-  labs(title = "ED arrivals since 1 May by date, grouped by last ED location (summary)",
-       subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
-       x = "",
-       y = "Number of patients",
-       fill = "Last ED location"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="bottom") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
+# # plot of ED arrivals in May and June
+# p4 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99"),
+#                          arrival_dttm > "2020-04-30") %>% 
+#   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
+#   summarise(tot = n()) %>% 
+#   ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
+#   geom_bar(stat = "identity") +
+#   scale_x_date(date_breaks = "1 week", date_labels = "%d%b") +
+#   labs(title = "ED arrivals since 1 May by date, grouped by last ED location (summary)",
+#        subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
+#        x = "",
+#        y = "Number of patients",
+#        fill = "Last ED location"
+#   ) +
+#   theme_classic()  + 
+#   theme(legend.position="bottom") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 
-
-# plot of EDaverage length of stay for those admitted
-p5 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>% 
-  group_by(date = date(arrival_dttm)) %>% 
-  summarise(los = sum(duration)/n()) %>% 
-  ggplot(aes(x=date, y = los)) + 
-  geom_bar(stat = "identity") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  labs(title = "Average hospital length of stay for admitted patients",
-       subtitle = "Source: Star",
-       x = "",
-       y = "Length of stay (hours)"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="bottom")
-
-
-# plot of % less than 4 hours
-p6 <- ED_csn_detail %>%  
-  group_by(date = date(arrival_dttm), seen4hrs) %>% 
-  summarise(tot = n()) %>% 
-  ggplot(aes(x=date, y = tot, fill = seen4hrs)) + 
-  geom_bar(position = "fill", stat = "identity") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") + 
-  scale_y_continuous(labels=scales::percent) + 
-  geom_hline(yintercept=.9, linetype = "dashed") +
-  labs(title = "Percentage seen in four hours",
-       subtitle = "Source: Star",
-       x = "",
-       y = "Percentage seen in four hours",
-       fill = "Four hour status:"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="bottom")
 
 # plot of ED length of stay for those admitted
-p7 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>% 
+p5 <- ED_csn_summ %>% filter(ED_last_status == "Admitted") %>% 
   group_by(date = date(arrival_dttm)) %>% 
   summarise(los = sum(ED_duration)/n()) %>% 
   ggplot(aes(x=date, y = los, fill = weekdays(date))) + 
@@ -180,6 +127,59 @@ p7 <- ED_csn_detail %>% filter(ED_last_status == "Admitted") %>%
   ) +
   theme_classic()  + 
   theme(legend.position="bottom")
+p5
+
+# plot of % less than 4 hours
+p6 <- ED_csn_summ %>%  
+  group_by(date = date(arrival_dttm), seen4hrs) %>% 
+  summarise(tot = n()) %>% 
+  ggplot(aes(x=date, y = tot, fill = seen4hrs)) + 
+  geom_bar(position = "fill", stat = "identity") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") + 
+  scale_y_continuous(labels=scales::percent) + 
+  geom_hline(yintercept=.95, linetype = "dashed") +
+  labs(title = "Percentage seen in four hours",
+       subtitle = "Source: Star",
+       x = "",
+       y = "Percentage seen in four hours",
+       fill = "Four hour status:"
+  ) +
+  theme_classic()  + 
+  theme(legend.position="bottom")
+p6
+
+# Distribution of number of ED moves - by whether admitted
+
+mu <- ED_csn_summ %>% group_by(ED_last_status) %>% summarise(mu = mean(num_ED_rows))
+ED_csn_summ %>% 
+  ggplot(aes(x = num_ED_rows)) + 
+  geom_bar() +
+  scale_x_continuous(limits = c(1, 16), breaks = seq(1,13,1)) +
+  theme_classic() +
+  geom_vline(data=mu, aes(xintercept=mu, color=ED_last_status),
+             linetype="dashed") +
+  facet_grid(ED_last_status ~ .)
+
+# Distribution of number of ED moves - by whether breached
+
+mu2 <- ED_csn_summ %>% group_by(seen4hrs) %>% summarise(mu = mean(num_ED_rows))
+ED_csn_summ %>% 
+  ggplot(aes(x = num_ED_rows)) + 
+  geom_bar() +
+  scale_x_continuous(limits = c(1, 16), breaks = seq(1,13,1)) +
+  theme_classic() +
+  geom_vline(data=mu2, aes(xintercept=mu, color=seen4hrs),
+             linetype="dashed") +
+  facet_grid(seen4hrs ~ .)
+
+
+# Distribution of number of ED moves - breach
+ED_csn_summ %>% 
+  filter(seen4hrs == "Breach") %>% 
+  ggplot(aes(x = num_ED_rows)) + 
+  geom_bar() +
+  scale_x_continuous(limits = c(1, 16), breaks = seq(1,13,1)) +
+  theme_classic() 
 
 
 plot_charts <- function(p) {
