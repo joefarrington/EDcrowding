@@ -8,10 +8,10 @@ import pygraphviz as pgv
 
 # read data
 
-filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_2020-07-21.csv'
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_2020-07-23.csv'
 edgelist_stats = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
-filename = 'flow-mapping/data-output/node_stats_JanFeb_2020-07-22.csv'
+filename = 'flow-mapping/data-output/node_stats_JanFeb_2020-07-23.csv'
 node_stats = pd.read_csv(filename, sep =',')
 
 # cheat workaround to get mean to round
@@ -19,7 +19,7 @@ edgelist_stats.weight_mean = edgelist_stats.weight_mean.astype(int)
 
 # create node label
 node_label_num = ' ('+node_stats['num_pat_mean'].astype(int).copy().astype(str)+')'
-node_stats['node_label'] = node_stats['room4'].str.cat(node_label_num)
+node_stats['node_label'] = node_stats['room4_new'].str.cat(node_label_num)
 
 # initialise graph
 G = pgv.AGraph(name='Jan-Feb-all', directed=True,
@@ -31,12 +31,12 @@ G.node_attr['fontsize'] = '10'
 # add all nodes to graph
 
 for index, row in node_stats.iterrows():
-    G.add_node(row['room4'],
+    G.add_node(row['room4_new'],
                label = row['node_label']
                )
 
-# add all edges to graph
-for index, row in edgelist_stats.iterrows():
+# add all edges to graph - only where weight > 3
+for index, row in edgelist_stats[edgelist_stats['weight_mean']>3].iterrows():
     if row['from'] != 'Admitted' and row['weight_mean'] > 1:
         G.add_edge(row['from'], row['to'],
                    weight=row['weight_mean'],
@@ -51,14 +51,14 @@ for index, row in edgelist_stats.iterrows():
                    penwidth=100 * row['weight_mean'] / sum(edgelist_stats['weight_mean'])
                    )
 
-G.draw("flow-mapping/media/Jan-Feb-all.png", prog='dot')
+G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
 
 # Create graph for breach patients
 # ================================
 
 # read data
 
-filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_2020-07-21.csv'
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_2020-07-23.csv'
 edgelist_stats_JanFeb_breach = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
 # cheat workaround to get mean to round
@@ -66,7 +66,7 @@ edgelist_stats_JanFeb_breach.weight_mean = edgelist_stats_JanFeb_breach.weight_m
 
 # create node label
 node_label_num_breach = ' ('+node_stats['num_pat_mean_breach'].astype(int).copy().astype(str)+')'
-node_stats['node_label_breach'] = node_stats['room4'].str.cat(node_label_num_breach)
+node_stats['node_label_breach'] = node_stats['room4_new'].str.cat(node_label_num_breach)
 
 # initialise graph
 G = pgv.AGraph(name='Jan-Feb-breach', directed=True,
@@ -78,12 +78,12 @@ G.node_attr['fontsize'] = '10'
 # add all nodes to graph
 
 for index, row in node_stats.iterrows():
-    G.add_node(row['room4'],
+    G.add_node(row['room4_new'],
                label = row['node_label_breach']
                )
 
-# add all edges to graph
-for index, row in edgelist_stats_JanFeb_breach.iterrows():
+# add all edges to graph - only where weight > 2
+for index, row in edgelist_stats_JanFeb_breach[edgelist_stats_JanFeb_breach['weight_mean']>2].iterrows():
     if row['from'] != 'Admitted' and row['weight_mean'] > 1:
         G.add_edge(row['from'], row['to'],
                    weight=row['weight_mean'],
@@ -98,7 +98,7 @@ for index, row in edgelist_stats_JanFeb_breach.iterrows():
                    penwidth=100 * row['weight_mean'] / sum(edgelist_stats_JanFeb_breach['weight_mean'])
                    )
 
-G.draw("flow-mapping/media/Jan-Feb-breach.png", prog='dot')
+G.draw("flow-mapping/media/Jan-Feb-breach-wtgt2.png", prog='dot')
 
 
 
