@@ -26,7 +26,7 @@ node_label_num = ' ('+node_stats['num_pat_mean'].astype(int).copy().astype(str)+
 node_stats['node_label'] = node_stats['room4_new'].str.cat(node_label_num)
 
 # create edge label
-edge_label_num = edgelist_stats['weight_mean'].astype(int).copy().astype(str)+' ('+(edgelist_stats['pct_disc_mean']*100).astype(int).copy().astype(str)+'%)'
+edge_label_num = edgelist_stats['weight_mean'].astype(int).copy().astype(str)+' ('+((1-edgelist_stats['pct_disc_mean'])*100).astype(int).copy().astype(str)+'%)'
 edgelist_stats['edge_label'] = edge_label_num
 
 # initialise graph
@@ -70,14 +70,14 @@ for index, row in edgelist_stats[edgelist_stats['weight_mean']>1].iterrows():
 #s.add_node('RAT')
 
 #G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
-G.draw("flow-mapping/media/Jan-Feb-all.png", prog='dot')
+G.draw("flow-mapping/media/JanFeb_all_2020-07-28.png", prog='dot')
 
 # Create graph for breach patients
 # ================================
 
 # read data
 
-filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_2020-07-23.csv'
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_2020-07-27.csv'
 edgelist_stats_JanFeb_breach = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
 # cheat workaround to get mean to round
@@ -88,7 +88,7 @@ node_label_num_breach = ' ('+node_stats['num_pat_mean_breach'].astype(int).copy(
 node_stats['node_label_breach'] = node_stats['room4_new'].str.cat(node_label_num_breach)
 
 # create edge label
-edge_label_num_breach = edgelist_stats_JanFeb_breach['weight_mean'].astype(int).copy().astype(str)+' ('+(edgelist_stats_JanFeb_breach['pct_disc_mean']*100).astype(int).copy().astype(str)+'%)'
+edge_label_num_breach = edgelist_stats_JanFeb_breach['weight_mean'].astype(int).copy().astype(str)+' ('+((1-edgelist_stats_JanFeb_breach['pct_disc_mean'])*100).astype(int).copy().astype(str)+'%)'
 edgelist_stats_JanFeb_breach['edge_label'] = edge_label_num_breach
 
 
@@ -109,7 +109,7 @@ for index, row in node_stats.iterrows():
     # note this if statement is a workaround because Admitted and Discharged node numbers are wrong
     if row['room4_new'] != 'Discharged' and  row['room4_new'] != 'Admitted':
         G.add_node(row['room4_new'],
-                   label = row['node_label']
+                   label = row['node_label_breach']
                    )
     else:
         G.add_node(row['room4_new'],
@@ -132,7 +132,7 @@ for index, row in edgelist_stats_JanFeb_breach[edgelist_stats_JanFeb_breach['wei
                    penwidth=100 * row['weight_mean'] / sum(edgelist_stats_JanFeb_breach['weight_mean'])
                    )
 
-G.draw("flow-mapping/media/temp.png", prog='dot')
+G.draw("flow-mapping/media/JanFeb_breach_2020-07-28.png", prog='dot')
 
 
 
