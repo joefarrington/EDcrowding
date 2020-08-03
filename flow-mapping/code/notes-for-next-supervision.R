@@ -15,3 +15,17 @@ ED_bed_moves %>% group_by(arrival_dttm, csn) %>% filter(room == 'ADULT TRIAGE') 
   filter(tot_triage > 1) %>% 
   group_by(date(arrival_dttm)) %>% summarise(num_gt1 = n()) %>% 
   ggplot(aes(x = `date(arrival_dttm)`, y = num_gt1)) + geom_line()
+
+
+# this shows that the number of TRIAGE after are quite small (at least for Jan and Feb)
+
+ED_bed_moves <- ED_bed_moves %>% group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(sum_triage = sum(room5 == "TRIAGE"))
+
+ED_bed_moves %>% mutate(room6 = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
+                                                          TRUE ~ room5)) %>%  filter(ED_row == 1) %>% group_by(room6) %>% summarise(n())
+
+
+ED_bed_moves <- ED_bed_moves %>% mutate(room6 = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
+                                          TRUE ~ room5))
+
