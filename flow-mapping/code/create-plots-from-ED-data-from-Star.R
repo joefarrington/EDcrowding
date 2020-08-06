@@ -36,10 +36,10 @@ load(inFile)
 
 # Plot of durations in ED - by room
 png("EDCrowding/flow-mapping/media/Durations in ED.png", width = 1077, height = 659)
-ED_bed_moves %>% filter(dept2 == "ED", as.numeric(duration_row) < 20, as.numeric(duration_row) >= 0, !is.na(covid)) %>%   
-  ggplot( aes(x=reorder(room3,as.numeric(duration_row), .fun='median'), y=as.numeric(duration_row), fill=room3)) + 
+ED_bed_moves %>% filter(dept2 == "ED", as.numeric(duration_row) < 20, as.numeric(duration_row) >= 0) %>%   
+  ggplot( aes(x=reorder(room_final,as.numeric(duration_row), .fun='median'), y=as.numeric(duration_row), fill=room_final)) + 
   geom_boxplot() +
-  labs(title = "Time spent by patients in ED locations before and after COVID-19 (20.3.20)",
+  labs(title = "Time spent by patients in ED locations",
        subtitle = "Source: Star. Includes only durations of less than 20 hours",
        x = "",
        y = "Duration (hours)"
@@ -48,72 +48,70 @@ ED_bed_moves %>% filter(dept2 == "ED", as.numeric(duration_row) < 20, as.numeric
   coord_flip() +
   theme_classic()  + 
   theme(legend.position="none") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
-  facet_wrap(~fct_rev(covid))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 dev.off()
 
 
 # Plot of numbers in ED
 
 png("EDCrowding/flow-mapping/media/Numbers in ED by day.png", width = 1077, height = 659)
-ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(date(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
-  ggplot(aes(x=`date(arrival_dttm)`, y=num_pats, fill = fct_rev(covid))) + 
+ED_csn_summ %>% 
+  group_by(date(arrival_dttm)) %>% summarise(num_pats = n()) %>%  
+  ggplot(aes(x=`date(arrival_dttm)`, y=num_pats)) + 
   geom_bar(stat = "identity") +
   labs(title = "Number of patients in ED by day",
        subtitle = "Source: Star",
        x = "",
-       y = "Number of patients",
-       fill = "Before / after Covid-19"
+       y = "Number of patients"
   ) +
   theme_classic()  + 
   theme(legend.position="bottom") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) 
 dev.off()
 
-# Plot of day of week in ED
+# # Plot of day of week in ED
+# 
+# # below I have divided by 12 as that is approx the number of weeks between 1/1/20 and 20/3/20, and similarly between 20/3/20 and today
+# difftime("2020-03-22","2020-01-01", units = "weeks")
+# difftime("2020-06-15","2020-03-22", units = "weeks")
+# 
+# png("EDCrowding/flow-mapping/media/Mean numbers in ED by day of week.png", width = 1077, height = 659)
+# ED_pats %>% filter(!is.na(covid)) %>%
+#   group_by(covid, weekdays(arrival_dttm)) %>% summarise(mean_pats = n()/12) %>%  
+#   ggplot(aes(x=factor(`weekdays(arrival_dttm)`, levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")), 
+#              y=mean_pats, fill = `weekdays(arrival_dttm)`)) + 
+#   geom_bar(stat = "identity") +
+#   labs(title = "Mean number of patients admitted to ED by day of week, before and after COVID-19 (20.3.20)",
+#        subtitle = "Source: Star",
+#        x = "",
+#        y = "Number of patients"
+#        # fill = "Ventilation support"
+#   ) +
+#   theme_classic()  + 
+#   theme(legend.position="none") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
+#   facet_wrap(~fct_rev(covid))
+# dev.off()
 
-# below I have divided by 12 as that is approx the number of weeks between 1/1/20 and 20/3/20, and similarly between 20/3/20 and today
-difftime("2020-03-22","2020-01-01", units = "weeks")
-difftime("2020-06-15","2020-03-22", units = "weeks")
-
-png("EDCrowding/flow-mapping/media/Mean numbers in ED by day of week.png", width = 1077, height = 659)
-ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(covid, weekdays(arrival_dttm)) %>% summarise(mean_pats = n()/12) %>%  
-  ggplot(aes(x=factor(`weekdays(arrival_dttm)`, levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")), 
-             y=mean_pats, fill = `weekdays(arrival_dttm)`)) + 
-  geom_bar(stat = "identity") +
-  labs(title = "Mean number of patients admitted to ED by day of week, before and after COVID-19 (20.3.20)",
-       subtitle = "Source: Star",
-       x = "",
-       y = "Number of patients"
-       # fill = "Ventilation support"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="none") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
-  facet_wrap(~fct_rev(covid))
-dev.off()
-
-# Plot of day of week in ED
-
-png("EDCrowding/flow-mapping//media/Total ED arrivals by time of day.png", width = 1077, height = 659)
-ED_pats %>% filter(!is.na(covid)) %>%
-  group_by(hour(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
-  ggplot(aes(x=`hour(arrival_dttm)`, 
-             y=num_pats, fill = `hour(arrival_dttm)`)) + 
-  geom_bar(stat = "identity") +
-  labs(title = "Total number of patients in ED by time of admission, before and after COVID-19 (20.3.20)",
-       subtitle = "Source: Star",... = 
-       x = "",
-       y = "Number of patients"
-       # fill = "Ventilation support"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="none") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
-  facet_wrap(~fct_rev(covid))
-dev.off()
+# # Plot of day of week in ED
+# 
+# png("EDCrowding/flow-mapping//media/Total ED arrivals by time of day.png", width = 1077, height = 659)
+# ED_pats %>% filter(!is.na(covid)) %>%
+#   group_by(hour(arrival_dttm), covid) %>% summarise(num_pats = n()) %>%  
+#   ggplot(aes(x=`hour(arrival_dttm)`, 
+#              y=num_pats, fill = `hour(arrival_dttm)`)) + 
+#   geom_bar(stat = "identity") +
+#   labs(title = "Total number of patients in ED by time of admission, before and after COVID-19 (20.3.20)",
+#        subtitle = "Source: Star",... = 
+#        x = "",
+#        y = "Number of patients"
+#        # fill = "Ventilation support"
+#   ) +
+#   theme_classic()  + 
+#   theme(legend.position="none") +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0)) +
+#   facet_wrap(~fct_rev(covid))
+# dev.off()
 
 png("EDCrowding/flow-mapping/media/Numbers in location by day.png", width = 1077, height = 1077)
 ED_bed_moves %>% filter(dept2 == "ED", !is.na(room3)) %>% 
@@ -131,28 +129,28 @@ ED_bed_moves %>% filter(dept2 == "ED", !is.na(room3)) %>%
   theme(strip.text.y.left = element_text(angle = 0))
 dev.off()
 
-# Plot showing use of chairs
-
-png("EDCrowding/flow-mapping/media/Use of chairs in ED Jan to June.png", width = 1077, height = 1077)
-ED_bed_moves %>% filter(dept2 == "ED", !is.na(room2)) %>% 
-  mutate(chair = calc_chair(room2)) %>% 
-  group_by(date = date(arrival_dttm), room2, chair) %>% summarise(num_pats = n()) %>%  
-  ggplot(aes(x=date, 
-             y=num_pats,
-             fill = chair)) + 
-  geom_bar(stat = "identity", position = "fill") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  labs(title = "Use of chair locations in ED",
-       subtitle = "Source: Star",
-         x = "",
-       y = "Number of patients",
-       fill = "Chair location"
-        ) +  
-  theme_classic()  + 
-  theme(axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks.x=element_blank()) +
-  theme(legend.position="bottom") +
-  theme(strip.text.y.left = element_text(angle = 0))
-dev.off()
+# # Plot showing use of chairs
+# 
+# png("EDCrowding/flow-mapping/media/Use of chairs in ED Jan to June.png", width = 1077, height = 1077)
+# ED_bed_moves %>% filter(dept2 == "ED", !is.na(room2)) %>% 
+#   mutate(chair = calc_chair(room2)) %>% 
+#   group_by(date = date(arrival_dttm), room2, chair) %>% summarise(num_pats = n()) %>%  
+#   ggplot(aes(x=date, 
+#              y=num_pats,
+#              fill = chair)) + 
+#   geom_bar(stat = "identity", position = "fill") +
+#   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+#   labs(title = "Use of chair locations in ED",
+#        subtitle = "Source: Star",
+#          x = "",
+#        y = "Number of patients",
+#        fill = "Chair location"
+#         ) +  
+#   theme_classic()  + 
+#   theme(axis.title.y=element_blank(),
+#         axis.text.y=element_blank(),
+#         axis.ticks.x=element_blank()) +
+#   theme(legend.position="bottom") +
+#   theme(strip.text.y.left = element_text(angle = 0))
+# dev.off()
 

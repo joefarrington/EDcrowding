@@ -16,30 +16,7 @@ library(lubridate)
 # Load data
 # =========
 
-inFile <- paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-xx.rda")
-load(inFile)
-
-
-# # group last ED into summary factor
-# ED_csn_summ <- ED_csn_summ %>% mutate(ED_last_loc2 = case_when(
-#   ED_last_loc %in% c("COVID MAJORS 99","MAJORS 99","NON COVID MAJORS 99", "MAJORS CHAIR") ~ "Majors",
-#   ED_last_loc %in% c("ADULT TRIAGE") ~ "Adult Triage",
-#   ED_last_loc %in% c("COVID UTC 99","UTC 99","NON COVID UTC 99", "UTC CHAIR", "UTC O/P/T ROOM", "ED NON COVID UTC 99", "NON COVID UTC CHAIR") ~ "UTC",
-#   ED_last_loc %in% c("DIAGNOSTICS") ~ "Diagnostics",
-#   ED_last_loc %in% c("OTF") ~ "OTF",
-#   ED_last_loc %in% c("RAT 99 COVID MAJORS","RAT 99","NON COVID MAJORS 99", "RAT CHAIR") ~ "RAT",
-#   ED_last_loc %in% c("Arrival") ~ "Arrival",
-#   ED_last_loc %in% c("TAF 99") ~ "TAF",
-#   ED_last_loc %in% c("RESUS 99") ~ "Resus",
-#   ED_last_loc %in% c("WAITING ROOM") ~ "Waiting Room",
-#   TRUE ~ "Other"  
-# ))
-# 
-# # order factor (NB this excludes Arrival, Waiting Room and TAF)
-# ED_csn_summ <- ED_csn_summ %>% 
-#   mutate(ED_last_loc3 =
-#            factor(ED_last_loc2,
-#                   levels = c("Adult Triage","RAT","Majors","Resus","Diagnostics","UTC","TAF", "OTF")))
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_MayJunJul_2020-08-06.rda")
 
 
 
@@ -61,56 +38,6 @@ p1 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_status) %>%
   theme_classic()  + 
   theme(legend.position="bottom") 
 p1
-
-# plot of ED arrivals by last ED area - detailed
-p2 <- ED_csn_summ %>% group_by(date = date(arrival_dttm), ED_last_loc) %>% 
-  summarise(tot = n()) %>% 
-  ggplot(aes(x=date, y = tot, fill = ED_last_loc)) + 
-  geom_bar(stat = "identity") +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-  labs(title = "ED arrivals by date, grouped by last ED location (detailed)",
-       subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
-       x = "",
-       y = "Number of patients",
-       fill = "Last ED location"
-  ) +
-  theme_classic()  + 
-  theme(legend.position="bottom") 
-p2
-
-# # plot of ED arrivals by last ED area - summary
-# p3 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99")) %>% 
-#   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
-#   summarise(tot = n()) %>% 
-#   ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
-#   geom_bar(stat = "identity") +
-#   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-#   labs(title = "ED arrivals by date, grouped by last ED location (summary)",
-#        subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
-#        x = "",
-#        y = "Number of patients",
-#        fill = "Last ED location"
-#   ) +
-#   theme_classic()  + 
-#   theme(legend.position="bottom") 
-
-# # plot of ED arrivals in May and June
-# p4 <- ED_csn_summ %>% filter(!ED_last_loc %in% c("Arrival","WAITING ROOM", "TAF 99"),
-#                          arrival_dttm > "2020-04-30") %>% 
-#   group_by(date = date(arrival_dttm), ED_last_loc3) %>% 
-#   summarise(tot = n()) %>% 
-#   ggplot(aes(x=date, y = tot, fill = ED_last_loc3)) + 
-#   geom_bar(stat = "identity") +
-#   scale_x_date(date_breaks = "1 week", date_labels = "%d%b") +
-#   labs(title = "ED arrivals since 1 May by date, grouped by last ED location (summary)",
-#        subtitle = "Source: Star (excludes any ED admission involving pediatrics)",
-#        x = "",
-#        y = "Number of patients",
-#        fill = "Last ED location"
-#   ) +
-#   theme_classic()  + 
-#   theme(legend.position="bottom") +
-#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
 
 
 # plot of ED length of stay for those admitted

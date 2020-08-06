@@ -11,6 +11,11 @@
 # (ie how many admitted and how many breach on each edge)
 # 3. Eliminate edges under a minimum weight
 
+# Output
+# - edgelist_summ - totals for the period specified
+# - edgelist_stats - daily averages for the period specified
+# - edgelist_summ_breach - totals for the period specified
+# - edgelist_stats_breach - daily averages for the period specified
 
 
 # Load libraries
@@ -79,9 +84,6 @@ calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats 
   }
 }
 
-
-
-
 # Create transition matrix from a given edgelist
 create_transition_matrix <- function(edgelist) {
   
@@ -126,50 +128,54 @@ keep_edges <- function(edgelist_summ, min_weight) {
 # =========
 
 # load edge list
-load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_full_2020-07-23.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_extra_August_2020-08-06.rda")
 
 # load encounter details
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2020-07-23.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_extra_August_2020-08-06.rda")
 
 
+# Create edge information
+# =======================
 
-# Create edge summaries
-# ====================
+# note - dates are inclusive
+from_date <- "2020-08-01"
+to_date <- "2020-08-31"
+file_label <- "extra_August_"
 
-# just Jan and Feb rows
+# creates totals for the period
+edgelist_summ <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)),
+                                        from_date, to_date,
+                                        detail = TRUE, stats = FALSE)
 
-# edgelist_summ_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
-#                                         "2020-01-01", "2020-02-29",  # note - dates are inclusive
-#                                         detail = TRUE, stats = FALSE)
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_",file_label,today(),".csv")
+write.csv(edgelist_summ, file = outFile, row.names = FALSE)
 
-
-edgelist_stats_JanFeb <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
-                                         "2020-01-01", "2020-02-29",  # note - dates are inclusive
+# creates daily averages for the period
+edgelist_stats <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
+                                         from_date, to_date,  
                                         detail = TRUE, stats = TRUE)
 
-# edgelist_summ_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
-#                                                  filter(seen4hrs == "Breach"), 
-#                                                "2020-01-01", "2020-02-29",  # note - dates are inclusive
-#                                                detail = TRUE, stats = FALSE)
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_",file_label,today(),".csv")
+write.csv(edgelist_stats, file = outFile, row.names = FALSE)
+
+# creates totals for the period (breach encounters only)
+edgelist_summ_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>%
+                                              filter(seen4hrs == "Breach"),
+                                               from_date, to_date,
+                                               detail = TRUE, stats = FALSE)
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_breach_",file_label,"breach_",today(),".csv")
+write.csv(edgelist_stats_breach, file = outFile, row.names = FALSE)
+
+# creates daily averages for the period (breach encounters only)
+edgelist_stats_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
+                                                filter(seen4hrs == "Breach"), 
+                                                from_date, to_date,  
+                                                detail = TRUE, stats = TRUE)
 
 
-edgelist_stats_JanFeb_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
-                                                 filter(seen4hrs == "Breach"), 
-                                               "2020-01-01", "2020-02-29",  # note - dates are inclusive
-                                               detail = TRUE, stats = TRUE)
-
-
-# outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_",today(),".csv")
-# write.csv(edgelist_summ_JanFeb, file = outFile, row.names = FALSE)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_",today(),".csv")
-write.csv(edgelist_stats_JanFeb, file = outFile, row.names = FALSE)
-
-# outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_JanFeb_breach_",today(),".csv")
-# write.csv(edgelist_summ_JanFeb_breach, file = outFile, row.names = FALSE)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_breach_",today(),".csv")
-write.csv(edgelist_stats_JanFeb_breach, file = outFile, row.names = FALSE)
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_",file_label,"breach_",today(),".csv")
+write.csv(edgelist_stats_breach, file = outFile, row.names = FALSE)
 
 
 # Create transition matrix
@@ -194,38 +200,23 @@ write.csv(transition_JanFeb, file = outFile, row.names = TRUE)
 # Clean edge list for network diagram
 # ===================================
 
+# this is useful when using total numbers, not daily averages
 
 # look for the right cut point for eliminating edges
-ggplot(edgelist_summ_JanFeb, aes(x=1, y = weight)) + 
+ggplot(edgelist_summ, aes(x=1, y = weight)) + 
   geom_boxplot() # wide band at bottom of box plot
 
 
-ggplot(edgelist_summ_JanFeb %>% filter(weight < 500), aes(x=1, y = weight)) + 
+ggplot(edgelist_summ %>% filter(weight < 500), aes(x=1, y = weight)) + 
   geom_boxplot() # zooming in suggests 100 is a reasonable cut point
 
 
-# get reduced edgelist for Jan and Feb
-keep <- keep_edges(edgelist_summ_JanFeb, 50)
+# get reduced edgelist if required
+keep <- keep_edges(edgelist_summ, 50)
 
 # write reduced edgelist to file
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_grouped_JanFeb_",today(),".csv")
-write.csv(keep, file = outFile, row.names = FALSE)
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_reduced_",file_label,today(),".csv")
+write.csv(edgelist_summ, file = outFile, row.names = FALSE)
 
 
-# get reduced edgelist for Jan and Feb breachless flows
-
-# get reduced edgelist for Jan and Feb
-keep <- keep_edges(edgelist_summ_JanFeb_breachless, 50)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breachless_",today(),".csv")
-write.csv(keep, file = outFile, row.names = FALSE)
-
-
-# get reduced edgelist for Jan and Feb breach flows
-
-# get reduced edgelist for Jan and Feb
-keep <- keep_edges(edgelist_summ_JanFeb_breach, 50)
-
-outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ-grouped_JanFeb_breach_",today(),".csv")
-write.csv(keep, file = outFile, row.names = FALSE)
 
