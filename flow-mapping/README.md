@@ -6,23 +6,19 @@ This is a series of files to extract data from Star and analyse patient moves be
 
 ### 1. get-ED-data-from-Star
 
-This removes some encounters 
-
 output
-- bed_moves
+- ED_bed_moves
 - ED_csn_summ
-- ED_bed_moves 
+- ED_bed_moves_extra 
 
 ### 2. create-edge-list.R
 
 input 
-- ED_csn_summ (now contains everything that ED_csn_detail previously contained)
+- ED_csn_summ 
 - ED_bed_moves
 
 output
 - edgedf
-
-### 3. create-encounter-details.R (this has been superceded - no longer needed
 
 
 ## After that - in any order
@@ -33,21 +29,25 @@ input
 - ED_csn_summ
 
 
-### Process-edge-list-for-analysis.R
+### calc-edge-stats.R
 
 input
 - edgedf
 - ED_csn_summ
 
 output (various options)
-- edgelist_summ 
-- edgelist_stats
+- edgelist_summ (totals over period)
+- edgelist_stats (daily stats)
+as above for breach
 
-## Create-node-details.R
+## calc-node-stats.R
 
 input
 - ED_bed_moves
 - ED_csn_summ
+
+output
+- node_stats
 
 
 ## Python files
