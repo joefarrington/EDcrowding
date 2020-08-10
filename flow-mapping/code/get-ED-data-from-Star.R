@@ -602,9 +602,11 @@ ED_bed_moves <- ED_bed_moves_raw %>%
 
 # create summary (one row per csn)
 ED_csn_summ <- ED_bed_moves %>% 
+  # adding the following line in to avoid duplicate rows, but ideally this would be corrected at source
+  select(-ED_discharge_dttm_excl_OTF, -ED_duration_excl_OTF) %>% 
   group_by(mrn, csn, arrival_dttm, discharge_dttm, 
-           ED_discharge_dttm, ED_discharge_dttm_excl_OTF, ED_discharge_dttm_final,
-           ED_duration, ED_duration_excl_OTF, ED_duration_final) %>% 
+           ED_discharge_dttm, ED_discharge_dttm_final,
+           ED_duration, ED_duration_final) %>% 
   summarise(num_ED_rows = sum(ED_row),
             num_ED_row_excl_OTF = sum(ED_row_excl_OTF)) %>% ungroup() %>% 
   filter(num_ED_rows > 0) %>% 
@@ -639,7 +641,7 @@ ED_bed_moves <- ED_bed_moves %>%
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_Jan-Apr_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_MayJunJul_",today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
