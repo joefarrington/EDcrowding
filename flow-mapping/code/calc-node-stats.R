@@ -17,7 +17,7 @@ library(lubridate)
 
 # Create summaries for a given time period
 
-calc_node_summ <- function(node_daily, node_daily_seen4hrs, from_date, to_date) {
+calc_node_stats <- function(node_daily, node_daily_seen4hrs, from_date, to_date) {
   
   node_daily <- node_daily %>% 
     filter(date >= from_date, date <= to_date)
@@ -65,6 +65,7 @@ ED_bed_moves <- ED_bed_moves_extra
 
 # load encounter details
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_extra_August_2020-08-06.rda")
+ED_csn_summ <- ED_csn_summ_extra
 
 # Create node summaries
 # ====================
@@ -134,7 +135,7 @@ node_daily_seen4hrs <- ED_bed_moves %>%
 
 # Create summaries for a given time period
 
-node_stats <- calc_node_summ(node_daily, node_daily_seen4hrs,
+node_stats <- calc_node_stats(node_daily, node_daily_seen4hrs,
                                    from_date, to_date)  # note - dates are inclusive
 
 outFile = paste0("EDcrowding/flow-mapping/data-output/node_stats_",file_label,today(),".csv")

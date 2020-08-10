@@ -1,9 +1,52 @@
 # Reporting back to Sonya and Ken 
 
+# Direct entry to UTC or RAT
+# ==========================
+
+ED_bed_moves <- ED_bed_moves %>%
+  group_by(csn) %>%
+  mutate(prev_location = lag(room7),
+         prev_prev_location = lag(room7,2)) 
+
+ED_bed_moves %>% filter(room6 == "RAT") %>% 
+  group_by(prev_location) %>% summarise(total = n()) %>% arrange(desc(total))
+ED_bed_moves %>% filter(room6 == "RAT") %>% 
+  group_by(prev_prev_location) %>% summarise(total = n()) %>% arrange(desc(total))
+ED_bed_moves %>% filter(room6 == "UTC") %>% 
+  group_by(prev_location) %>% summarise(total = n()) %>% arrange(desc(total))
+
+# Looking at waiting
+# ==================
+
+# looking at where I could cut the arrivals into those that barely wait at all
+ED_bed_moves %>% filter(room4 == "Waiting", duration_row < .25) %>% 
+  ggplot(aes(x=1, y = duration_row)) + 
+  geom_boxplot()
+
+# shows that big chunk are finished Waiting within 10 minutes
+# note - have to run this before doing the logic to create the additional rows to see full distribution
+ggplot(ED_bed_moves %>% filter(room4 == "Arrived"), 
+       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 5, colour = "white") +
+  scale_x_continuous(n.breaks = 20) + labs(x = "Duration of first row")
+
+ED_bed_moves %>% 
+  mutate(lessthan10 = case_when(room4 == "Waiting" & duration_row <=1/6 ~ 1,
+                                TRUE ~ 0)) %>%filter(room4 == "Waiting") %>% group_by(lessthan10) %>% summarise(n())
+
+# therefore I have added an additional row to make a post arrival of more than 10 minutes a wait time
+ggplot(ED_bed_moves %>% filter(room5 == "Arrived"), 
+       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 1, colour = "white") 
+ggplot(ED_bed_moves %>% filter(room4 == "Waiting"), 
+       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 5, colour = "white") +
+  scale_x_continuous(n.breaks = 20)
+
+
+
+
 # Looking at TRIAGE
 # ================
 # Is there a different between triage with and without beds
-ED_bed_moves %>%  filter(room == 'ADULT TRIAGE') %>% group_by(hl7_location) %>% summarise(n())
+ED_bed_moves %>%  filter(room == 'ADULT TRIAGE') %>% group_by(bed) %>% summarise(n())
 # no - almost all triage rows have now room info 
 
 # how much do people bounce in and out of triage
@@ -26,37 +69,13 @@ ED_bed_moves <- ED_bed_moves %>% group_by(mrn, csn, arrival_dttm, discharge_dttm
 
 ED_bed_moves %>% group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
   mutate(sum_triage = sum(room5 == "TRIAGE")) %>% 
-  mutate(room7 = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
+  mutate(room_temp = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
                                                           TRUE ~ room5)) %>%  filter(ED_row == 1) %>% group_by(room7) %>% summarise(n())
 
 
 ED_bed_moves <- ED_bed_moves %>% 
-  mutate(room7 = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
+  mutate(room_temp = case_when(sum_triage > 1 & room5 == "TRIAGE" ~ paste0(room5, " after ", lag(room5)),
                                           TRUE ~ room5))
-
-# Looking at waiting
-# ==================
-
-# looking at where I could cut the arrivals into those that barely wait at all
-ED_bed_moves %>% filter(room4 == "Waiting", duration_row < .25) %>% 
-  ggplot(aes(x=1, y = duration_row)) + 
-         geom_boxplot()
-
-# shows that big chunk are finished Waiting within 10 minutes
-# note - have to run this before doing the logic to create the additional rows to see full distribution
-ggplot(ED_bed_moves %>% filter(room4 == "Arrived"), 
-       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 5, colour = "white") +
-  scale_x_continuous(n.breaks = 20)
-
-ED_bed_moves %>% mutate(lessthan10 = case_when(room4 == "Waiting" & duration_row <=1/6 ~ 1,
-                                               TRUE ~ 0)) %>% filter(room4 == "Waiting") %>% group_by(lessthan10) %>% summarise(n())
-
-# therefore I have added an additional row to make a post arrival of more than 10 minutes a wait time
-ggplot(ED_bed_moves %>% filter(room5 == "Arrived"), 
-       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 1, colour = "white") 
-ggplot(ED_bed_moves %>% filter(room4 == "Waiting"), 
-       aes(x=as.numeric(duration_row)*60)) + geom_histogram(binwidth = 5, colour = "white") +
-  scale_x_continuous(n.breaks = 20)
 
 
 # MRNs for Mo and Rebecca
