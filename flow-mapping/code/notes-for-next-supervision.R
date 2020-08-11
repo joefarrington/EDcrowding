@@ -18,6 +18,8 @@ ED_bed_moves %>% filter(room6 == "UTC") %>%
 # Looking at waiting
 # ==================
 
+ED_bed_moves <- ED_bed_moves_extra
+ED_bed_moves %>% filter(ED_row == 1) %>%  group_by(room4) %>% summarise(n())
 # looking at where I could cut the arrivals into those that barely wait at all
 ED_bed_moves %>% filter(room4 == "Waiting", duration_row < .25) %>% 
   ggplot(aes(x=1, y = duration_row)) + 

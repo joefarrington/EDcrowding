@@ -243,7 +243,7 @@ sqlQuery <- "select
     star.bed_moves 
     where department = 'UCH EMERGENCY DEPT'
     and date(admission) >= '2020-01-01'
-    and date(admission) <= '2020-04-30'
+    and date(admission) <= '2020-02-29'
     group by csn
     ) 
   and a.csn not in 
@@ -251,7 +251,7 @@ sqlQuery <- "select
     select csn from star.bed_moves where
     room like ('PAEDS%')
     )
-  and c.num_ED_rows > 1"
+  and c.num_ED_rows >= 1"
 sqlQuery <- gsub('\n','',sqlQuery)
 
 start <- Sys.time()
@@ -263,7 +263,7 @@ Sys.time() - start
 
 
 # save data for future loading
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_Jan-Apr_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_JanFeb_",today(),".rda")
 save(ED_bed_moves_raw, file = outFile)
 rm(outFile)
 
@@ -359,6 +359,7 @@ while (num_multiple_ED_visits >0 ) {
     select(csn) %>% distinct() %>%  n_distinct()
            
 }
+# clean up - don't worry if you get warning messages here
 rm(mult_visit_csn, multiple_ED_bed_moves)
 
 # get rid of any csn which no longer involve ED
@@ -379,26 +380,39 @@ ED_bed_moves_raw <- ED_bed_moves_raw <- ED_bed_moves_raw %>%
 
 # OTF is not considered to be a ED location
 # considering how to handle OTF rows, the following shows how many rows do not have OTF as last ED location
-
-ED_bed_moves_raw %>% filter(room == "OTF") %>% select(csn, room) %>% 
-  left_join(ED_bed_moves_raw %>% 
-              filter(department == "UCH EMERGENCY DEPT") %>% 
-              group_by(csn) %>% 
-              filter(discharge == max(discharge)) %>%
-              select(csn, last_room = room)) %>% 
-  group_by(last_room != "OTF") %>% 
-  summarise(n())
+# 
+# ED_bed_moves_raw %>% filter(room == "OTF") %>% select(csn, room) %>% 
+#   left_join(ED_bed_moves_raw %>% 
+#               filter(department == "UCH EMERGENCY DEPT") %>% 
+#               group_by(csn) %>% 
+#               filter(discharge == max(discharge)) %>%
+#               select(csn, last_room = room)) %>% 
+#   group_by(last_room != "OTF") %>% 
+#   summarise(n())
 
 # calculate ED discharge time; this will not be correct for OTF as last row
+
 ED_bed_moves_raw <- ED_bed_moves_raw %>%
   group_by(mrn, csn, arrival_dttm, discharge_dttm, ED_row) %>% 
   mutate(ED_discharge_dttm = 
-           case_when(ED_row == 1 ~ max(discharge),
-                      TRUE ~ NA_POSIXct_)) %>% 
-  mutate(ED_duration = 
-           case_when(ED_row == 1 ~ difftime(ED_discharge_dttm, arrival_dttm, units = "hours"),
-                     # next row is a cheat way to get NA for difftime
-                    TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
+           case_when(ED_row == 1 ~ max(discharge))) %>% 
+  ungroup() %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(ED_discharge_dttm = 
+           case_when(is.na(ED_discharge_dttm) ~ min(ED_discharge_dttm, na.rm = TRUE),
+                     TRUE ~ ED_discharge_dttm)) %>% 
+  mutate(ED_duration = difftime(ED_discharge_dttm, arrival_dttm, units = "hours"))
+         
+         
+# ED_bed_moves_raw <- ED_bed_moves_raw %>%
+#   group_by(mrn, csn, arrival_dttm, discharge_dttm, ED_row) %>% 
+#   mutate(ED_discharge_dttm = 
+#            case_when(ED_row == 1 ~ max(discharge),
+#                       TRUE ~ NA_POSIXct_)) %>% 
+#   mutate(ED_duration = 
+#            case_when(ED_row == 1 ~ difftime(ED_discharge_dttm, arrival_dttm, units = "hours"),
+#                      # next row is a cheat way to get NA for difftime
+#                     TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
 
 
 # do this again but filter out OTF rows to get a ED duration excluding these
@@ -410,20 +424,33 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
                      OTF_row == 1 & ED_row == 1 ~ NA_POSIXct_,
                      OTF_row == 0 & ED_row == 0 ~ NA_POSIXct_,
                      OTF_row == 1 & ED_row == 1 ~ NA_POSIXct_)) %>% 
+  ungroup() %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(ED_discharge_dttm_excl_OTF = 
+           case_when(is.na(ED_discharge_dttm_excl_OTF)~ min(ED_discharge_dttm_excl_OTF, na.rm = TRUE),
+                     TRUE ~ ED_discharge_dttm_excl_OTF)) %>% 
   mutate(ED_duration_excl_OTF = 
-           case_when(OTF_row == 0 & ED_row == 1 ~ difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"),
-                     # next row is a cheat way to get NA for difftime
-                    TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
+           difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))
+  # mutate(ED_duration_excl_OTF = 
+  #          case_when(OTF_row == 0 & ED_row == 1 ~ difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"),
+  #                    # next row is a cheat way to get NA for difftime
+  #                   TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
 
 # create final version of ED_duration - select the pre OTF duration when there is an OTF row last, but not otherwise
-ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>%
-  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>%
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(ED_duration_final =
            case_when(sum(OTF_row) > 0 ~ max(ED_duration_excl_OTF, na.rm = TRUE),
                      TRUE ~ max(ED_duration, na.rm = TRUE)),
          ED_discharge_dttm_final =
          case_when(sum(OTF_row) > 0 ~ max(ED_discharge_dttm_excl_OTF, na.rm = TRUE),
                      TRUE ~ max(ED_discharge_dttm, na.rm = TRUE)))
+
+# use row durations to calc the row that denotes admission beyond ED
+# in most cases, this will be the OTF row
+ED_bed_moves_raw <- ED_bed_moves_raw %>%
+  mutate(admission_row = case_when(admission >= ED_discharge_dttm_excl_OTF &
+                                   lag(admission) < ED_discharge_dttm_excl_OTF ~ TRUE,
+                                 TRUE ~ FALSE))
 
 
 # Simplify room and dept names
@@ -602,10 +629,11 @@ ED_bed_moves <- ED_bed_moves_raw %>%
 
 # create summary (one row per csn)
 ED_csn_summ <- ED_bed_moves %>% 
-  # adding the following line in to avoid duplicate rows, but ideally this would be corrected at source
-  select(-ED_discharge_dttm_excl_OTF, -ED_duration_excl_OTF) %>% 
+  # # adding the following line in to avoid duplicate rows, but ideally this would be corrected at source
+  # select(-ED_discharge_dttm_excl_OTF, -ED_duration_excl_OTF) %>% 
   group_by(mrn, csn, arrival_dttm, discharge_dttm, 
            ED_discharge_dttm, ED_discharge_dttm_final,
+           ED_discharge_dttm_excl_OTF, ED_duration_excl_OTF,
            ED_duration, ED_duration_final) %>% 
   summarise(num_ED_rows = sum(ED_row),
             num_ED_row_excl_OTF = sum(ED_row_excl_OTF)) %>% ungroup() %>% 
@@ -633,7 +661,7 @@ ED_bed_moves <- ED_bed_moves %>%
          room, room2, room2a, room3, room4, room5, room6, room7, bed,
          arrival_row, ED_row, OTF_row, ED_row_excl_OTF, duration_row, 
          ED_discharge_dttm, ED_duration, ED_discharge_dttm_excl_OTF, ED_duration_excl_OTF,
-         ED_discharge_dttm_final, ED_duration_final, everything())
+         ED_discharge_dttm_final, ED_duration_final, admission_row, everything())
 
 
 # Save data
@@ -641,7 +669,7 @@ ED_bed_moves <- ED_bed_moves %>%
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_MayJunJul_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_",today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
@@ -653,7 +681,7 @@ load(inFile)
 
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_MayJunJul_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_",today(),".rda")
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
@@ -677,7 +705,7 @@ extra_rows <- tribble(
   ~dept2, ~dept3, ~ hl7_location, ~ room, ~ room2, ~room2a, ~room3, ~room4, ~room5, ~room6, ~room7,
   ~bed, ~arrival_row, ~ED_row, ~OTF_row, ~ED_row_excl_OTF, ~num_ed_rows,
   ~duration_row, ~ED_duration, ~ED_duration_excl_OTF, ~ED_duration_final, 
-  ~ED_discharge_dttm, ~ ED_discharge_dttm_excl_OTF, ~ED_discharge_dttm_final,
+  ~ED_discharge_dttm, ~ ED_discharge_dttm_excl_OTF, ~ED_discharge_dttm_final, ~admission_row, 
   ~discharge_new)
 
 time_until_waiting <- difftime("2020-01-01 00:10:00", "2020-01-01 00:00:00", units = "hours")
@@ -715,7 +743,7 @@ ED_bed_moves_extra <- ED_bed_moves_extra %>% dplyr::union(extra_rows) %>% arrang
 
 # save ED_bed_moves_extra for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_JanFeb_",today(),".rda")
 save(ED_bed_moves_extra, file = outFile)
 rm(outFile)
 
