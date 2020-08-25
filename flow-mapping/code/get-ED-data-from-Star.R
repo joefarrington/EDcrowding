@@ -546,10 +546,12 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
                                 TRUE ~ room5)) 
 
 # create room7 (see wiki for more information)
-ED_bed_moves_raw <-ED_bed_moves_raw %>% group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
-  mutate(sum_triage = sum(room5 == "TRIAGE")) %>% 
-  mutate(room7 = case_when(sum_triage > 1 & room4 == "TRIAGE" ~ paste0(room4, " Return"),
-                           TRUE ~ room4)) %>% select(-sum_triage)
+ED_bed_moves_raw <-ED_bed_moves_raw %>% group_by(mrn, csn, arrival_dttm, discharge_dttm, room4) %>% 
+  mutate(sum_triage = sum(room4 == "TRIAGE")) %>% 
+  mutate(room7 = case_when(sum_triage > 1 & room4 == "TRIAGE" & admission != min(admission) ~ paste0(room4, " Return"),
+                           TRUE ~ room4)) %>% 
+  select(-sum_triage) %>% ungroup() %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm)
 
 # Final data cleaning
 # ===================

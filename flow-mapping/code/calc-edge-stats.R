@@ -133,8 +133,8 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_August_2020-08-25
 # load encounter details
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-06.rda")
 
-# Create edge summaries by day
-# ============================
+# Create edge summaries for a particular day
+# ==========================================
 
 from_date <- "2020-08-06"
 to_date <- "2020-08-06"
