@@ -79,8 +79,15 @@ G.draw("flow-mapping/media/August-1-6-all.png", prog='dot')
 filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_summ_with_meas_August_6_2020-08-25.csv'
 edgelist_summ = pd.read_csv(filename, sep =',')
 
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/node_daily_with_meas_August_6_2020-08-25.csv'
+node_stats = pd.read_csv(filename, sep =',')
+
 edge_label_num = edgelist_summ['weight'].astype(int).copy().astype(str)
 edgelist_summ['edge_label'] = edge_label_num
+
+# create node label
+node_label_num = ' ('+node_stats['daily_num_pat'].astype(int).copy().astype(str)+')'
+node_stats['node_label'] = node_stats['room7'].str.cat(node_label_num)
 
 # initialise graph
 G4 = pgv.AGraph(name='6-August-all', directed=True,
@@ -89,6 +96,12 @@ G4.node_attr['shape'] = 'ellipse'
 G4.node_attr['fixedsize'] = 'false'
 G4.node_attr['fontsize'] = '10'
 G4.graph_attr['rankdir'] = 'LR'
+
+# add all nodes to graph
+for index, row in node_stats.iterrows():
+    G4.add_node(row['room7'],
+               label = row['node_label']
+               )
 
 # add all edges to graph -  where weight > 1
 for index, row in edgelist_summ[edgelist_summ['weight']>0].iterrows():
