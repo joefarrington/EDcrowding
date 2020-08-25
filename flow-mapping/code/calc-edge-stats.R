@@ -84,44 +84,44 @@ calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats 
   }
 }
 
-# Create transition matrix from a given edgelist
-create_transition_matrix <- function(edgelist) {
-  
-  transition <- edgelist %>% 
-    group_by(from, to) %>%
-    summarise(n = sum(weight)) %>%
-    mutate(freq = n / sum(n)) %>% 
-    arrange(desc(n)) %>% 
-    select(-n) %>%
-    pivot_wider(names_from = to, values_from = freq) %>% 
-    column_to_rownames("from") %>% 
-    replace(is.na(.), 0) 
-  
-  transition <- transition %>% 
-    select(colnames(transition %>% select(-Discharged)), Discharged)
-  
-  # # check all rows sum to one
-  # transition %>%
-  #   mutate(check = rowSums(.[1:ncol(transition)]))
-  
-  # reorder cols by most likely route from Arrival
-  # and rows by most lik
-  col_order <- order(transition[1,], decreasing = TRUE)
-  row_order <- order(transition[,ncol(transition)])
-  transition <- transition[row_order,col_order]
-  
-  return(transition)
-}
+# # Create transition matrix from a given edgelist
+# create_transition_matrix <- function(edgelist) {
+#   
+#   transition <- edgelist %>% 
+#     group_by(from, to) %>%
+#     summarise(n = sum(weight)) %>%
+#     mutate(freq = n / sum(n)) %>% 
+#     arrange(desc(n)) %>% 
+#     select(-n) %>%
+#     pivot_wider(names_from = to, values_from = freq) %>% 
+#     column_to_rownames("from") %>% 
+#     replace(is.na(.), 0) 
+#   
+#   transition <- transition %>% 
+#     select(colnames(transition %>% select(-Discharged)), Discharged)
+#   
+#   # # check all rows sum to one
+#   # transition %>%
+#   #   mutate(check = rowSums(.[1:ncol(transition)]))
+#   
+#   # reorder cols by most likely route from Arrival
+#   # and rows by most lik
+#   col_order <- order(transition[1,], decreasing = TRUE)
+#   row_order <- order(transition[,ncol(transition)])
+#   transition <- transition[row_order,col_order]
+#   
+#   return(transition)
+# }
 
 
-# function to select only edges with a minimum weight
-keep_edges <- function(edgelist_summ, min_weight) {
-  # remove minority edges
-  keep <- edgelist_summ %>% filter(weight > min_weight)  %>% select(from, to, weight)
-  
-  # name the edges
-  keep <- keep %>% mutate(edge = paste0(from,"~",to)) %>% arrange(from,desc(weight))
-}
+# # function to select only edges with a minimum weight
+# keep_edges <- function(edgelist_summ, min_weight) {
+#   # remove minority edges
+#   keep <- edgelist_summ %>% filter(weight > min_weight)  %>% select(from, to, weight)
+#   
+#   # name the edges
+#   keep <- keep %>% mutate(edge = paste0(from,"~",to)) %>% arrange(from,desc(weight))
+# }
 
 
 # Load data
@@ -131,16 +131,16 @@ keep_edges <- function(edgelist_summ, min_weight) {
 load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_August_2020-08-25.rda")
 
 # load encounter details
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_extra_August_2020-08-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-06.rda")
 
 # Create edge summaries by day
 # ============================
 
-from_date <- "2020-08-04"
-to_date <- "2020-08-04"
-file_label <- "with_meas_August_4_"
+from_date <- "2020-08-06"
+to_date <- "2020-08-06"
+file_label <- "with_meas_August_6_"
 
-edgelist_day_stats <- edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)) %>% 
+edgelist_day_stats <- edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
   filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters
   mutate (edge = paste0(from,"~",to)) %>% 
   group_by(date = date(dttm), from, to, edge) %>% 
@@ -161,7 +161,7 @@ to_date <- "2020-08-06"
 file_label <- "with_meas_August_"
 
 # creates totals for the period
-edgelist_summ <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)),
+edgelist_summ <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)),
                                         from_date, to_date,
                                         detail = TRUE, stats = FALSE)
 
@@ -169,7 +169,7 @@ outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_",file_labe
 write.csv(edgelist_summ, file = outFile, row.names = FALSE)
 
 # creates daily averages for the period
-edgelist_stats <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)), 
+edgelist_stats <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)), 
                                          from_date, to_date,  
                                         detail = TRUE, stats = TRUE)
 
@@ -177,7 +177,7 @@ outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_",file_lab
 write.csv(edgelist_stats, file = outFile, row.names = FALSE)
 
 # creates totals for the period (breach encounters only)
-edgelist_summ_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)) %>%
+edgelist_summ_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>%
                                               filter(seen4hrs == "Breach"),
                                                from_date, to_date,
                                                detail = TRUE, stats = FALSE)
@@ -186,7 +186,7 @@ outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_breach_",fi
 write.csv(edgelist_summ_breach, file = outFile, row.names = FALSE)
 
 # creates daily averages for the period (breach encounters only)
-edgelist_stats_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)) %>% 
+edgelist_stats_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
                                                 filter(seen4hrs == "Breach"), 
                                                 from_date, to_date,  
                                                 detail = TRUE, stats = TRUE)

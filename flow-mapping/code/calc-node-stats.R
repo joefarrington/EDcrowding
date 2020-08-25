@@ -63,7 +63,7 @@ calc_node_stats <- function(node_daily, node_daily_seen4hrs, from_date, to_date)
 load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_August_2020-08-25.rda")
 
 # load encounter details
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_extra_August_2020-08-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-25.rda")
 ED_csn_summ <- ED_csn_summ_extra
 
 # Create node summaries

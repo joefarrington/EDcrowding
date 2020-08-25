@@ -55,8 +55,8 @@ sqlQuery <- "select
     FROM
     star.bed_moves 
     where department = 'UCH EMERGENCY DEPT'
-    and date(admission) >= '2019-08-01'
-    and date(admission) <= '2019-08-07'
+    and date(admission) >= '2020-08-01'
+    and date(admission) <= '2020-08-07'
     group by csn
     ) 
   and a.csn not in 

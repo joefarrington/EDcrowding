@@ -658,7 +658,6 @@ ED_csn_summ <- ED_csn_summ %>%
 ED_bed_moves <- ED_bed_moves %>% 
   select(mrn, csn, arrival_dttm, discharge_dttm, admission, discharge, 
          department, dept2, dept3, hl7_location,
-         room, room2, room2a, room3, room4, room5, room6, room7, bed,
          arrival_row, ED_row, OTF_row, ED_row_excl_OTF, duration_row, 
          ED_discharge_dttm, ED_duration, ED_discharge_dttm_excl_OTF, ED_duration_excl_OTF,
          ED_discharge_dttm_final, ED_duration_final, admission_row, everything())
@@ -669,7 +668,7 @@ ED_bed_moves <- ED_bed_moves %>%
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_August_",today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
@@ -681,7 +680,7 @@ load(inFile)
 
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_",today(),".rda")
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
