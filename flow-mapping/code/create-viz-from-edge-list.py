@@ -16,14 +16,14 @@ node_stats = pd.read_csv(filename, sep =',')
 
 # reorder nodes
 #node_stats = node_stats.loc[['Waiting', 'RAT', 'Triage', 'RESUS', 'MAJORS', 'UTC', 'RAT', 'Admitted', 'Discharged'], :]
-node_stats = node_stats.loc[[9,7,4,2,5,6,8,3,0,1], :]
+#node_stats = node_stats.loc[[4,0,3,9,6,10,1,7,2,11,8,5], :]
 
 # cheat workaround to get mean to round
 edgelist_stats.weight_mean = edgelist_stats.weight_mean.astype(int)
 
 # create node label
 node_label_num = ' ('+node_stats['num_pat_mean'].astype(int).copy().astype(str)+')'
-node_stats['node_label'] = node_stats['room6'].str.cat(node_label_num)
+node_stats['node_label'] = node_stats['room7'].str.cat(node_label_num)
 
 # create edge label
 edgelist_stats['pct_disc_mean'] = edgelist_stats['pct_disc_mean'].replace(np.nan, 999)
@@ -32,7 +32,7 @@ edgelist_stats['edge_label'] = edge_label_num
 
 # initialise graph
 G = pgv.AGraph(name='Jan-Feb-all', directed=True,
-               labelloc = 't', label='Daily mean node and edge totals for all patients in Jan and Feb\nwith % admitted for each edge', fontsize = '16')
+               labelloc = 't', label='Daily mean node and edge totals for all patients in August\nwith % admitted for each edge', fontsize = '16')
 G.node_attr['shape'] = 'ellipse'
 G.node_attr['fixedsize'] = 'false'
 G.node_attr['fontsize'] = '10'
@@ -41,13 +41,13 @@ G.graph_attr['rankdir'] = 'LR'
 # add all nodes to graph
 for index, row in node_stats.iterrows():
     # note this if statement is a workaround because Admitted and Discharged node numbers are wrong
-    if row['room6'] != 'Discharged' and  row['room6'] != 'Admitted':
-        G.add_node(row['room6'],
+    if row['room7'] != 'Discharged' and  row['room7'] != 'Admitted':
+        G.add_node(row['room7'],
                    label = row['node_label']
                    )
     else:
-        G.add_node(row['room6'],
-                   label = row['room6']
+        G.add_node(row['room7'],
+                   label = row['room7']
                    )
 
 # add all edges to graph -  where weight > 1
@@ -72,6 +72,38 @@ for index, row in edgelist_stats[edgelist_stats['weight_mean']>1].iterrows():
 
 #G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
 G.draw("flow-mapping/media/temp.png", prog='dot')
+
+# Create graph for average day
+# ============================
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_summ_with_meas_August_4_2020-08-25.csv'
+edgelist_summ = pd.read_csv(filename, sep =',')
+
+edge_label_num = edgelist_summ['weight'].astype(int).copy().astype(str)
+edgelist_summ['edge_label'] = edge_label_num
+
+# initialise graph
+G4 = pgv.AGraph(name='4-August-gt-3', directed=True,
+               labelloc = 't', label='Flows for all patients on 4 August (weight > 3)', fontsize = '16')
+G4.node_attr['shape'] = 'ellipse'
+G4.node_attr['fixedsize'] = 'false'
+G4.node_attr['fontsize'] = '10'
+G4.graph_attr['rankdir'] = 'LR'
+
+# add all edges to graph -  where weight > 1
+for index, row in edgelist_summ[edgelist_summ['weight']>3].iterrows():
+    if row['from'] != 'Admitted' and row['weight'] > 3:
+        G4.add_edge(row['from'], row['to'],
+                   weight=row['weight'],
+                   label=row['edge_label'],
+                   dir="forward",
+                   fontsize='10',
+                   arrowhead="normal",
+                   arrowsize=1,
+                   style="solid",
+                   color='darkseagreen',
+                   penwidth=100 * row['weight'] / sum(edgelist_summ['weight']))
+
+G4.draw("flow-mapping/media/flows-all-patients-4-August-gt-3.png", prog='dot')
 
 # Create graph for breach patients
 # ================================
