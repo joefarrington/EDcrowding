@@ -133,13 +133,31 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_August_2020-08-25
 # load encounter details
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_extra_August_2020-08-06.rda")
 
+# Create edge summaries by day
+# ============================
 
-# Create edge information
-# =======================
+from_date <- "2020-08-04"
+to_date <- "2020-08-04"
+file_label <- "with_meas_August_4_"
+
+edgelist_day_stats <- edgedf %>% left_join(ED_csn_summ_extra %>% select(csn, ED_last_status, seen4hrs)) %>% 
+  filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters
+  mutate (edge = paste0(from,"~",to)) %>% 
+  group_by(date = date(dttm), from, to, edge) %>% 
+  summarise(weight = n(),
+            pct_disc = sum(ED_last_status == "Discharged")/n(),
+            pct_breach = sum(seen4hrs == "Breach")/n())
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_summ_",file_label,today(),".csv")
+write.csv(edgelist_day_stats, file = outFile, row.names = FALSE)
+
+
+# Create edge means over the period
+# =================================
 
 # note - dates are inclusive
 from_date <- "2020-08-01"
-to_date <- "2020-08-31"
+to_date <- "2020-08-06"
 file_label <- "with_meas_August_"
 
 # creates totals for the period

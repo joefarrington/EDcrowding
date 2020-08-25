@@ -60,20 +60,21 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_flowsheets_August_2020-08-10.rda")
 
 # Find earliest timestamp in flowdata
 ED_bed_moves_with_meas <- ED_bed_moves %>% 
+  filter(ED_row_excl_OTF == 1) %>% 
   left_join(ED_flowsheet_raw %>% group_by(csn) %>% 
               summarise(earliest_flowsheet = min(flowsheet_datetime))) %>% 
-  select(mrn, csn, arrival_dttm, discharge_dttm, dept3, room6, admission, discharge, 
+  select(mrn, csn, arrival_dttm, discharge_dttm, dept3, room7, admission, discharge, 
          ED_row, OTF_row, ED_row_excl_OTF, duration_row, discharge_new, earliest_flowsheet)
 
 extra_rows <- tribble(
   ~mrn, ~csn, ~arrival_dttm, ~discharge_dttm, ~admission , ~discharge, 
-  ~dept3,  ~room6,
+  ~dept3,  ~room7,
   ~ED_row, ~OTF_row, ~ED_row_excl_OTF, ~duration_row, 
   ~discharge_new, ~earliest_flowsheet)
 
 # create a new row where the first flowsheet data is earlier than arrival_dttm
 
-ED_bed_moves_with_meas_pre_arrival <- ED_bed_moves_with_meas %>% filter(room6 == "Arrived", arrival_dttm > earliest_flowsheet)
+ED_bed_moves_with_meas_pre_arrival <- ED_bed_moves_with_meas %>% filter(room7 == "Arrived", arrival_dttm > earliest_flowsheet)
 
 for (i in 1:nrow(ED_bed_moves_with_meas_pre_arrival)) {
   
@@ -84,7 +85,7 @@ for (i in 1:nrow(ED_bed_moves_with_meas_pre_arrival)) {
   row$discharge <- row$arrival_dttm
   row$discharge_new <- row$arrival_dttm  
   row$duration_row <- difftime(row$arrival_dttm, row$earliest_flowsheet, units = "hours")
-  row$room6 <- "Meas pre arrival"
+  row$room7 <- "Meas pre arrival"
   extra_rows <- extra_rows %>% add_row(tibble_row(row))
   
 }
@@ -100,7 +101,7 @@ for (i in 1:nrow(ED_bed_moves_with_meas)) {
   
   row <- ED_bed_moves_with_meas[i,]
   
-  if(row$room6 == "Arrived" && 
+  if(row$room7 == "Arrived" && 
      !is.na(row$earliest_flowsheet) &&
      row$admission > row$earliest_flowsheet) { # find next flowsheet measurement when first one was taken pre arrival
     next_flowsheet <- ED_flowsheet_raw %>%
@@ -113,14 +114,14 @@ for (i in 1:nrow(ED_bed_moves_with_meas)) {
     }
   }
   
-  if(row$room6 == "Arrived" && 
+  if(row$room7 == "Arrived" && 
      !is.na(row$earliest_flowsheet) &&
      row$discharge_new > row$earliest_flowsheet) { # Vital signs were taken while person was in Arrived status
     
     # create new row 
     row$admission <- row$earliest_flowsheet
     row$duration_row <- difftime(row$discharge_new, row$earliest_flowsheet, units = "hours") 
-    row$room6 <- "Meas post arrival"
+    row$room7 <- "Meas post arrival"
     extra_rows <- extra_rows %>% add_row(tibble_row(row))
     
     # update the arrival row duration 
@@ -147,7 +148,7 @@ rm(outFile)
 # ================
 
 # create edge list which contains one row per bed move per patient with a time stamp
-# note this is currently using room6 - see wiki for more on room information
+# note this is currently using room7 - see wiki for more on room information
 
 edgedf <- tribble(
   ~mrn,
@@ -156,42 +157,40 @@ edgedf <- tribble(
   ~to,
   ~dttm)
 
-ED_bed_moves <- ED_bed_moves_with_meas
+current_csn = ED_bed_moves_with_meas$csn[1]
 
-current_csn = ED_bed_moves$csn[1]
-
-for (i in (1:nrow(ED_bed_moves))) {
+for (i in (1:nrow(ED_bed_moves_with_meas))) {
   
   if (i%%1000 == 0) {
     print(paste("Processed",i,"rows"))
   }
   
-  from_node <- get_node(as.character(ED_bed_moves$dept3[i]), as.character(ED_bed_moves$room6[i]))
+  from_node <- get_node(as.character(ED_bed_moves_with_meas$dept3[i]), as.character(ED_bed_moves_with_meas$room7[i]))
   
-  if (ED_bed_moves$csn[i+1] == current_csn) {
+  if (ED_bed_moves_with_meas$csn[i+1] == current_csn) {
     
-    to_node <- get_node(as.character(ED_bed_moves$dept3[i+1]), as.character(ED_bed_moves$room6[i+1]))
+    to_node <- get_node(as.character(ED_bed_moves_with_meas$dept3[i+1]), as.character(ED_bed_moves_with_meas$room7[i+1]))
     
     if (from_node != to_node) {
       edgedf <- edgedf %>% add_row(tibble_row(
-        mrn = ED_bed_moves$mrn[i],
-        csn = ED_bed_moves$csn[i],
+        mrn = ED_bed_moves_with_meas$mrn[i],
+        csn = ED_bed_moves_with_meas$csn[i],
         from = from_node,
         to = to_node,
-        dttm = ED_bed_moves$discharge_new[i]
+        dttm = ED_bed_moves_with_meas$discharge_new[i]
       ))
     }
   }
   else {# last row for current csn
     edgedf <- edgedf %>% add_row(tibble_row(
-      mrn = ED_bed_moves$mrn[i],
-      csn = ED_bed_moves$csn[i],
+      mrn = ED_bed_moves_with_meas$mrn[i],
+      csn = ED_bed_moves_with_meas$csn[i],
       from = to_node,
       to = "Discharged",
-      dttm = ED_bed_moves$discharge_dttm[i]
+      dttm = ED_bed_moves_with_meas$discharge_dttm[i]
     ))
     
-    current_csn <- ED_bed_moves$csn[i+1]
+    current_csn <- ED_bed_moves_with_meas$csn[i+1]
   }
 }
 
