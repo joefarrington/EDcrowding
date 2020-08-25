@@ -8,10 +8,10 @@ import pygraphviz as pgv
 
 # read data
 
-filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_JanFeb_2020-07-27.csv'
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/edgelist_stats_with_meas_August_2020-08-25.csv'
 edgelist_stats = pd.read_csv(filename, sep =',', dtype = {"weight_mean" : "float64"})
 
-filename = 'flow-mapping/data-output/node_stats_JanFeb_2020-07-27.csv'
+filename = '/Users/zellaking/GitHubRepos/EDcrowding/flow-mapping/data-output/node_stats_with_meas_August_2020-08-25.csv'
 node_stats = pd.read_csv(filename, sep =',')
 
 # reorder nodes
@@ -23,9 +23,10 @@ edgelist_stats.weight_mean = edgelist_stats.weight_mean.astype(int)
 
 # create node label
 node_label_num = ' ('+node_stats['num_pat_mean'].astype(int).copy().astype(str)+')'
-node_stats['node_label'] = node_stats['room4_new'].str.cat(node_label_num)
+node_stats['node_label'] = node_stats['room6'].str.cat(node_label_num)
 
 # create edge label
+edgelist_stats['pct_disc_mean'] = edgelist_stats['pct_disc_mean'].replace(np.nan, 999)
 edge_label_num = edgelist_stats['weight_mean'].astype(int).copy().astype(str)+' ('+((1-edgelist_stats['pct_disc_mean'])*100).astype(int).copy().astype(str)+'%)'
 edgelist_stats['edge_label'] = edge_label_num
 
@@ -40,16 +41,16 @@ G.graph_attr['rankdir'] = 'LR'
 # add all nodes to graph
 for index, row in node_stats.iterrows():
     # note this if statement is a workaround because Admitted and Discharged node numbers are wrong
-    if row['room4_new'] != 'Discharged' and  row['room4_new'] != 'Admitted':
-        G.add_node(row['room4_new'],
+    if row['room6'] != 'Discharged' and  row['room6'] != 'Admitted':
+        G.add_node(row['room6'],
                    label = row['node_label']
                    )
     else:
-        G.add_node(row['room4_new'],
-                   label = row['room4_new']
+        G.add_node(row['room6'],
+                   label = row['room6']
                    )
 
-# add all edges to graph - only where weight > 3
+# add all edges to graph -  where weight > 1
 for index, row in edgelist_stats[edgelist_stats['weight_mean']>1].iterrows():
     if row['from'] != 'Admitted' and row['weight_mean'] > 1:
         G.add_edge(row['from'], row['to'],
@@ -70,7 +71,7 @@ for index, row in edgelist_stats[edgelist_stats['weight_mean']>1].iterrows():
 #s.add_node('RAT')
 
 #G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
-G.draw("flow-mapping/media/JanFeb_all_2020-07-28.png", prog='dot')
+G.draw("flow-mapping/media/temp.png", prog='dot')
 
 # Create graph for breach patients
 # ================================
