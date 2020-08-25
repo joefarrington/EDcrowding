@@ -66,6 +66,28 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_August_202
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-25.rda")
 ED_csn_summ <- ED_csn_summ_extra
 
+# Create node summaries for a particular day
+# ==========================================
+
+from_date <- "2020-08-06"
+to_date <- "2020-08-06"
+file_label <- "with_meas_August_6_"
+
+node_daily <- ED_bed_moves_with_meas %>% 
+  filter(ED_row_excl_OTF ==  1,
+         !is.na(room7),
+         date(admission) >= date(from_date), 
+         date(discharge) <= date(to_date)) %>% 
+  mutate(date = date(admission)) %>% 
+  group_by(date, room7) %>% 
+  summarise(daily_num_pat = n(),
+            daily_duration_mean = mean(as.numeric(duration_row, units = "hours")), #this creates daily mean
+            daily_duration_sd = sd(as.numeric(duration_row, units = "hours"))) #this creates daily SD
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/node_daily_",file_label,today(),".csv")
+write.csv(node_daily, file = outFile, row.names = FALSE)
+
+
 # Create node summaries
 # ====================
 
@@ -85,6 +107,7 @@ node_daily <- ED_bed_moves_with_meas %>%
   summarise(daily_num_pat = n(),
             daily_duration_mean = mean(as.numeric(duration_row, units = "hours")), #this creates daily mean
             daily_duration_sd = sd(as.numeric(duration_row, units = "hours"))) #this creates daily SD
+
 
 # # Add Admitted and Discharged as nodes
 # node_daily <- node_daily %>% dplyr::union(
