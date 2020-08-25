@@ -1,0 +1,50 @@
+"from","to","edge","weight","pct_disc","pct_breach"
+"Arrived","Meas post arrival","Arrived~Meas post arrival",1014,NA,NA
+"Meas post arrival","TRIAGE","Meas post arrival~TRIAGE",549,NA,NA
+"RAT","MAJORS","RAT~MAJORS",544,NA,NA
+"TRIAGE","Discharged","TRIAGE~Discharged",463,NA,NA
+"MAJORS","Admitted","MAJORS~Admitted",414,NA,NA
+"MAJORS","Discharged","MAJORS~Discharged",370,NA,NA
+"Meas post arrival","RAT","Meas post arrival~RAT",317,NA,NA
+"Arrived","RAT","Arrived~RAT",274,NA,NA
+"Arrived","TRIAGE","Arrived~TRIAGE",207,NA,NA
+"UTC","Discharged","UTC~Discharged",168,NA,NA
+"TRIAGE","RAT","TRIAGE~RAT",160,NA,NA
+"TRIAGE","UTC","TRIAGE~UTC",141,NA,NA
+"Arrived","MAJORS","Arrived~MAJORS",121,NA,NA
+"RAT","Discharged","RAT~Discharged",106,NA,NA
+"Meas post arrival","MAJORS","Meas post arrival~MAJORS",103,NA,NA
+"RESUS","Admitted","RESUS~Admitted",72,NA,NA
+"RAT","TRIAGE","RAT~TRIAGE",58,NA,NA
+"TRIAGE","MAJORS","TRIAGE~MAJORS",53,NA,NA
+"RAT","UTC","RAT~UTC",34,NA,NA
+"RESUS","Discharged","RESUS~Discharged",29,NA,NA
+"Arrived","RESUS","Arrived~RESUS",27,NA,NA
+"RAT","RESUS","RAT~RESUS",26,NA,NA
+"MAJORS","RESUS","MAJORS~RESUS",24,NA,NA
+"Arrived","UTC","Arrived~UTC",23,NA,NA
+"MAJORS","RAT","MAJORS~RAT",22,NA,NA
+"Meas post arrival","RESUS","Meas post arrival~RESUS",21,NA,NA
+"OTF","Discharged","OTF~Discharged",21,NA,NA
+"MAJORS","TAF","MAJORS~TAF",18,NA,NA
+"TAF","Discharged","TAF~Discharged",17,NA,NA
+"UTC","Admitted","UTC~Admitted",17,NA,NA
+"MAJORS","OTF","MAJORS~OTF",16,NA,NA
+"Meas post arrival","UTC","Meas post arrival~UTC",16,NA,NA
+"RESUS","MAJORS","RESUS~MAJORS",15,NA,NA
+"UTC","TRIAGE","UTC~TRIAGE",14,NA,NA
+"UTC","MAJORS","UTC~MAJORS",12,NA,NA
+"TRIAGE","RESUS","TRIAGE~RESUS",11,NA,NA
+"Meas pre arrival","Arrived","Meas pre arrival~Arrived",9,NA,NA
+"Meas post arrival","Arrived","Meas post arrival~Arrived",8,1,0
+"RAT","Admitted","RAT~Admitted",8,0,0
+"Arrived","Discharged","Arrived~Discharged",7,1,0
+"MAJORS","UTC","MAJORS~UTC",6,1,0
+"UTC","OTF","UTC~OTF",4,0,0.5
+"UTC","RAT","UTC~RAT",3,0.333333333333333,1
+"MAJORS","TRIAGE","MAJORS~TRIAGE",2,0,1
+"TAF","MAJORS","TAF~MAJORS",2,1,0
+"TRIAGE","Admitted","TRIAGE~Admitted",2,0,0
+"UTC","RESUS","UTC~RESUS",2,0,1
+"RAT","TAF","RAT~TAF",1,1,1
+"RESUS","OTF","RESUS~OTF",1,NA,NA

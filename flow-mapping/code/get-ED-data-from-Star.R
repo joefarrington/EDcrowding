@@ -720,7 +720,7 @@ for (i in 1:nrow(ED_bed_moves_extra)) {
   
   row <- ED_bed_moves_extra[i,]
   
-  if(row$room5 == "Arrived" && row$duration_row > 1/6) { # Arrival duration greater than 10 minute
+  if(row$room5 == "Arrived" && row$duration_row > time_until_waiting) { 
     
     # create new row for the additional wait time
     row$admission <- ED_bed_moves_extra$admission[i] + time_until_waiting
