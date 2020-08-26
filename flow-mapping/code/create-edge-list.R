@@ -89,12 +89,13 @@ for (i in 1:nrow(ED_bed_moves_with_meas_pre_arrival)) {
   
 }
 
+rm(ED_bed_moves_with_meas_pre_arrival)
 
 # process rows where triage takes place during Arrival
 
 for (i in 1:nrow(ED_bed_moves_with_meas)) {
   
-  if (i%%100 == 0) {
+  if (i%%1000 == 0) {
     print(paste("Processed",i,"rows"))
   }
   
@@ -133,14 +134,22 @@ for (i in 1:nrow(ED_bed_moves_with_meas)) {
 
 ED_bed_moves_with_meas <- ED_bed_moves_with_meas %>% dplyr::union(extra_rows) %>% arrange(mrn, csn, admission)
 
+ED_bed_moves_with_meas <- ED_bed_moves_with_meas %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm)%>% 
+  mutate(num_ED_rows = sum(ED_row == 1))
+  
+  
 # save ED_bed_moves_with_meas for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_JanFeb_",today(),".rda")
 save(ED_bed_moves_with_meas, file = outFile)
 rm(outFile)
 
 
-
+# Create row numbers if useful
+ED_bed_moves_with_meas <- ED_bed_moves_with_meas %>% ungroup() %>%
+  mutate(id = row_number()) %>%
+  group_by(mrn, csn, arrival_dttm, discharge_dttm)
 
 
 # Create edge list
@@ -180,26 +189,32 @@ for (i in (1:nrow(ED_bed_moves_with_meas))) {
       ))
     }
   }
-  else {# last row for current csn
-    edgedf <- edgedf %>% add_row(tibble_row(
-      mrn = ED_bed_moves_with_meas$mrn[i],
-      csn = ED_bed_moves_with_meas$csn[i],
-      from = to_node,
-      to = "Discharged",
-      dttm = ED_bed_moves_with_meas$discharge_dttm[i]
-    ))
+  else {# write last row for current csn - but skip if only one row
     
-    current_csn <- ED_bed_moves_with_meas$csn[i+1]
+    if (ED_bed_moves_with_meas$num_ED_rows[i] > 1) {
+      edgedf <- edgedf %>% add_row(tibble_row(
+        mrn = ED_bed_moves_with_meas$mrn[i],
+        csn = ED_bed_moves_with_meas$csn[i],
+        from = to_node,
+        to = "Discharged",
+        dttm = ED_bed_moves_with_meas$discharge_dttm[i]
+      ))
+      
+    }
+    
+    if (i !=nrow(ED_bed_moves_with_meas)) {
+      current_csn <- ED_bed_moves_with_meas$csn[i+1]
+    }
   }
 }
 
 
 # save edge list for future use
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_JanFeb_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
 
 # OR load edge list if already saved
 
-
+edgedf %>% filter(csn == "1017542386")
 

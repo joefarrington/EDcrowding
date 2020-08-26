@@ -55,8 +55,8 @@ sqlQuery <- "select
     FROM
     star.bed_moves 
     where department = 'UCH EMERGENCY DEPT'
-    and date(admission) >= '2020-08-01'
-    and date(admission) <= '2020-08-07'
+    and date(admission) >= '2020-01-01'
+    and date(admission) <= '2020-02-29'
     group by csn
     ) 
   and a.csn not in 
@@ -76,6 +76,6 @@ Sys.time() - start
 
 
 # save data for future loading
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_JanFeb_",today(),".rda")
 save(ED_bed_moves_raw, file = outFile)
 rm(outFile)

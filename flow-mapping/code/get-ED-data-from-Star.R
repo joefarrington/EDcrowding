@@ -363,17 +363,24 @@ while (num_multiple_ED_visits >0 ) {
 rm(mult_visit_csn, multiple_ED_bed_moves)
 
 # get rid of any csn which no longer involve ED
+# NB - on 26.8.20 I corrected this to include csns with only one ED row
 ED_bed_moves_raw <- ED_bed_moves_raw %>% group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
-  mutate(num_ed_rows = sum(ED_row == 1)) %>% filter(num_ed_rows > 1)
+  mutate(num_ed_rows = sum(ED_row == 1)) %>% filter(num_ed_rows > 0)
 
 
 # indicate whether row is OTF location
-ED_bed_moves_raw <- ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(OTF_row = case_when(room == "OTF" ~ 1,
                             TRUE ~ 0)) 
 
+# a few csns have OTF in the arrival row 
+OTF_arrival_csn <- ED_bed_moves_raw %>% 
+  filter(OTF_row ==1, arrival_row) %>% select(csn) %>% distinct()
 
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  filter(!csn %in% OTF_arrival_csn$csn)
 
+rm(OTF_arrival_csn)
 
 # Calculating durations
 # =====================
@@ -584,7 +591,7 @@ elsewhere_to_ED_csn <- ED_bed_moves_raw %>%
                            TRUE ~ "A")) %>% 
   filter(check == "B") %>% select(csn) 
 # to see the number of csns identified: 
-elsewhere_to_ED_csn %>% select(csn) %>% n_distinct() #only 1 in Jan/Feb; 0 in Mar/Apr; 4 in May/Jun/Jul; 0 in August
+elsewhere_to_ED_csn %>% select(csn) %>% n_distinct() #0Jan/Feb; 0 in Mar/Apr; 4 in May/Jun/Jul; 0 in August
 
 # look at csns with duration of more than one day:
 long_ED_csn <-  ED_bed_moves_raw %>% 
@@ -599,12 +606,12 @@ long_ED_csn %>% select(csn) %>% n_distinct() #22 in Jan/Feb 6 in Mar/Apr; 8 in M
 # ED_bed_moves_raw %>% filter(mrn == "21212090") similar to above but returned to UTC then discharge
 # ED_bed_moves_raw %>% filter(mrn == "21176662") has two arrival rows in ED then nothing else; remove this one
 
-# several have weird arrival rows
-odd_arrival_rows <- ED_bed_moves_raw %>% filter(arrival_row, 
-                            hl7_location %in% c("ED^UCHED WR POOL^WR",
-                                                "ED^UCHED OTF POOL^OTF")) %>% 
-  select(csn) %>% distinct()
-
+# # several have weird arrival rows - but leave these in
+# odd_arrival_rows <- ED_bed_moves_raw %>% filter(arrival_row, 
+#                             hl7_location %in% c("ED^UCHED WR POOL^WR",
+#                                                 "ED^UCHED OTF POOL^OTF")) %>% 
+#   select(csn) %>% distinct()
+# 
 
 
 # # a few CSNs have multiple iterations through OTF and Waiting room - use this to check
@@ -622,7 +629,7 @@ odd_arrival_rows <- ED_bed_moves_raw %>% filter(arrival_row,
 ED_bed_moves <- ED_bed_moves_raw %>% 
   filter(
     !csn %in% odd_csn$csn,
-    !csn %in% long_ED_csn$csn, # worth doing for May to July
+#    !csn %in% long_ED_csn$csn, # worth doing for May to July
 #    !csn %in% odd_arrival_rows$csn, leave these in
     !csn %in% elsewhere_to_ED_csn$csn) 
 
@@ -631,8 +638,6 @@ ED_bed_moves <- ED_bed_moves_raw %>%
 
 # create summary (one row per csn)
 ED_csn_summ <- ED_bed_moves %>% 
-  # # adding the following line in to avoid duplicate rows, but ideally this would be corrected at source
-  # select(-ED_discharge_dttm_excl_OTF, -ED_duration_excl_OTF) %>% 
   group_by(mrn, csn, arrival_dttm, discharge_dttm, 
            ED_discharge_dttm, ED_discharge_dttm_final,
            ED_discharge_dttm_excl_OTF, ED_duration_excl_OTF,
@@ -664,13 +669,18 @@ ED_bed_moves <- ED_bed_moves %>%
          ED_discharge_dttm, ED_duration, ED_discharge_dttm_excl_OTF, ED_duration_excl_OTF,
          ED_discharge_dttm_final, ED_duration_final, admission_row, everything())
 
+# Clean up
+# ========
+
+rm(elsewhere_to_ED_csn, long_ED_csn, odd_arrival_rows, odd_csn, OTF_arrival_csn)
+
 
 # Save data
 # =========
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_",today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
@@ -682,7 +692,7 @@ load(inFile)
 
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_",today(),".rda")
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
@@ -693,59 +703,59 @@ load(inFile)
 
 
 
-# Add additional waiting row  
-# ==========================
-
-# alternative version of ED_bed_moves with additional waiting rows
-# This section adds a row where more than a specified length of time
-# which is given by time_until_waiting has passed since arrival
-# row admission, discharge and duration are updated accordingly
-
-extra_rows <- tribble(
-  ~mrn, ~csn, ~arrival_dttm, ~discharge_dttm, ~admission , ~discharge, ~department,
-  ~dept2, ~dept3, ~ hl7_location, ~ room, ~ room2, ~room2a, ~room3, ~room4, ~room5, ~room6, ~room7,
-  ~bed, ~arrival_row, ~ED_row, ~OTF_row, ~ED_row_excl_OTF, ~num_ed_rows,
-  ~duration_row, ~ED_duration, ~ED_duration_excl_OTF, ~ED_duration_final, 
-  ~ED_discharge_dttm, ~ ED_discharge_dttm_excl_OTF, ~ED_discharge_dttm_final, ~admission_row, 
-  ~discharge_new)
-
-time_until_waiting <- difftime("2020-01-01 00:10:00", "2020-01-01 00:00:00", units = "hours")
-
-ED_bed_moves_extra <- ED_bed_moves
-
-for (i in 1:nrow(ED_bed_moves_extra)) {
-  
-  if (i%%1000 == 0) {
-    print(paste("Processed",i,"rows"))
-  }
-  
-  row <- ED_bed_moves_extra[i,]
-  
-  if(row$room5 == "Arrived" && row$duration_row > time_until_waiting) { 
-    
-    # create new row for the additional wait time
-    row$admission <- ED_bed_moves_extra$admission[i] + time_until_waiting
-    row$duration_row <- ED_bed_moves_extra$duration_row[i] -   time_until_waiting
-    row$room2a <- "Waiting"
-    row$room3 <- "Waiting"
-    row$room4 <- "Waiting"
-    row$room5 <- "Waiting"
-    row$room6 <- "Waiting"
-    row$room7 <- "Waiting"
-    extra_rows <- extra_rows %>% add_row(tibble_row(row))
-    
-    # update the arrival duration to 10 minutes
-    ED_bed_moves_extra$duration_row[i] <- time_until_waiting
-    ED_bed_moves_extra$discharge[i] <- ED_bed_moves_extra$admission[i] + time_until_waiting
-  }
-}
-
-ED_bed_moves_extra <- ED_bed_moves_extra %>% dplyr::union(extra_rows) %>% arrange(mrn, csn, admission)
-
-# save ED_bed_moves_extra for later use
-
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_JanFeb_",today(),".rda")
-save(ED_bed_moves_extra, file = outFile)
-rm(outFile)
+# # Add additional waiting row  
+# # ==========================
+# 
+# # alternative version of ED_bed_moves with additional waiting rows
+# # This section adds a row where more than a specified length of time
+# # which is given by time_until_waiting has passed since arrival
+# # row admission, discharge and duration are updated accordingly
+# 
+# extra_rows <- tribble(
+#   ~mrn, ~csn, ~arrival_dttm, ~discharge_dttm, ~admission , ~discharge, ~department,
+#   ~dept2, ~dept3, ~ hl7_location, ~ room, ~ room2, ~room2a, ~room3, ~room4, ~room5, ~room6, ~room7,
+#   ~bed, ~arrival_row, ~ED_row, ~OTF_row, ~ED_row_excl_OTF, ~num_ed_rows,
+#   ~duration_row, ~ED_duration, ~ED_duration_excl_OTF, ~ED_duration_final, 
+#   ~ED_discharge_dttm, ~ ED_discharge_dttm_excl_OTF, ~ED_discharge_dttm_final, ~admission_row, 
+#   ~discharge_new)
+# 
+# time_until_waiting <- difftime("2020-01-01 00:10:00", "2020-01-01 00:00:00", units = "hours")
+# 
+# ED_bed_moves_extra <- ED_bed_moves
+# 
+# for (i in 1:nrow(ED_bed_moves_extra)) {
+#   
+#   if (i%%1000 == 0) {
+#     print(paste("Processed",i,"rows"))
+#   }
+#   
+#   row <- ED_bed_moves_extra[i,]
+#   
+#   if(row$room5 == "Arrived" && row$duration_row > time_until_waiting) { 
+#     
+#     # create new row for the additional wait time
+#     row$admission <- ED_bed_moves_extra$admission[i] + time_until_waiting
+#     row$duration_row <- ED_bed_moves_extra$duration_row[i] -   time_until_waiting
+#     row$room2a <- "Waiting"
+#     row$room3 <- "Waiting"
+#     row$room4 <- "Waiting"
+#     row$room5 <- "Waiting"
+#     row$room6 <- "Waiting"
+#     row$room7 <- "Waiting"
+#     extra_rows <- extra_rows %>% add_row(tibble_row(row))
+#     
+#     # update the arrival duration to 10 minutes
+#     ED_bed_moves_extra$duration_row[i] <- time_until_waiting
+#     ED_bed_moves_extra$discharge[i] <- ED_bed_moves_extra$admission[i] + time_until_waiting
+#   }
+# }
+# 
+# ED_bed_moves_extra <- ED_bed_moves_extra %>% dplyr::union(extra_rows) %>% arrange(mrn, csn, admission)
+# 
+# # save ED_bed_moves_extra for later use
+# 
+# outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_JanFeb_",today(),".rda")
+# save(ED_bed_moves_extra, file = outFile)
+# rm(outFile)
 
 

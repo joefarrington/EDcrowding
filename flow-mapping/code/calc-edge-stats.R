@@ -156,9 +156,9 @@ write.csv(edgelist_day_stats, file = outFile, row.names = FALSE)
 # =================================
 
 # note - dates are inclusive
-from_date <- "2020-08-01"
-to_date <- "2020-08-06"
-file_label <- "with_meas_August_"
+from_date <- "2020-01-01"
+to_date <- "2020-02-29"
+file_label <- "with_meas_JanFeb_"
 
 # creates totals for the period
 edgelist_summ <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)),
@@ -194,6 +194,12 @@ edgelist_stats_breach <- calc_edge_stats(edgedf %>% left_join(ED_csn_summ %>% se
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/edgelist_stats_",file_label,"breach_",today(),".csv")
 write.csv(edgelist_stats_breach, file = outFile, row.names = FALSE)
+
+# Check this one - showing as admitted on 28/2 in csn_summ even though only has one ED row
+# problem is because discharge and discharge_dttm not same
+y2 <- ED_bed_moves_raw %>% filter(csn == "1018439782")
+# and this
+ED_bed_moves_raw %>% filter(num_ed_rows == 1, discharge_dttm != discharge)
 
 
 # # Create transition matrix
