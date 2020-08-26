@@ -136,9 +136,9 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-06.rda")
 # Create edge summaries for a particular day
 # ==========================================
 
-from_date <- "2020-08-06"
-to_date <- "2020-08-06"
-file_label <- "with_meas_August_6_"
+from_date <- "2020-02-21"
+to_date <- "2020-02-21"
+file_label <- "with_meas_Feb_21_"
 
 edgelist_day_stats <- edgedf %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)) %>% 
   filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters

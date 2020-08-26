@@ -30,6 +30,9 @@ calc_node_stats <- function(node_daily, node_daily_seen4hrs, from_date, to_date)
     summarise(num_pat_mean = mean(daily_num_pat),
               num_pat_sd = sd(daily_num_pat),
               duration_mean = mean(daily_duration_mean),
+              duration_median = median(daily_duration_mean),
+              duration_Q25 = quantile(daily_duration_mean, .25, na.rm = TRUE),
+              duration_Q75 = quantile(daily_duration_mean, .75, na.rm = TRUE),
               duration_sd = sd(daily_duration_mean)) %>% 
     # add mean and SD for breach only
     left_join(
@@ -39,6 +42,9 @@ calc_node_stats <- function(node_daily, node_daily_seen4hrs, from_date, to_date)
         summarise(num_pat_mean_breach = mean(daily_num_pat),
                   num_pat_sd_beach = sd(daily_num_pat),
                   duration_mean_breach = mean(daily_duration_mean),
+                  duration_median_breach = median(daily_duration_mean),
+                  duration_Q25_breach = quantile(daily_duration_mean, .25, na.rm = TRUE),
+                  duration_Q75_breach = quantile(daily_duration_mean, .75, na.rm = TRUE),
                   duration_sd_breach = sd(daily_duration_mean))
     ) %>% 
     # add mean and SD for not breach (seen 4 hours) only
@@ -49,6 +55,9 @@ calc_node_stats <- function(node_daily, node_daily_seen4hrs, from_date, to_date)
         summarise(num_pat_mean_seen4hrs = mean(daily_num_pat),
                   num_pat_sd_seen4hrs = sd(daily_num_pat),
                   duration_mean_seen4hrs = mean(daily_duration_mean),
+                  duration_median_seen4hrs = median(daily_duration_mean),
+                  duration_Q25_seen4hrs = quantile(daily_duration_mean, .25, na.rm = TRUE),
+                  duration_Q75_seen4hrs = quantile(daily_duration_mean, .75, na.rm = TRUE),
                   duration_sd_seen4hrs = sd(daily_duration_mean))
     )
   return(node_daily_summ)
@@ -69,9 +78,9 @@ ED_csn_summ <- ED_csn_summ_extra
 # Create node summaries for a particular day
 # ==========================================
 
-from_date <- "2020-08-06"
-to_date <- "2020-08-06"
-file_label <- "with_meas_August_6_"
+from_date <- "2020-02-21"
+to_date <- "2020-02-21"
+file_label <- "with_meas_Feb_21_"
 
 node_daily <- ED_bed_moves_with_meas %>% 
   filter(ED_row_excl_OTF ==  1,
@@ -92,9 +101,9 @@ write.csv(node_daily, file = outFile, row.names = FALSE)
 # ====================
 
 # note - dates are inclusive
-from_date <- "2020-08-01"
-to_date <- "2020-08-06"
-file_label <- "with_meas_August_"
+from_date <- "2020-01-01"
+to_date <- "2020-03-01"
+file_label <- "with_meas_JanFeb_"
 
 # First calculate total number and mean duration for each day
 node_daily <- ED_bed_moves_with_meas %>% 
