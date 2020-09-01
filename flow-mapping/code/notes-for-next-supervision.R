@@ -72,6 +72,12 @@ triage_flowsheets  %>% group_by(csn, duration_row) %>%
   theme_classic() +
   theme(legend.position="none") 
 
+# Delving into long triage
+# ========================
+
+long_triage_csn <- ED_bed_moves_with_meas %>% filter(room7 == "TRIAGE", duration_row > hours(2)) %>% select(csn)
+ED_bed_moves_long_triage <- ED_bed_moves_with_meas %>% filter(csn %in% long_triage_csn)
+
 
 # Nodes of admission
 # ==================

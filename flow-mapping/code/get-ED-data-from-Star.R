@@ -177,13 +177,16 @@ group_room_names <- Vectorize(group_room_names)
 
 
 # simple function to return whether location denotes admission
-calc_admission <- function(dept2, room2, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF) {
+calc_admission <- function(dept2, room2, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF, next_dept) {
   if (dept2 != "ED") {
     return("Admitted")
   }
   else if (room2 == "OTF" && !is.na(ED_discharge_dttm_excl_OTF) 
            # added this to make sure there are later rows - ie patient was eventually admitted
-           && discharge < discharge_dttm)
+           && discharge < discharge_dttm &&
+           # added this to make sure that if patient returns to ED after OTF this is not marked as admitted
+           !is.na(next_dept) && 
+           next_dept != "ED")
     return("Admitted")
   else {
     return("Still in ED")
@@ -193,79 +196,86 @@ calc_admission <- function(dept2, room2, discharge, discharge_dttm, ED_discharge
 calc_admission <- Vectorize(calc_admission)
 
 
-# Load bed_move data
-# ==================
+# # Load bed_move data
+# # ==================
 
-ctn <- DBI::dbConnect(RPostgres::Postgres(),
-                      host = Sys.getenv("UDS_HOST"),
-                      port = 5432,
-                      user = Sys.getenv("UDS_USER"),
-                      password = Sys.getenv("UDS_PWD"),
-                      dbname = "uds")
-
-## EITHER get bed moves from Star
-
-sqlQuery <- "select 
-  a.mrn,
-  a.csn,
-  b.arrival_dttm,
-  b.discharge_dttm,
-  a.admission,
-  a.discharge,
-  a.department,
-  a.room, 
-  a.bed,
-  a.hl7_location,
-  c.num_ED_rows
-  from star.bed_moves a
-    join (
-          select mrn, csn, min(admission) as arrival_dttm, 
-          max(discharge) as discharge_dttm FROM
-          star.bed_moves b
-          group by mrn, csn
-          ) b
-    on a.mrn = b.mrn 
-    and a.csn = b.csn
-    join (
-          select mrn, csn,
-          count(*) as num_ED_rows 
-          FROM
-          star.bed_moves 
-          where department = 'UCH EMERGENCY DEPT'
-          group by mrn, csn 
-         ) c 
-    on a.mrn = c.mrn 
-    and a.csn = c.csn
-  where a.csn in  
-    (
-    select csn
-    FROM
-    star.bed_moves 
-    where department = 'UCH EMERGENCY DEPT'
-    and date(admission) >= '2020-01-01'
-    and date(admission) <= '2020-02-29'
-    group by csn
-    ) 
-  and a.csn not in 
-    (
-    select csn from star.bed_moves where
-    room like ('PAEDS%')
-    )
-  and c.num_ED_rows >= 1"
-sqlQuery <- gsub('\n','',sqlQuery)
-
-start <- Sys.time()
-ED_bed_moves_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
-Sys.time() - start
-# DB Forge took 2.51 for two months and 12.09 for 2020 year to date
-# R took 14.28 min for Jan and Feb; 8.36 minutes for Mar Apr; 11.9 for May-Jul
-# R took 3.33 mins for 1-6 August
+file_label <- "JanFeb_"
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-08-26.rda")
+load(inFile)
 
 
-# save data for future loading
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_JanFeb_",today(),".rda")
-save(ED_bed_moves_raw, file = outFile)
-rm(outFile)
+# the following has now moved to a separate script
+# 
+# ctn <- DBI::dbConnect(RPostgres::Postgres(),
+#                       host = Sys.getenv("UDS_HOST"),
+#                       port = 5432,
+#                       user = Sys.getenv("UDS_USER"),
+#                       password = Sys.getenv("UDS_PWD"),
+#                       dbname = "uds")
+# 
+# ## EITHER get bed moves from Star
+# 
+# sqlQuery <- "select 
+#   a.mrn,
+#   a.csn,
+#   b.arrival_dttm,
+#   b.discharge_dttm,
+#   a.admission,
+#   a.discharge,
+#   a.department,
+#   a.room, 
+#   a.bed,
+#   a.hl7_location,
+#   c.num_ED_rows
+#   from star.bed_moves a
+#     join (
+#           select mrn, csn, min(admission) as arrival_dttm, 
+#           max(discharge) as discharge_dttm FROM
+#           star.bed_moves b
+#           group by mrn, csn
+#           ) b
+#     on a.mrn = b.mrn 
+#     and a.csn = b.csn
+#     join (
+#           select mrn, csn,
+#           count(*) as num_ED_rows 
+#           FROM
+#           star.bed_moves 
+#           where department = 'UCH EMERGENCY DEPT'
+#           group by mrn, csn 
+#          ) c 
+#     on a.mrn = c.mrn 
+#     and a.csn = c.csn
+#   where a.csn in  
+#     (
+#     select csn
+#     FROM
+#     star.bed_moves 
+#     where department = 'UCH EMERGENCY DEPT'
+#     and date(admission) >= '2020-01-01'
+#     and date(admission) <= '2020-02-29'
+#     group by csn
+#     ) 
+#   and a.csn not in 
+#     (
+#     select csn from star.bed_moves where
+#     room like ('PAEDS%')
+#     )
+#   and c.num_ED_rows >= 1"
+# sqlQuery <- gsub('\n','',sqlQuery)
+# 
+# start <- Sys.time()
+# ED_bed_moves_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+# Sys.time() - start
+# # DB Forge took 2.51 for two months and 12.09 for 2020 year to date
+# # R took 14.28 min for Jan and Feb; 8.36 minutes for Mar Apr; 11.9 for May-Jul
+# # R took 3.33 mins for 1-6 August
+# 
+# 
+# # save data for future loading
+# outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,today(),".rda")
+# save(ED_bed_moves_raw, file = outFile)
+# rm(outFile)
 
 
 # Basic checks
@@ -497,9 +507,12 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 #   select(room, room3, tot) %>%
 #   pivot_wider(names_from = room3, values_from = tot)
 
-# create dept3 (see wiki for more information)t
+# create dept3 (see wiki for more information)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  mutate(dept3 = calc_admission(dept2, room2a, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF))
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(next_dept = lead(dept2)) %>% 
+  mutate(dept3 = calc_admission(dept2, room2a, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF, next_dept)) %>% 
+  select(-next_dept)
 
 
 # Create room4 (see wiki for more information)
@@ -516,7 +529,7 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 # 
 # # save data on mappings for reference
 # 
-# outFile = paste0("EDcrowding/flow-mapping/data-output/room_mappings_",today(),".rda")
+# outFile = paste0("EDcrowding/flow-mapping/data-output/room_mappings_",file_label,today(),".rda")
 # save(h, file = outFile)
 # rm(outFile)
 
@@ -565,18 +578,17 @@ ED_bed_moves_raw <-ED_bed_moves_raw %>% group_by(mrn, csn, arrival_dttm, dischar
 
 # # look at outliers
 # ggplot(ED_bed_moves_raw %>% filter(ED_row == 1), # one clear outlier
-#        aes(x=1, y = duration_row)) + 
+#        aes(x=1, y = duration_row)) +
 #         geom_boxplot()
 # 
 # # without that one, majority of long durations rows are OTF (off the floor)
-# ggplot(ED_bed_moves_raw %>% filter(ED_row == 1, duration_row < 400), aes(x=room3, y = duration_row)) + 
+# ggplot(ED_bed_moves_raw %>% filter(ED_row == 1, duration_row < 400), aes(x=room3, y = duration_row)) +
 #   geom_boxplot() +
 #   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0))
-
-
-# remove one outlier
-ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(duration_row < 400) %>% 
-  arrange(mrn, csn, admission)
+# 
+# # remove one outlier
+# ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(duration_row < 400) %>% 
+#   arrange(mrn, csn, admission)
 
 # some csns have rows where the discharge time is earlier than the admission time
 odd_csn <- ED_bed_moves_raw %>% filter(discharge < admission) %>% select(csn)
@@ -680,27 +692,15 @@ rm(elsewhere_to_ED_csn, long_ED_csn, odd_arrival_rows, odd_csn, OTF_arrival_csn)
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
-# OR load saved ED_bed_moves
-
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_","",".rda")
-load(inFile)
-
-
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",file_label,today(),".rda")
 save(ED_csn_summ, file = outFile)
 rm(outFile)
-
-# OR LOAD saved data
-inFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_","",".rda")
-load(inFile)
-
-
 
 
 # # Add additional waiting row  
@@ -754,7 +754,7 @@ load(inFile)
 # 
 # # save ED_bed_moves_extra for later use
 # 
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_JanFeb_",today(),".rda")
+# outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_,file_label,today(),".rda")
 # save(ED_bed_moves_extra, file = outFile)
 # rm(outFile)
 

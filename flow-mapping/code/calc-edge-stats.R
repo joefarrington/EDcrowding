@@ -128,10 +128,10 @@ calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats 
 # =========
 
 # load edge list
-load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_August_2020-08-25.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_edgelist_with_meas_JanFeb_2020-09-01.rda")
 
 # load encounter details
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_August_2020-08-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_2020-09-01.rda")
 
 # Create edge summaries for a particular day
 # ==========================================
