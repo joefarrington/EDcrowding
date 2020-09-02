@@ -4,18 +4,34 @@ This is a series of files to extract data from Star and analyse patient moves be
 
 ## Order to run files in
 
-### 1. get-ED-data-from-Star
+### 1. Retrieve and process data
+
+get-ED-data-from-Star-DB-step.R 
+get-ED-data-from_Star.R
+
+These two files retrieve and process data from Star
 
 output
 - ED_bed_moves
 - ED_csn_summ
-- ED_bed_moves_extra 
+(- ED_bed_moves_extra - currently commented out; adds an additional waiting node)
 
-### 2. create-edge-list.R
+### 2. Get data on vital signs
+
+get-vital-signs-from_Star-DB-step.R
+
+This file gets flowsheet data that will be used to identify when a patient first had measurements taken
+
+output 
+- ED_flowsheet_raw
+
+
+### 3. create-edge-list.R
 
 input 
 - ED_csn_summ 
 - ED_bed_moves
+- ED_flowsheet_raw
 
 output
 - edgedf

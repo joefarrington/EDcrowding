@@ -1,5 +1,118 @@
 # Reporting back to Sonya and Ken 
 
+# What is happening to Triage
+# ===========================
+
+# when are measurements entered? 
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_2020-08-26.rda")
+arrived <- ED_bed_moves %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(next_location = lead(room7)) %>% 
+  filter(room7 == "Arrived", next_location %in% c("TRIAGE", "RAT")) %>% 
+  select(csn, room7, next_location, admission, discharge, duration_row) %>% 
+  arrange(csn, admission)
+
+arrived <- arrived %>% ungroup() %>% mutate(id = row_number())
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_flowsheets_JanFeb_2020-08-26.rda")
+arrived_flowsheets <- ED_flowsheet_raw %>% 
+  select(mrn, csn, flowsheet_datetime) %>% 
+  arrange(mrn, csn, flowsheet_datetime) %>% 
+  inner_join(arrived)
+
+arrived_flowsheets <-arrived_flowsheets %>% 
+  distinct() %>% 
+  mutate(flowsheet_while_arrived = case_when(flowsheet_datetime > admission &
+                                                        flowsheet_datetime <= discharge ~ 1,
+                                                      TRUE ~ 0)) %>% 
+  filter(flowsheet_while_arrived > 0) %>% 
+  mutate(time_to_next_location = difftime(discharge,flowsheet_datetime, units = "mins"))
+
+# chart showing timing that elapsed after the last flowsheet taken in Arrived state, before moving to next location (TRIAGE or RAT)
+arrived_flowsheets  %>% group_by(csn, duration_row, next_location) %>% 
+  summarise(num_flowsheets = sum(flowsheet_while_arrived),
+            max_time_to_next_location = min(time_to_next_location)) %>% 
+  ggplot( aes(x=as.numeric(max_time_to_next_location), color=next_location, fill=next_location)) +
+  geom_histogram(alpha=0.6, binwidth = 5) +
+  facet_grid(next_location ~.) +
+  labs(title = "Timing between last flowsheet measurement and next change of location for arrival rows only",
+       x = "Minutes after last flowsheet before change of location to RAT or TRIAGE") +
+  scale_x_continuous(limits = c(0,180), breaks = seq(0,180,10)) +
+  theme_classic() +
+  theme(legend.position="none") 
+
+
+triage <- ED_bed_moves %>% 
+  filter(room7 == "TRIAGE")%>% 
+  select(csn, room7, admission, discharge, duration_row) %>% 
+  arrange(csn, admission)
+
+triage_flowsheets <- ED_flowsheet_raw %>% 
+  select(mrn, csn, flowsheet_datetime) %>% 
+  arrange(mrn, csn, flowsheet_datetime) %>% 
+  inner_join(triage)
+
+triage_flowsheets <- triage_flowsheets %>% 
+  mutate(flowsheet_while_triage = case_when(flowsheet_datetime > admission &
+                                             flowsheet_datetime <= discharge ~ 1,
+                                           TRUE ~ 0)) %>% 
+  filter(flowsheet_while_triage > 0) %>% 
+  mutate(time_to_next_location = difftime(discharge,flowsheet_datetime, units = "mins"))
+
+# chart showing timing that elapsed after the last flowsheet taken in triage, before moving to next location 
+triage_flowsheets  %>% group_by(csn, duration_row) %>% 
+  summarise(num_flowsheets = sum(flowsheet_while_triage),
+            max_time_to_next_location = min(time_to_next_location)) %>% 
+  ggplot( aes(x=as.numeric(max_time_to_next_location))) +
+  geom_histogram(alpha=0.6, binwidth = 5) +
+  labs(title = "Timing between last flowsheet measurement and next change of location for triage rows only",
+       x = "Minutes after last flowsheet before change of location") +
+#  scale_x_continuous(limits = c(0,180), breaks = seq(0,180,10)) +
+  theme_classic() +
+  theme(legend.position="none") 
+
+# Delving into long triage
+# ========================
+
+long_triage_csn <- ED_bed_moves_with_meas %>% filter(room7 == "TRIAGE", duration_row > hours(2)) %>% select(csn)
+ED_bed_moves_long_triage <- ED_bed_moves_with_meas %>% filter(csn %in% long_triage_csn)
+
+
+# Nodes of admission
+# ==================
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_NovDec_2020-08-25.rda")
+NovDec <- ED_bed_moves_raw
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_JanFeb_2020-08-11.rda")
+JanFeb <- ED_bed_moves_raw
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_MarApr_2020-08-03.rda")
+MarApr <- ED_bed_moves2
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_MayJunJul_2020-08-03.rda")
+MayJul <- ED_bed_moves2
+
+ED_bed_moves <- NovDec %>% 
+  dplyr::union(JanFeb) %>% 
+  dplyr::union(MarApr) %>% 
+  dplyr::union(MayJul) 
+
+ED_bed_moves <- ED_bed_moves %>% arrange(mrn, csn, admission)
+
+admissions <- ED_bed_moves %>% 
+  filter(department != "UCH EMERGENCY DEPT") %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(admission_row = case_when(admission == min(admission) ~ 1, 
+                                   TRUE ~ 0)) %>% 
+  filter(admission_row == 1)
+  
+depts <- admissions %>% group_by(department) %>% summarise(tot = n())
+
+outFile <- paste0("EDcrowding/flow-mapping/data-output/nodes_of_admission_",today(),".csv")
+write.csv(depts, file = outFile, row.names = FALSE)
+
 # Direct entry to UTC or RAT
 # ==========================
 
@@ -18,6 +131,8 @@ ED_bed_moves %>% filter(room6 == "UTC") %>%
 # Looking at waiting
 # ==================
 
+ED_bed_moves <- ED_bed_moves_extra
+ED_bed_moves %>% filter(ED_row == 1) %>%  group_by(room4) %>% summarise(n())
 # looking at where I could cut the arrivals into those that barely wait at all
 ED_bed_moves %>% filter(room4 == "Waiting", duration_row < .25) %>% 
   ggplot(aes(x=1, y = duration_row)) + 

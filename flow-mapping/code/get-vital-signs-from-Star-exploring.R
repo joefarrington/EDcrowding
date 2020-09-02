@@ -60,8 +60,19 @@ Sys.time() - start
 # save for later use
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_flowsheets_August_",today(),".rda")
-save(ED_bed_moves, file = outFile)
+save(ED_flowsheet_raw, file = outFile)
 rm(outFile)
+
+
+a <- ED_flowsheet_raw %>% select(csn) %>% distinct() %>% mutate(flowsheet = 1) %>% 
+  left_join(ED_bed_moves_extra %>% select(csn) %>% distinct() %>% mutate(bed_moves = 1))
+a %>% filter(is.na(bed_moves))                                                                                          
+
+b <- ED_bed_moves_extra %>% select(csn) %>% distinct() %>% mutate(bed_moves = 1) %>% 
+
+  left_join(ED_flowsheet_raw %>% select(csn) %>% distinct() %>% mutate(flowsheet = 1))                                                                                   
+
+b %>% filter(is.na(flowsheet))
 
 
 library(fuzzyjoin)

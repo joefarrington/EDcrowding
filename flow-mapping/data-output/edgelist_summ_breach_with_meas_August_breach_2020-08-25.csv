@@ -1,0 +1,41 @@
+"from","to","edge","weight","pct_disc","pct_breach"
+"Arrived","Meas post arrival","Arrived~Meas post arrival",101,0.326732673267327,1
+"RAT","MAJORS","RAT~MAJORS",92,0.402173913043478,1
+"MAJORS","Admitted","MAJORS~Admitted",89,0,1
+"Meas post arrival","RAT","Meas post arrival~RAT",56,0.357142857142857,1
+"MAJORS","Discharged","MAJORS~Discharged",39,1,1
+"Arrived","RAT","Arrived~RAT",32,0.34375,1
+"Meas post arrival","TRIAGE","Meas post arrival~TRIAGE",23,0.347826086956522,1
+"Arrived","MAJORS","Arrived~MAJORS",19,0.263157894736842,1
+"Meas post arrival","MAJORS","Meas post arrival~MAJORS",19,0.157894736842105,1
+"RESUS","Admitted","RESUS~Admitted",17,0,1
+"TRIAGE","RAT","TRIAGE~RAT",11,0.454545454545455,1
+"TRIAGE","UTC","TRIAGE~UTC",11,0.454545454545455,1
+"MAJORS","RESUS","MAJORS~RESUS",10,0.2,1
+"TRIAGE","MAJORS","TRIAGE~MAJORS",8,0.125,1
+"Arrived","TRIAGE","Arrived~TRIAGE",6,0.5,1
+"RAT","RESUS","RAT~RESUS",6,0,1
+"TAF","Discharged","TAF~Discharged",6,1,1
+"UTC","Admitted","UTC~Admitted",6,0,1
+"MAJORS","TAF","MAJORS~TAF",5,1,1
+"RAT","UTC","RAT~UTC",4,0.25,1
+"UTC","Discharged","UTC~Discharged",4,1,1
+"UTC","MAJORS","UTC~MAJORS",4,0.5,1
+"RESUS","MAJORS","RESUS~MAJORS",3,0,1
+"Arrived","UTC","Arrived~UTC",2,0.5,1
+"MAJORS","RAT","MAJORS~RAT",2,0.5,1
+"Meas pre arrival","Arrived","Meas pre arrival~Arrived",2,0.5,1
+"RESUS","Discharged","RESUS~Discharged",2,1,1
+"UTC","RAT","UTC~RAT",2,0.5,1
+"Arrived","RESUS","Arrived~RESUS",1,0,1
+"MAJORS","TRIAGE","MAJORS~TRIAGE",1,0,1
+"Meas post arrival","RESUS","Meas post arrival~RESUS",1,0,1
+"Meas post arrival","TRIAGE Return","Meas post arrival~TRIAGE Return",1,1,1
+"Meas post arrival","UTC","Meas post arrival~UTC",1,1,1
+"RAT","TAF","RAT~TAF",1,1,1
+"RAT","TRIAGE","RAT~TRIAGE",1,0,1
+"TRIAGE","RESUS","TRIAGE~RESUS",1,0,1
+"TRIAGE Return","MAJORS","TRIAGE Return~MAJORS",1,1,1
+"TRIAGE Return","RAT","TRIAGE Return~RAT",1,1,1
+"UTC","RESUS","UTC~RESUS",1,0,1
+"UTC","TRIAGE Return","UTC~TRIAGE Return",1,1,1
