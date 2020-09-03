@@ -1,0 +1,293 @@
+# from https://www.data-imaginist.com/2017/ggraph-introduction-layouts/
+
+library(ggraph)
+library(igraph)
+library(ggalluvial)
+
+
+# Create functions (copied from elsewhere)
+# ===============
+
+get_node <- function(dept, room) {
+  if (dept == "Still in ED") {
+    node <- room
+  }
+  else {
+    node <- dept
+  }
+}
+
+calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats = FALSE) {
+  if (detail) {
+    
+    if(stats) { # group by day first
+      edgelist_day_stats <- edgelist %>% 
+        filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters
+        mutate (edge = paste0(from,"~",to)) %>% 
+        group_by(date = date(dttm), from, to, edge) %>% 
+        summarise(weight = n(),
+                  pct_disc = sum(ED_last_status == "Discharged")/n(),
+                  pct_breach = sum(seen4hrs == "Breach")/n())
+      
+      edgelist_stats <- edgelist_day_stats %>% 
+        group_by(from, to, edge) %>% 
+        summarise(weight_mean = mean(weight),
+                  weight_lQ = quantile(weight, 0.25),
+                  weight_uQ = quantile(weight, 0.75),
+                  pct_disc_mean = mean(pct_disc, na.rm = TRUE),
+                  pct_disc_lQ = quantile(pct_disc, 0.25, na.rm = TRUE),
+                  pct_disc_uQ = quantile(pct_disc, 0.75, na.rm = TRUE),
+                  pct_breach_mean = mean(pct_breach, na.rm = TRUE),
+                  pct_breach_lQ = quantile(pct_breach, 0.25, na.rm = TRUE),
+                  pct_breach_uQ = quantile(pct_breach, 0.75, na.rm = TRUE),
+        ) %>% 
+        arrange(desc(weight_mean))
+    } 
+    else { # skip the grouping by day
+      edgelist_stats <- edgelist %>% 
+        filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters
+        mutate (edge = paste0(from,"~",to)) %>% 
+        group_by(from, to, edge) %>% 
+        summarise(weight = n(),
+                  pct_disc = sum(ED_last_status == "Discharged")/n(),
+                  pct_breach = sum(seen4hrs == "Breach")/n()
+        ) %>% 
+        arrange(desc(weight))
+    }
+    return(edgelist_stats)
+  }
+  else {
+    return(
+      edgelist %>% 
+        filter(date(dttm) >= date(from_date), date(dttm) <= date(to_date), from != "Admitted") %>% # note this will truncate overnight encounters
+        mutate (edge = paste0(from,"~",to)) %>% 
+        group_by(from, to, edge) %>% 
+        summarise(weight = n()) %>% arrange(desc(weight))
+    )
+  }
+}
+
+
+# Load data
+# =========
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_2020-09-01.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_JanFeb_2020-09-01.rda")
+
+long_triage_csn <- ED_bed_moves_with_meas %>% filter(room7 == "TRIAGE", duration_row > hours(2)) %>% select(csn)
+ED_bed_moves_long_triage <- ED_bed_moves_with_meas %>% filter(csn %in% long_triage_csn$csn)
+
+# Create edge list for long triage rows
+
+edgedf_long_triage <- tribble(
+  ~mrn,
+  ~csn,
+  ~from,
+  ~to,
+  ~dttm)
+
+current_csn = ED_bed_moves_long_triage$csn[1]
+
+for (i in (1:nrow(ED_bed_moves_long_triage))) {
+  
+  if (i%%1000 == 0) {
+    print(paste("Processed",i,"rows"))
+  }
+  
+  from_node <- get_node(as.character(ED_bed_moves_long_triage$dept3[i]), as.character(ED_bed_moves_long_triage$room7[i]))
+  
+  if(i != nrow(ED_bed_moves_long_triage)) {
+    
+    if (ED_bed_moves_long_triage$csn[i+1] == current_csn) {
+      
+      to_node <- get_node(as.character(ED_bed_moves_long_triage$dept3[i+1]), as.character(ED_bed_moves_long_triage$room7[i+1]))
+      
+      if (from_node != to_node) {
+        edgedf_long_triage <- edgedf_long_triage %>% add_row(tibble_row(
+          mrn = ED_bed_moves_long_triage$mrn[i],
+          csn = ED_bed_moves_long_triage$csn[i],
+          from = from_node,
+          to = to_node,
+          dttm = ED_bed_moves_long_triage$discharge_new[i]
+        ))
+      }
+    }
+    else {# write last row for current csn - but skip if only one row
+      
+      if (ED_bed_moves_long_triage$num_ED_rows[i] > 1) {
+        edgedf_long_triage <- edgedf_long_triage %>% add_row(tibble_row(
+          mrn = ED_bed_moves_long_triage$mrn[i],
+          csn = ED_bed_moves_long_triage$csn[i],
+          from = to_node,
+          to = "Discharged",
+          dttm = ED_bed_moves_long_triage$discharge_dttm[i]
+        ))
+        
+      }
+      
+      current_csn <- ED_bed_moves_long_triage$csn[i+1]
+    }
+  }
+}
+
+edgedf_long_triage <- edgedf_long_triage %>% mutate(
+  ignore = case_when(from == "Admitted" & to == "Discharged" ~ 1,
+                     TRUE ~ 0)) %>% 
+  filter(ignore == 0)
+
+
+# note - dates are inclusive
+from_date <- "2020-01-02"
+to_date <- "2020-01-10"
+
+# creates totals for the period
+edgelist_summ <- calc_edge_stats(edgedf_long_triage %>% left_join(ED_csn_summ %>% select(csn, ED_last_status, seen4hrs)),
+                                 from_date, to_date,
+                                 detail = TRUE, stats = FALSE)
+
+
+# to get node names in right order
+node_order = as_tibble(c(
+  "Meas pre arrival",
+  "Arrived" ,
+  "Waiting",
+  "WAITING ROOM",
+  "Meas post arrival",
+  "RAT",
+  "RESUS",
+  "TRIAGE",
+  "TRIAGE Return",  
+  "UTC",
+  "DIAGNOSTICS",
+  "MAJORS",
+  "TAF",
+  "OTF",
+  "Admitted",
+  "Discharged"
+)) %>% mutate(from_order = row_number(),
+              to_order = row_number()) 
+
+# generate graph directly from data frame
+
+edgelist_summ %>% 
+  left_join(node_order %>% select(-to_order), by = c("from" = "value")) %>% 
+  arrange(from_order) %>% 
+  left_join(node_order %>% select(-from_order), by = c("to" = "value")) %>% 
+  arrange(from_order, to_order) %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = "linear") +
+  geom_edge_arc(alpha = .25, 
+                 aes(width = weight)) +
+  geom_node_point(color = "blue", size = 2) + 
+  geom_node_text(aes(label = name),  repel = TRUE)+
+  labs(title = 'All patients with over 2 hours in triage 2-10 January', 
+       subtitle = '',
+       legend = "Number of patients") +
+  theme(legend.position = "None")
+
+
+edgelist_summ %>% 
+  left_join(node_order %>% select(-to_order), by = c("from" = "value")) %>% 
+  arrange(from_order) %>% 
+  left_join(node_order %>% select(-from_order), by = c("to" = "value")) %>% 
+  arrange(from_order, to_order) %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = 'kk') + 
+  geom_edge_link(alpha = .25, aes(width = weight)) + 
+  geom_node_point(color = "blue", size = 2) + 
+  geom_node_text(aes(label = name),  repel = TRUE)
+
+
+## Time series
+ED_bed_moves_long_triage <- ED_bed_moves_long_triage %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(elapsed_time_from = difftime(admission, arrival_dttm, units = "mins"),
+         elapsed_time_to = difftime(discharge, arrival_dttm, units = "mins"))
+
+time_array <- seq(0,240,15)
+
+
+location <- tribble(
+  ~csn,
+  ~time_slot,
+  ~room7)
+
+for (i in (1:nrow(ED_bed_moves_long_triage))) {
+  
+  if (i%%1000 == 0) {
+    print(paste("Processed",i,"rows"))
+  }
+  
+  for (k in 1:length(time_array)) {
+    if (ED_bed_moves_long_triage$elapsed_time_from[i] <= time_array[k] &
+        ED_bed_moves_long_triage$elapsed_time_to[i] > time_array[k])
+      
+      location <- location %>% add_row(tibble_row(
+        csn = ED_bed_moves_long_triage$csn[i],
+        time_slot = time_array[k],
+        room7 =ED_bed_moves_long_triage$room7[i]
+      ))
+  }
+}
+
+
+df <- long_triage_csn[sample(nrow(long_triage_csn), 100), ] %>% left_join(location)
+
+png("EDCrowding/flow-mapping/media/Alluvial chart showing 100 random patients with long triage.png", width = 1077, height = 659)
+
+df %>% filter(!room7 %in% c( "OTF", "RESUS")) %>% 
+  mutate(case_when(room7 == "Meas post arrival" ~ "Arrived + flowsheet",
+                   TRUE ~ room7)) %>% 
+  ggplot(aes(x = time_slot, stratum = fct_rev(room7), alluvium = mrn,
+                    fill = fct_rev(room7), label = room7)) +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "darkgray") +
+  geom_stratum() +
+  scale_x_continuous(breaks = time_array) +
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 10 patients with more than 2 hours in Triage",
+       subtitle = "Location according to Star, with the location updated when a first flowsheet is recorded",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Number of patients",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
+
+# Trying with ED_bed_moves
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_2020-09-01.rda")
+ED_bed_moves_long_triage <- ED_bed_moves %>% filter(csn %in% long_triage_csn$csn)
+ED_bed_moves_long_triage <- ED_bed_moves_long_triage %>% rename(num_ED_rows = num_ed_rows)
+
+# then run above code
+
+
+df2 <- df %>% select(csn) %>% left_join(location)
+
+png("EDCrowding/flow-mapping/media/Alluvial chart showing 100 random patients with long triage.png", width = 1077, height = 659)
+
+df2 %>%  
+  ggplot(aes(x = time_slot, stratum = fct_rev(room7), alluvium = mrn,
+             fill = fct_rev(room7), label = room7)) +
+  geom_flow(stat = "alluvium", lode.guidance = "frontback",
+            color = "darkgray") +
+  geom_stratum() +
+  scale_x_continuous(breaks = time_array) +
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 10 patients with more than 2 hours in Triage",
+       subtitle = "Location according to Star, with the location updated when a first flowsheet is recorded",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Number of patients",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
+
+
+
+
+

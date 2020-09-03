@@ -6,8 +6,8 @@ This is a series of files to extract data from Star and analyse patient moves be
 
 ### 1. Retrieve and process data
 
-get-ED-data-from-Star-DB-step.R 
-get-ED-data-from_Star.R
+get-ED-data-from-Flow-DB-step.R 
+process-ED-data-from-Flow.R
 
 These two files retrieve and process data from Star
 
@@ -18,7 +18,7 @@ output
 
 ### 2. Get data on vital signs
 
-get-vital-signs-from_Star-DB-step.R
+get-vital-signs-from-Flow-DB-step.R
 
 This file gets flowsheet data that will be used to identify when a patient first had measurements taken
 

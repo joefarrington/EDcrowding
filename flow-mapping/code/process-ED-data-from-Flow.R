@@ -199,9 +199,10 @@ calc_admission <- Vectorize(calc_admission)
 # # Load bed_move data
 # # ==================
 
-file_label <- "August_"
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-09-02.rda")
+file_label <- "JanFeb_"
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-08-26.rda")
 load(inFile)
+
 
 
 # Basic checks
@@ -345,6 +346,17 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
            case_when(is.na(ED_discharge_dttm) ~ min(ED_discharge_dttm, na.rm = TRUE),
                      TRUE ~ ED_discharge_dttm)) %>% 
   mutate(ED_duration = difftime(ED_discharge_dttm, arrival_dttm, units = "hours"))
+         
+         
+# ED_bed_moves_raw <- ED_bed_moves_raw %>%
+#   group_by(mrn, csn, arrival_dttm, discharge_dttm, ED_row) %>% 
+#   mutate(ED_discharge_dttm = 
+#            case_when(ED_row == 1 ~ max(discharge),
+#                       TRUE ~ NA_POSIXct_)) %>% 
+#   mutate(ED_duration = 
+#            case_when(ED_row == 1 ~ difftime(ED_discharge_dttm, arrival_dttm, units = "hours"),
+#                      # next row is a cheat way to get NA for difftime
+#                     TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
 
 
 # do this again but filter out OTF rows to get a ED duration excluding these
@@ -363,6 +375,10 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
                      TRUE ~ ED_discharge_dttm_excl_OTF)) %>% 
   mutate(ED_duration_excl_OTF = 
            difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))
+  # mutate(ED_duration_excl_OTF = 
+  #          case_when(OTF_row == 0 & ED_row == 1 ~ difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"),
+  #                    # next row is a cheat way to get NA for difftime
+  #                   TRUE ~ difftime(arrival_dttm, arrival_dttm, units = "hours"))) 
 
 # create final version of ED_duration - select the pre OTF duration when there is an OTF row last, but not otherwise
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
@@ -399,9 +415,24 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(dept2 = clean_wardnames5(department))
 
+# use d to see which room names the function clean_wardnames5 has grouped: 
+# d <- ED_bed_moves_raw %>% group_by(department, dept2) %>% summarise(total = n()) 
+
 # create room3 (see wiki for more information)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(room3 = clean_room_names(dept2, room2a))
+
+# use e to see which room names the function clean_room_names has grouped: 
+# e <- ED_bed_moves_raw %>% filter(dept2 == "ED") %>% 
+#   group_by(dept2, room2, room3) %>% summarise(total = n()) 
+
+# to see mapping from room to room3 (note room3 has more values because we used the HL7 field)
+# g <- ED_bed_moves_raw %>% 
+#   filter(department == "UCH EMERGENCY DEPT") %>% 
+#   group_by(room, room3) %>% 
+#   summarise(tot = n()) %>% 
+#   select(room, room3, tot) %>%
+#   pivot_wider(names_from = room3, values_from = tot)
 
 # create dept3 (see wiki for more information)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
@@ -410,11 +441,27 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   mutate(dept3 = calc_admission(dept2, room2a, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF, next_dept)) %>% 
   select(-next_dept)
 
+
 # Create room4 (see wiki for more information)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(room4 = group_room_names(room3))
 
+# to see mapping from room3 to room4 (note this function prioritises RAT over MAJORS but that only affects 28 rows)
+# h <- ED_bed_moves_raw %>% 
+#   filter(department == "UCH EMERGENCY DEPT") %>% 
+#   group_by(room3, room4) %>% 
+#   summarise(tot = n()) %>% 
+#   select(room3, room4, tot) %>%
+#   pivot_wider(names_from = room4, values_from = tot)
+# 
+# # save data on mappings for reference
+# 
+# outFile = paste0("EDcrowding/flow-mapping/data-output/room_mappings_",file_label,today(),".rda")
+# save(h, file = outFile)
+# rm(outFile)
+
 # create room5 (see wiki for more information)
+
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   group_by(csn) %>%
   # add a column to contain the discharge time of the next row
@@ -424,12 +471,14 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   # discharge new is used in create-edge-list.R
   mutate(discharge_new = case_when(next_location %in% c("DIAGNOSTICS", "WAITING ROOM") ~ next_dttm,
                                    TRUE ~ discharge)) %>% select(-next_location, -next_dttm)
+
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   group_by(csn) %>% 
   mutate(room5 = case_when(room4 %in% c("DIAGNOSTICS", "WAITING ROOM") & !arrival_row ~ lag(room4),
                            # the row below has been added for the few cases where an arrival row is DIAGNOSTICS or WAITING ROOM
                            room4 %in% c("DIAGNOSTICS", "WAITING ROOM") & arrival_row ~ lead(room4),
                            TRUE ~ room4))
+
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   # create new ED_row flag where last row is OTF
@@ -471,7 +520,7 @@ ED_bed_moves_raw <-ED_bed_moves_raw %>% group_by(mrn, csn, arrival_dttm, dischar
 # some csns have rows where the discharge time is earlier than the admission time
 odd_csn <- ED_bed_moves_raw %>% filter(discharge < admission) %>% select(csn)
 # to see the number of csns to remove: 
-odd_csn %>% select(csn) %>% n_distinct() #61 in Jan/Feb, 20 in Mar/Apr; 9 in August
+odd_csn %>% select(csn) %>% n_distinct() #61 in Jan/Feb, 20 in Mar/Apr; 2 in August
 
 # identify visits where someone goes to ED from another location
 elsewhere_to_ED_csn <- ED_bed_moves_raw %>% 
@@ -489,12 +538,30 @@ long_ED_csn <-  ED_bed_moves_raw %>%
          ED_duration_final >  days(1)) %>%
   select(csn, ED_duration_final) %>% distinct()
 # to see the number of csns identified: 
-long_ED_csn %>% select(csn) %>% n_distinct() #22 in Jan/Feb 6 in Mar/Apr; 8 in May/Jun/Jul; 2 in August
-# to see the long csn bed moves
-ED_bed_moves_raw %>% ungroup() %>% 
-  filter(csn %in% long_ED_csn$csn) %>% 
-  left_join(ED_bed_moves_raw ) %>% 
-  select(csn, admission, discharge, duration_row, room7)
+long_ED_csn %>% select(csn) %>% n_distinct() #22 in Jan/Feb 6 in Mar/Apr; 8 in May/Jun/Jul; 0 in August
+
+# a couple in May/Jun/Jul are very weird; 
+# ED_bed_moves_raw %>% filter(mrn == "93065579") was in OTF for days and then returned to MAJORS then discharge; 
+# ED_bed_moves_raw %>% filter(mrn == "21212090") similar to above but returned to UTC then discharge
+# ED_bed_moves_raw %>% filter(mrn == "21176662") has two arrival rows in ED then nothing else; remove this one
+
+# # several have weird arrival rows - but leave these in
+# odd_arrival_rows <- ED_bed_moves_raw %>% filter(arrival_row, 
+#                             hl7_location %in% c("ED^UCHED WR POOL^WR",
+#                                                 "ED^UCHED OTF POOL^OTF")) %>% 
+#   select(csn) %>% distinct()
+# 
+
+
+# # a few CSNs have multiple iterations through OTF and Waiting room - use this to check
+# ED_bed_moves_raw %>% filter(room5 %in% c("DIAGNOSTICS", "WAITING ROOM")) %>% select(csn) %>% distinct()
+# 
+# ED_bed_moves <- ED_bed_moves %>% 
+#   group_by(csn) %>%
+#   mutate(prev_location = lag(room4_new)) %>% 
+#   mutate(room4_new = case_when(room4_new %in% c("DIAGNOSTICS", "WAITING ROOM") ~ prev_location,
+#                                TRUE ~ room4_new))
+
 
 # create clean version of ED bed moves
 
@@ -520,6 +587,14 @@ ED_csn_summ <- ED_bed_moves %>%
   
   # create breach detail
   mutate(seen4hrs = ifelse(ED_duration < hours(4), "Seen in 4 hours", "Breach"))  
+  
+  # # join with ED bed_moves (ED rows only) to get last ED location
+  # left_join(ED_bed_moves %>% 
+  #             filter(ED_row == 1) %>%
+  #             group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  #             filter(discharge == ED_discharge_dttm_final) %>% 
+  #             mutate(ED_last_loc = room5) %>% 
+  #             select(csn, ED_last_loc))
 
 # calculate whether admitted
 ED_csn_summ <- ED_csn_summ %>%  
