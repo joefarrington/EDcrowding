@@ -64,8 +64,10 @@ start <- Sys.time()
 ED_flowsheet_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 Sys.time() - start
 
+ED_flowsheet_raw2 <- ED_bed_moves  %>% select(csn) %>% distinct() %>% left_join(ED_flowsheet_raw)
+
 # save for later use
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_flowsheets_August_",today(),".rda")
-save(ED_flowsheet_raw, file = outFile)
+save(ED_flowsheet_raw2, file = outFile)
 rm(outFile)

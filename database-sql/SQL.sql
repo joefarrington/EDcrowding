@@ -1,15 +1,15 @@
-﻿-- create primary key on bed_moves ;
+﻿-- SQL to manage materialised tables on flow shchema
+  -=================================================
 
+-- create primary key on bed_moves ;
 ALTER TABLE flow.bed_moves
  ADD COLUMN pk_bed_moves SERIAL PRIMARY KEY;
 
 -- Create mrn as primary key on demographics
-
 ALTER TABLE flow.demographics
   ADD CONSTRAINT demographics_pkey  PRIMARY KEY (mrn);
 
 -- the above doesn't work because of null values
-
 SELECT * FROM flow.demographics
   WHERE mrn ISNULL;  -- 1 row is returned
 
@@ -20,12 +20,10 @@ ALTER TABLE flow.demographics
   ADD CONSTRAINT demographics_pkey  PRIMARY KEY (mrn);
 
 -- set foreign key of bed_moves to be mrn on demographics table
-
 ALTER TABLE flow.bed_moves
     ADD CONSTRAINT demographics_fkey FOREIGN KEY (mrn) REFERENCES flow.demographics (mrn);
 
 -- create flag on bed_moves to denote paeds location
-
 ALTER TABLE flow.bed_moves
  ADD COLUMN paed_location BOOLEAN DEFAULT FALSE;
 
@@ -37,7 +35,6 @@ SELECT count(*) FROM flow.bed_moves
   WHERE paed_location = TRUE;
 
 -- create table ED_csn_summ, excluding paediatrics csns
-
  SELECT mrn, 
     csn,
     min(admission) AS ed_arrival_dttm,
@@ -53,8 +50,7 @@ SELECT count(*) FROM flow.bed_moves
 
 --- note that the table below doesn't quite handle coalesce the way I want it
 --- if there is any row with a discharge date, this will retun as max(discharge)
---- otherwise NOW() will be returned (this was be corrected below)
-
+--- otherwise NOW() will be returned (this was corrected below)
 CREATE TABLE flow.ED_csn_summ AS
   SELECT mrn, 
     csn,
@@ -71,12 +67,10 @@ CREATE TABLE flow.ED_csn_summ AS
 
 
 -- add primary key to this new table
-
 ALTER TABLE flow.ED_csn_summ
  ADD COLUMN pk_ED_csn_summ SERIAL PRIMARY KEY;
 
 -- update bed_moves with ED_csn_summ foreign key
-
 ALTER TABLE flow.bed_moves
   ADD COLUMN fk_ED_csn_summ INTEGER;
 
@@ -114,8 +108,6 @@ SELECT *
 ALTER TABLE flow.flowsheets
   ADD COLUMN fk_bed_moves INTEGER;
 
-  -- note: this does not update where discharge is Null
-  -- note also that this doesn't create a foreign key constraint
 
 UPDATE flow.flowsheets f
   SET f.fk_bed_moves = b.pk_bed_moves
@@ -123,9 +115,14 @@ UPDATE flow.flowsheets f
   WHERE f.mrn = b.mrn
   AND f.csn = b.csn
   AND f.flowsheet_datetime > b.admission
-  AND f.flowsheet_datetime <= coalesce(b.discharge, NOW())
+    -- have now updated this to reflect the coalesce suggested by Roma
+  AND f.flowsheet_datetime <= coalesce(b.discharge, b.admission + interval '1 days')
 
--- delete flowsheet rows where measurements not taken in ED
+-- add foreign key constraint
+ALTER TABLE flow.flowsheets
+    ADD CONSTRAINT bed_moves_fkey FOREIGN KEY (fk_bed_moves) REFERENCES flow.bed_moves (pk_bed_moves);
+
+-- identify number of flowsheet rows where measurements not taken in ED
 
 SELECT COUNT(*) FROM flow.flowsheets; -- returns 228,861,686
 
@@ -169,11 +166,24 @@ SELECT COUNT(*) -- returns 63,296,035
   -- (b) use a more specific delete where I only keep the 151993204 rows with foreign key matches to bed_moves
   --- however these are not quite correct as some with null discharge dates were not picked up in the first update
 
--- Delete using the wider method
+-- Delete using the wider method - this was my original query
+-- DELETE FROM flow.flowsheets
+    --WHERE csn NOT IN (
+    --SELECT csn FROM flow.ed_csn_summ);
 
-DELETE FROM flow.flowsheets
-    WHERE csn NOT IN (
-    SELECT csn FROM flow.ed_csn_summ);
+  -- this was the query Roma ran - EXPLAIN is useful to stop it running by mistake!
+EXPLAIN DELETE FROM flow.flowsheets
+  WHERE NOT EXISTS  (
+  SELECT csn FROM flow.ed_csn_summ);
+
+-- then this one to remove the remaining flowsheets
+EXPLAIN DELETE FROM flow.flowsheets f
+  USING flow.bed_moves b     
+  WHERE f.mrn = b.mrn
+  AND f.csn = b.csn
+  AND f.fk_bed_moves = b.pk_bed_moves
+  and b.department <> 'UCH EMERGENCY DEPT'
+
 
   -- OTHER CODE FOR REFERENCE
 
@@ -216,5 +226,45 @@ SELECT *
   AND b.csn = e.csn
   AND b.fk_ed_csn_summ = e.pk_ed_csn_summ
   AND DATE(e.ed_arrival_dttm) > '2020-08-01'
-  AND DATE(e.ed_arrival_dttm) <= '2020-08-31'
+  AND DATE(e.ed_arrival_dttm) <= '2020-08-31';
 
+
+
+  EXPLAIN DELETE FROM flow.flowsheets
+  WHERE csn NOT IN (
+    SELECT csn FROM flow.ed_csn_summ;
+
+--read 14.1 of postgres manual for 
+ EXPLAIN ANALYZE SELECT * FROM flow.flowsheets f LIMIT 10;
+
+-- the queries Roma ran 
+
+EXPLAIN DELETE FROM flow.flowsheets f
+  USING flow.bed_moves b     
+  WHERE f.mrn = b.mrn
+  AND f.csn = b.csn
+  AND f.fk_bed_moves = b.pk_bed_moves
+  and b.department <> 'UCH EMERGENCY DEPT'
+
+EXPLAIN UPDATE flow.flowsheets f
+SET f.fk_bed_moves = b.pk_bed_moves
+FROM flow.bed_moves b
+WHERE f.mrn = b.mrn
+AND f.csn = b.csn
+AND f.flowsheet_datetime > b.admission
+AND f.flowsheet_datetime <= coalesce(b.discharge, b.admission + interval '1 days');
+
+EXPLAIN ALTER TABLE flow.flowsheets
+ADD CONSTRAINT bed_moves_fkey
+FOREIGN KEY (fk_bed_moves)
+REFERENCES flow.bed_moves (pk_bed_moves);
+
+EXPLAIN DELETE -- COUNT(f.flowsheet_datetime) -- -- returns 13,449,131
+FROM flow.flowsheets f
+USING flow.bed_moves b
+WHERE f.mrn = b.mrn
+AND f.csn = b.csn
+AND f.fk_bed_moves = b.pk_bed_moves
+and b.department <> 'UCH EMERGENCY DEPT';
+
+VACUUM flow.flowsheets;
