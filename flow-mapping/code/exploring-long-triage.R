@@ -67,9 +67,9 @@ calc_edge_stats <- function(edgelist, from_date, to_date, detail = FALSE, stats 
   }
 }
 
-
-# Load data
-# =========
+# ================
+# Create arc graph
+# ================
 
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_2020-09-01.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_with_meas_JanFeb_2020-09-01.rda")
@@ -197,8 +197,11 @@ edgelist_summ %>%
   geom_node_point(color = "blue", size = 2) + 
   geom_node_text(aes(label = name),  repel = TRUE)
 
+# =====================
+# Create alluvial chart
+# =====================
 
-## Time series
+
 ED_bed_moves_long_triage <- ED_bed_moves_long_triage %>% 
   group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
   mutate(elapsed_time_from = difftime(admission, arrival_dttm, units = "mins"),
@@ -276,7 +279,7 @@ df2 %>%
   geom_stratum() +
   scale_x_continuous(breaks = time_array) +
   theme(legend.position = "bottom") +
-  labs(title = "Sample of 10 patients with more than 2 hours in Triage",
+  labs(title = "Sample of 100 patients with more than 2 hours in Triage",
        subtitle = "Location according to Star, with the location updated when a first flowsheet is recorded",
        x = "Minutes elapsed since arrival in ED",
        y = "Number of patients",
@@ -287,7 +290,205 @@ df2 %>%
 
 dev.off()
 
+# ================================
+# Heatmap for long triage patients
+# ================================
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_2020-09-01.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_2020-09-01.rda") # load different version of bed moves
+
+long_triage_csn <- ED_bed_moves %>% filter(room7 == "TRIAGE", duration_row > hours(2)) %>% select(csn)
+
+sample <- long_triage_csn[sample(nrow(long_triage_csn), 50), ] %>%  select(csn)
+
+ED_bed_moves_long_triage <- ED_bed_moves %>% filter(csn %in% sample$csn)
+ED_bed_moves_long_triage <- ED_bed_moves_long_triage %>% rename(num_ED_rows = num_ed_rows)
+
+## Time series
+ED_bed_moves_long_triage <- ED_bed_moves_long_triage %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(elapsed_time_from = difftime(admission, arrival_dttm, units = "mins"),
+         elapsed_time_to = difftime(discharge, arrival_dttm, units = "mins"))
+
+time_array <- seq(0,240,5)
 
 
+location <- tribble(
+  ~mrn,
+  ~csn,
+  ~time_slot,
+  ~room7)
 
+for (i in (1:nrow(ED_bed_moves_long_triage))) {
+  
+  if (i%%1000 == 0) {
+    print(paste("Processed",i,"rows"))
+  }
+  
+  for (k in 1:length(time_array)) {
+    if (ED_bed_moves_long_triage$elapsed_time_from[i] <= time_array[k] &
+        ED_bed_moves_long_triage$elapsed_time_to[i] > time_array[k])
+      
+      location <- location %>% add_row(tibble_row(
+        mrn = ED_bed_moves_long_triage$mrn[i],
+        csn = ED_bed_moves_long_triage$csn[i],
+        time_slot = time_array[k],
+        room7 =ED_bed_moves_long_triage$room7[i]
+      ))
+  }
+}
+
+df <- sample %>%  select(csn) %>% left_join(location)
+df <- df %>% left_join(ED_bed_moves_long_triage %>% ungroup() %>%  select(csn, ED_duration_final, room7, admission, discharge ))
+
+
+png("EDCrowding/flow-mapping/media/Heat map showing 50 random patients with long triage.png", width = 1077, height = 659)
+
+df %>% filter(as.numeric(ED_duration_final*60) >= time_slot) %>% 
+  ggplot(aes(x = time_slot, y = csn, fill = fct_rev(room7))) +
+  geom_tile() +
+  scale_x_continuous(breaks = seq(0,240,15)) +
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 50 patients with more than 2 hours in Triage",
+       subtitle = "Location since arrival in ED",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Patient csn",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
+
+
+# Adding flowsheet data
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_flowsheets_JanFeb_2020-08-26.rda")
+
+df_flow <- df %>% select(csn, arrival_dttm, discharge_dttm, ED_duration_final) %>% distinct() %>% left_join(ED_flowsheet_raw)
+df_flow <- df_flow %>% mutate(time_slot = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
+  filter(as.numeric(ED_duration_final*60) >= time_slot) %>%  
+  select(mrn, csn, time_slot) %>% distinct()
+
+png("EDCrowding/flow-mapping/media/Heat map showing 50 random patients with long triage and flowsheet measurements - Jan and Feb.png", width = 1077, height = 659)
+
+df %>% filter(as.numeric(ED_duration_final*60) >= time_slot) %>% 
+  ggplot(aes(x = time_slot, y = csn, fill = fct_rev(room7))) +
+  geom_tile() +
+  scale_x_continuous(breaks = seq(0,240,15)) +
+  geom_point(aes(x = time_slot, y = csn), data = df_flow %>% filter(time_slot < 240), shape = 8, fill = "black",
+             color = "black", size = 3)+
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 50 patients with more than 2 hours in Triage",
+       subtitle = "Location since arrival in ED with flowsheet measurements shown as stars",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Patient csn",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
+
+# =================================
+# Heat map random group of patients
+# =================================
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_JanFeb_2020-09-01.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_JanFeb_2020-09-01.rda") # load different version of bed moves
+
+sample2 <- ED_bed_moves[sample(nrow(ED_bed_moves), 50), ] %>%  select(csn)
+
+ED_bed_moves_sample <- ED_bed_moves %>% filter(csn %in% sample2$csn)
+ED_bed_moves_sample <- ED_bed_moves_sample %>% rename(num_ED_rows = num_ed_rows)
+
+ED_bed_moves_sample <- ED_bed_moves_sample %>% 
+  group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
+  mutate(elapsed_time_from = difftime(admission, arrival_dttm, units = "mins"),
+         elapsed_time_to = difftime(discharge, arrival_dttm, units = "mins"))
+
+time_array <- seq(0,240,5)
+
+
+location2 <- tribble(
+  ~mrn,
+  ~csn,
+  ~time_slot,
+  ~room7)
+
+for (i in (1:nrow(ED_bed_moves_sample))) {
+  
+  if (i%%1000 == 0) {
+    print(paste("Processed",i,"rows"))
+  }
+  
+  for (k in 1:length(time_array)) {
+    if (ED_bed_moves_sample$elapsed_time_from[i] <= time_array[k] &
+        ED_bed_moves_sample$elapsed_time_to[i] > time_array[k])
+      
+      location2 <- location2 %>% add_row(tibble_row(
+        mrn = ED_bed_moves_sample$mrn[i],
+        csn = ED_bed_moves_sample$csn[i],
+        time_slot = time_array[k],
+        room7 =ED_bed_moves_sample$room7[i]
+      ))
+  }
+}
+
+df2 <- sample2 %>%  select(csn) %>% left_join(location2)
+df2 <- df2 %>% left_join(ED_bed_moves_sample %>% ungroup() %>%  select(csn, ED_duration_final, room7, admission, discharge ))
+
+# order by time spent in arrival to make chart logical in order
+chart_order <- ED_bed_moves_sample %>% filter(room7 == "Arrived") %>% ungroup() %>% select(csn, duration_row) %>% arrange(duration_row) %>% rownames_to_column() 
+
+df2 <- df2 %>% left_join(chart_order) %>% mutate(chart_order = as.numeric(rowname))
+
+
+png("EDCrowding/flow-mapping/media/Heat map showing 50 random patients with long triage.png", width = 1077, height = 659)
+
+df2 %>% filter(as.numeric(ED_duration_final*60) >= time_slot) %>% 
+  ggplot(aes(x = time_slot, y = reorder(csn, chart_order), fill = fct_rev(room7))) +
+  geom_tile() +
+  scale_x_continuous(breaks = seq(0,240,15)) +
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 50 patients with more than 2 hours in Triage",
+       subtitle = "Location since arrival in ED",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Patient csn",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
+
+
+# Adding flowsheet data
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_flowsheets_JanFeb_2020-08-26.rda")
+
+df2_flow <- df2 %>% select(csn, arrival_dttm, discharge_dttm, ED_duration_final) %>% distinct() %>% left_join(ED_flowsheet_raw)
+df2_flow <- df2_flow %>% mutate(time_slot = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
+  filter(as.numeric(ED_duration_final*60) >= time_slot) %>%  
+  select(mrn, csn, time_slot) %>% distinct()
+
+png("EDCrowding/flow-mapping/media/Heat map showing 50 random patients with long triage and flowsheet measurements - Jan and Feb.png", width = 1077, height = 659)
+
+df2 %>% filter(as.numeric(ED_duration_final*60) >= time_slot) %>% 
+  ggplot(aes(x = time_slot, y = csn, fill = fct_rev(room7))) +
+  geom_tile() +
+  scale_x_continuous(breaks = seq(0,240,15)) +
+  geom_point(aes(x = time_slot, y = csn), data = df2_flow %>% filter(time_slot < 240), shape = 8, fill = "black",
+             color = "black", size = 3)+
+  theme(legend.position = "bottom") +
+  labs(title = "Sample of 50 patients with more than 2 hours in Triage",
+       subtitle = "Location since arrival in ED with flowsheet measurements shown as stars",
+       x = "Minutes elapsed since arrival in ED",
+       y = "Patient csn",
+       fill = "Location") +
+  theme_classic()  + 
+  guides(fill = guide_legend(reverse=TRUE), ncol = 1)  +
+  theme(legend.position = "bottom")  
+
+dev.off()
 
