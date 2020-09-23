@@ -19,6 +19,10 @@ library(lubridate)
 # Load data
 # =========
 
+file_label <- "all_"
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,"2020-09-23.rda")
+load(inFile)
+
 ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       host = Sys.getenv("UDS_HOST"),
                       port = 5432,
@@ -30,7 +34,7 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 sqlQuery <- "select *
   
-from flow.flowsheets 
+from flow.flowsheet 
 where flowsheet_datetime > '2020-07-31 00:00:00'
 and flowsheet_datetime < '2020-09-02 00:00:00'"
 
@@ -64,10 +68,10 @@ start <- Sys.time()
 ED_flowsheet_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 Sys.time() - start
 
-ED_flowsheet_raw2 <- ED_bed_moves  %>% select(csn) %>% distinct() %>% left_join(ED_flowsheet_raw)
+ED_flowsheet_raw <- ED_bed_moves  %>% select(csn) %>% distinct() %>% left_join(ED_flowsheet_raw)
 
 # save for later use
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_flowsheets_August_",today(),".rda")
-save(ED_flowsheet_raw2, file = outFile)
+save(ED_flowsheet_raw, file = outFile)
 rm(outFile)

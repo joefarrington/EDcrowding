@@ -1,4 +1,4 @@
-﻿-- SQL to manage materialised tables on flow shchema
+﻿-- SQL to manage materialised tables on flow schema
   -=================================================
 
 -- create primary key on bed_moves ;
@@ -34,7 +34,7 @@ UPDATE flow.bed_moves
 SELECT count(*) FROM flow.bed_moves
   WHERE paed_location = TRUE;
 
--- create table ED_csn_summ, excluding paediatrics csns
+-- test SQL statement to create table ED_csn_summ, excluding paediatrics csns
  SELECT mrn, 
     csn,
     min(admission) AS ed_arrival_dttm,
@@ -98,16 +98,30 @@ SELECT *
       and paed_location = FALSE   
       ORDER by csn, admission);
 
-SELECT * 
+SELECT mrn, csn, ed_arrival_dttm, ed_discharge_dttm, num_ed_rows, pk_ed_csn_summ
   FROM flow.ed_csn_summ 
   WHERE ed_discharge_dttm = '2020-09-03 11:50:48.259701' -- returns 167 rows
 
+-- testing a select statement for the update to correct the wrong discharge dates
+  SELECT e.ed_discharge_dttm, b.fk_ed_csn_summ, b.admission, b.discharge, coalesce(b.discharge, b.admission + interval '1 days')
+      FROM flow.bed_moves b,
+           flow.ed_csn_summ e
+      WHERE b.department = 'UCH EMERGENCY DEPT'
+      and b.discharge ISNULL 
+      and b.paed_location = FALSE   
+      and b.mrn = e.mrn
+      and b.csn = e.csn
+      and b.fk_ed_csn_summ = e.pk_ed_csn_summ
+      ORDER by b.csn, b.admission;
+
+-- but not sure how to execute this as an update
+-- however, I'm recalculating ED_discharge_dttm anyay in the code 
 
 -- update flowsheets with bed_moves foreign key
+-- note this was the SQL I ran on flowsheets (plural); Roma since created flowsheet (singular)
 
 ALTER TABLE flow.flowsheets
   ADD COLUMN fk_bed_moves INTEGER;
-
 
 UPDATE flow.flowsheets f
   SET f.fk_bed_moves = b.pk_bed_moves
@@ -136,6 +150,13 @@ SELECT COUNT(f.flowsheet_datetime) -- returns 13,449,131
   flow.bed_moves b     
   WHERE f.fk_bed_moves = b.pk_bed_moves
   and b.department = 'UCH EMERGENCY DEPT';
+
+  -- same query for flowsheet (singular)
+SELECT COUNT(f.flowsheet_datetime) -- returns 13,193,096
+  FROM flow.flowsheet f,
+  flow.bed_moves b     
+  WHERE f.fk_bed_moves = b.pk_bed_moves
+  and b.department = 'UCH EMERGENCY DEPT'
 
 SELECT COUNT(f.flowsheet_datetime) -- -- returns 13,449,131
   FROM flow.flowsheets f,
@@ -184,6 +205,42 @@ EXPLAIN DELETE FROM flow.flowsheets f
   AND f.fk_bed_moves = b.pk_bed_moves
   and b.department <> 'UCH EMERGENCY DEPT'
 
+  -- now trying the foreign key on flowsheets
+SELECT f.mrn, f.csn,f.flowsheet_datetime, b.hl7_location FROM flow.flowsheet f,
+  flow.bed_moves b
+  WHERE b.csn = f.csn
+  AND b.mrn = f.mrn
+  AND b.pk_bed_moves = f.fk_bed_moves
+  ORDER BY f.mrn, f.csn, f.flowsheet_datetime
+  
+  
+  -- NOW UPDATING labs table 
+
+ALTER TABLE flow.lab
+  ADD COLUMN fk_bed_moves INTEGER;
+
+UPDATE flow.lab l
+  SET fk_bed_moves = b.pk_bed_moves
+  FROM flow.bed_moves b
+  WHERE l.mrn = b.mrn
+  AND l.csn = b.csn
+  AND l.result_datetime > b.admission
+    -- using the coalesce suggested by Roma
+  AND l.result_datetime <= coalesce(b.discharge, b.admission + interval '1 days')
+
+-- add foreign key constraint
+ALTER TABLE flow.lab
+    ADD CONSTRAINT bed_moves_fkey FOREIGN KEY (fk_bed_moves) REFERENCES flow.bed_moves (pk_bed_moves);
+
+  -- now trying the foreign key on lab table
+SELECT l.mrn, l.csn,l.result_datetime, b.hl7_location, l.mapped_name
+  FROM flow.lab l,
+  flow.bed_moves b
+  WHERE b.csn = l.csn
+  AND b.mrn = l.mrn
+  AND b.pk_bed_moves = l.fk_bed_moves
+  ORDER BY l.mrn, l.csn, l.result_datetime
+
 
   -- OTHER CODE FOR REFERENCE
 
@@ -205,6 +262,10 @@ SELECT csn, COUNT(*) AS num_ed_rows
   UPDATE flow.bed_moves b1
   SET b1.num_ed_rows = b2.num_ed_rows 
   WHERE b1.csn = b2.csn;
+
+-- removing the number ED rows on bed_moves
+ALTER TABLE flow.bed_moves
+  DROP COLUMN num_ed_rows;
 
 -- Creating and then dropping a primary key
 

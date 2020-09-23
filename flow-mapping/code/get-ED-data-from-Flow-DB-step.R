@@ -1,4 +1,13 @@
+# About this script
+# =================
 
+# This script reads data from EMAP Star using the materialised tables 
+# in the flow schema.
+
+# It includes only admissions that involved ED at some point,
+# excludes any admissions that included pediatrics in ED
+# and extracts all bed_moves for those admissions, including 
+# onward destinations from ED. 
 
 library(DBI)
 library(dplyr)
@@ -18,64 +27,24 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 ## EITHER get bed moves from Flow
 
-sqlQuery <- "select 
-  a.mrn,
-  a.csn,
-  b.arrival_dttm,
-  b.discharge_dttm,
-  a.admission,
-  a.discharge,
-  a.department,
-  a.room, 
-  a.bed,
-  a.hl7_location,
-  c.num_ED_rows
-  from flow.bed_moves a
-    join (
-          select mrn, csn, min(admission) as arrival_dttm, 
-          max(discharge) as discharge_dttm FROM
-          flow.bed_moves b
-          group by mrn, csn
-          ) b
-    on a.mrn = b.mrn 
-    and a.csn = b.csn
-    join (
-          select mrn, csn,
-          count(*) as num_ED_rows 
-          FROM
-          flow.bed_moves 
-          where department = 'UCH EMERGENCY DEPT'
-          group by mrn, csn 
-         ) c 
-    on a.mrn = c.mrn 
-    and a.csn = c.csn
-  where a.csn in  
-    (
-    select csn
-    FROM
-    flow.bed_moves 
-    where department = 'UCH EMERGENCY DEPT'
-    and date(admission) >= '2020-08-01'
-    and date(admission) <= '2020-08-31'
-    group by csn
-    ) 
-  and a.csn not in 
-    (
-    select csn from flow.bed_moves where
-    room like ('PAEDS%')
-    )
-  and c.num_ED_rows >= 1"
+sqlQuery <- "select e.mrn, e.csn, e.ed_arrival_dttm, e.ed_discharge_dttm, e.num_ed_rows,
+  b.admission, b.discharge, b.department, b.room, b.bed, b.hl7_location
+  from 
+  flow.ed_csn_summ e,
+  flow.bed_moves b
+  where e.mrn = b.mrn
+  and e.csn = b.csn
+  and e.pk_ed_csn_summ = b.fk_ed_csn_summ"
 sqlQuery <- gsub('\n','',sqlQuery)
 
 start <- Sys.time()
 ED_bed_moves_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 Sys.time() - start
-# DB Forge took 2.51 for two months and 12.09 for 2020 year to date
-# R took 14.28 min for Jan and Feb; 8.36 minutes for Mar Apr; 11.9 for May-Jul
-# R took 3.33 mins for 1-6 August
+# Using the flow materialised tables post optimising took 1.2 seconds for the whole of August
+# Using the tables prior to optimising took 3.33 mins for 1-6 August
 
 
 # save data for future loading
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_August_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_",today(),".rda")
 save(ED_bed_moves_raw, file = outFile)
 rm(outFile)
