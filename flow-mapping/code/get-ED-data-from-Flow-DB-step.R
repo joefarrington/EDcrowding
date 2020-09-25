@@ -26,20 +26,24 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       dbname = "uds")
 
 ## EITHER get bed moves from Flow
+# option to add   age(b.discharge, b.admission) as duration_row
 
 sqlQuery <- "select e.mrn, e.csn, e.ed_arrival_dttm, e.ed_discharge_dttm, e.num_ed_rows,
-  b.admission, b.discharge, b.department, b.room, b.bed, b.hl7_location
+  b.admission, b.discharge, b.department, b.room, b.bed, b.hl7_location,
+  age(b.discharge, b.admission) as duration_row
+
   from 
   flow.ed_csn_summ e,
   flow.bed_moves b
   where e.mrn = b.mrn
   and e.csn = b.csn
-  and e.pk_ed_csn_summ = b.fk_ed_csn_summ"
+  and e.pk_ed_csn_summ = b.fk_ed_csn_summ
+  order by b.mrn, b.csn, b.admission"
 sqlQuery <- gsub('\n','',sqlQuery)
 
 start <- Sys.time()
 ED_bed_moves_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
-Sys.time() - start
+print(Sys.time() - start)
 # Using the flow materialised tables post optimising took 1.2 seconds for the whole of August
 # Using the tables prior to optimising took 3.33 mins for 1-6 August
 
