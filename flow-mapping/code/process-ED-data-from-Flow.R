@@ -107,25 +107,6 @@ group_room_names <- function(room) {
 group_room_names <- Vectorize(group_room_names)
 
 
-# # simple function to return whether location denotes admission
-# calc_admission <- function(dept2, room2, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF, next_dept) {
-#   if (dept2 != "ED") {
-#     return("Admitted")
-#   }
-#   else if (room2 == "OTF" && !is.na(ED_discharge_dttm_excl_OTF) 
-#            # added this to make sure there are later rows - ie patient was eventually admitted
-#            && discharge < discharge_dttm &&
-#            # added this to make sure that if patient returns to ED after OTF this is not marked as admitted
-#            !is.na(next_dept) && 
-#            next_dept != "ED")
-#     return("Admitted")
-#   else {
-#     return("Still in ED")
-#   }
-# }
-# 
-# calc_admission <- Vectorize(calc_admission)
-
 
 # # Load bed_move data
 # # ==================
@@ -136,7 +117,7 @@ timer <- Sys.time()
 
 
 file_label <- "all_"
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-09-25.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-09-28.rda")
 load(inFile)
 
 # Name changes (SQL doesn't do capitals)
@@ -452,16 +433,13 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 #   select(room, room3, tot) %>%
 #   pivot_wider(names_from = room3, values_from = tot)
 
-# print(Sys.time() - timer)
-# print("Calculating dept3")
-# timer <- Sys.time()
-# 
+print(Sys.time() - timer)
+print("Calculating dept3")
+timer <- Sys.time()
+
 # # create dept3 (see wiki for more information)
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-#   group_by(mrn, csn, arrival_dttm, discharge_dttm) %>% 
-#   mutate(next_dept = lead(dept2)) %>% 
-#   mutate(dept3 = calc_admission(dept2, room2a, discharge, discharge_dttm, ED_discharge_dttm_excl_OTF, next_dept)) %>% 
-#   select(-next_dept)
+ED_bed_moves_raw <- ED_bed_moves_raw %>%
+  mutate(dept3 = ifelse(admission >= ED_discharge_dttm_final, "Admitted", "Still in ED" ))
 
 print(Sys.time() - timer)
 print("Calculating room4")

@@ -30,7 +30,11 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 sqlQuery <- "select e.mrn, e.csn, e.ed_arrival_dttm, e.ed_discharge_dttm, e.num_ed_rows,
   b.admission, b.discharge, b.department, b.room, b.bed, b.hl7_location,
-  age(b.discharge, b.admission) as duration_row
+  age(b.discharge, b.admission) as duration_row,
+  Date_part('day',b.discharge-b.admission) as duration_days,
+  Date_part('hour',b.discharge-b.admission) as duration_hours,
+  Date_part('minute',b.discharge-b.admission) as duration_mins,
+  Date_part('second',b.discharge-b.admission) as duration_secs
 
   from 
   flow.ed_csn_summ e,
