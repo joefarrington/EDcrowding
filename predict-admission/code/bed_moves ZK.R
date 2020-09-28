@@ -27,57 +27,43 @@ library(data.table)
 # =========
 
 #bed_moves = read.csv('F:/Saved/ENOCKUNG/ED project/bed_moves_emergency.csv')
-load("~/EDcrowding/predict-admission/data-raw/bed_moves_2020-09-21.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-09-28.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-28.rda")
 
-adm_zk <- bed_moves_raw %>% group_by(csn) %>% 
-  mutate(discharge_dttm = max(discharge)) %>% 
-  mutate(admitted = ifelse(discharge_dttm > ed_discharge_dttm, TRUE, FALSE)) %>% select(csn, admitted) %>% distinct()
-
-
+# demographic data
+load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
 
 
-# join class label with bed_moves based on same csn
-bed_move_final = bed_moves1 %>% left_join(adm)
+# process data
+# ============
 
-# fix room == RAT (just something weird that came up)
-bed_move_final[(bed_move_final$department=='UCH EMERGENCY DEPT' & grepl('RAT',bed_move_final$room)),] = 'RAT'
-bed_move_final = bed_move_final %>% filter(admission!='RAT')
+# join to get final admission status
+bed_moves <- ED_bed_moves %>% 
+  left_join(ED_csn_summ %>% select(csn, ED_last_status))
 
+# create boolean for admission
+bed_moves <- bed_moves %>% 
+  mutate(adm = case_when(ED_last_status == "Discharged"~ FALSE,
+                         TRUE ~ TRUE))
 
-### attach age and sex ( if not already added )
-### age calculated from birthday
+### attach age and sex 
 
+bed_moves <- bed_moves %>% 
+  left_join(demog_raw)
 
-bed_moves = bed_move_final
-csn = unique(bed_moves$csn)
+bed_moves <- bed_moves %>% 
+  mutate(age = year(arrival_dttm) - year(birthdate))
 
-# change first stage of UCH EMERGENCY from <NA> to BEGIN
-bed_moves$room[(bed_moves$department=='UCH EMERGENCY DEPT' & is.na(bed_moves$room))]='BEGIN'
-
-# add age and sex
-demog = read.csv('F:/UserProfiles/ENOCKUNG/ED project/demog.csv')
-
-bed_moves1 = bed_moves %>% left_join(demog,by='mrn')
-bed_moves1$X.y=NULL
-
-# use birthdate to calculate age at admission
-age = c()
-
-for (i in 1:nrow(bed_moves1)){
-  bday=as.Date(bed_moves1$birthdate[i],format='%Y-%m-%d')
-  adm_day=as.Date(bed_moves1$admission[i], format = '%d/%m/%Y')
-  
-  age = c(age,floor(as.numeric(difftime(adm_day,bday))/365))
-}
-
-# combine everything together
-bed_moves1 = data.frame(bed_moves1,'age'=age)
-bed_moves1 = bed_moves1[,c(1,2,3,4,5,6,7,8,11,12,9)]
+# 
+# 
+# # change first stage of UCH EMERGENCY from <NA> to BEGIN
+# bed_moves <- bed_moves %>% 
+#   mutate(room = case_when(department == 'UCH EMERGENCY DEPT' & is.na(room) ~ "BEGIN",
+#                    TRUE ~ room))
 
 
-### if you want to focus on particular groups, such as a particular age group,
-### example: age >60. Then simply do a bed_moves1 %>% filter(age>60)
+# select cols for matrix
 
-### filter the rows that you need here before saving to excel
-write.csv(bed_moves1,'F:/UserProfiles/ENOCKUNG/ED project/matrix.csv')
+matrix <- bed_moves %>% select(mrn, csn, admission,	discharge, department, room4, hl7_location,	sex ,age, adm, fk_bed_moves)
+save(matrix, file = paste0('EDcrowding/predict-admission/data-raw/matrix_',today(),'.rda'))
 
