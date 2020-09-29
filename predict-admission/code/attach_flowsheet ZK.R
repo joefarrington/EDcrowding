@@ -1,20 +1,61 @@
+
+# load libraries
+# =============
+
 # library(tidymodels)
 # library(discrim)
 library(dplyr)
 # library(DBI)
-# library(lubridate)
+library(lubridate)
+library(tidyverse)
 # library(xgboost)
 # library(parsnip)
 # library(caret)
 # library(polynom)
 
+
+# load data
+# =========
+
+
 load("~/EDcrowding/predict-admission/data-raw/matrix_2020-09-28.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
 
-# Data cleaning of flowsheets
+# explore data
+# ============
+
 text_types <- flowsheet_raw %>% filter(mapped_name != "BLOOD PRESSURE", !is.na(result_text)) %>% group_by(result_text) %>% summarise(tot = n()) %>% arrange(desc(tot))
-# can check whether result_as_real and text show the same; parse blood pressure
-# could maybe also check whether the mask eg ETT is actually happening in ED or delayed update - but maybe the model could make use of this ?? 
+
+# Looking at relationship between text and real 
+y <- flowsheet_raw %>% 
+  filter(mapped_name != "BLOOD PRESSURE", !is.na(result_as_real)) %>% 
+  group_by(mapped_name, result_text) %>% summarise(tot = n()) %>% arrange(mapped_name, desc(tot))
+
+
+z <- flowsheet_raw %>% 
+  filter(mapped_name != "BLOOD PRESSURE", !is.na(result_text)) %>% 
+  group_by(mapped_name, result_text, result_as_real) %>% summarise(tot = n()) %>% arrange(mapped_name, desc(tot))
+
+# data transformations needed
+
+# parse blood pressure
+# RICHMOND AGITATION SEDATION SCORE, National early warning Score, PAIN SCORE AT REST, PAIN SCORE AT MOVEMENT have both text and real
+# filter out OXYGEN DELIVERY METHOD where low values (free entry text containing ventilation info)
+# INVASIVE VENTILATION YES/NO looks like it's recording whether the person is for that (rather than it actually happening)
+# recode ACvPU ?
+# respiratory assist status has useful values as text
+# check whether the mask eg ETT is actually happening in ED or delayed update - but maybe the model could make use of this ?? 
+
+# transform data
+# ==============
+
+flowsheets_real <- flowsheet_raw %>% filter(!is.na(result_as_real)) %>% 
+  group_by(mrn, csn, flowsheet_datetime) %>% pivot_wider(names_from = mapped_name, values_from = result_as_real)
+
+# this generates lists as values - applies in 1.7K cases out of 2.3m
+f <- flowsheet_raw %>% filter(!is.na(result_as_real)) %>% 
+  +   group_by(mrn, csn, flowsheet_datetime, mapped_name) %>% summarise(tot = n()) %>% arrange(desc(tot))
+
 
 # Enoch selects latest flowsheet measurement for the relevant row 
 # I can use fk_bed_moves to group measurements together and find the latest one
