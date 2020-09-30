@@ -20,7 +20,7 @@ library(lubridate)
 # # ==================
 
 file_label <- "all_"
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,"2020-09-28.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,"2020-09-30.rda")
 load(inFile)
 
 ED_bed_moves_temp <- ED_bed_moves

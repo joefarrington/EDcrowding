@@ -21,15 +21,15 @@ library(lubridate)
 # Load data
 # =========
 
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_clean_extra_JanFeb_2020-08-11.rda")
+load("~/EDcrowding/data-prep-for-ML/data-raw/ED_bed_moves_clean_extra_all_2020-09-30.rda")
 
 
 # Process data
 # ============
 
 # set parameters
-matrix_start_date <- date("2020-01-01")
-matrix_end_date <- date("2020-03-01")
+matrix_start_date <- date("2019-05-01")
+matrix_end_date <- date("2020-08-31")
 
 # create a series with all the required time periods by hour
 date_range <- seq(as.POSIXct(matrix_start_date),as.POSIXct(matrix_end_date), by = "hours")
@@ -57,7 +57,7 @@ ml_matrix <- tribble(
 
 for (i in (1:length(date_range))) {
   
-  if (i %% 100 == 0) {
+  if (i %% 500 == 0) {
     print(paste("Processed",i,"rows"))
   }
   # use these rows to get everyone in a location at any point in the hour
@@ -89,7 +89,7 @@ for (i in (1:length(date_range))) {
 
 }
 
-outFile = paste0("EDcrowding/data-prep-for-ML/data-raw/ML_matrix_JanFeb_",today(),".rda")
+outFile = paste0("EDcrowding/data-prep-for-ML/data-raw/ML_matrix_all_",today(),".rda")
 save(ml_matrix, file = outFile)
 
 # pivot to wide matrix and add columns
@@ -101,7 +101,7 @@ ml_matrix <- ml_matrix %>% mutate(time_of_day = hour(DateTime),
 ml_matrix_wide <- ml_matrix %>% pivot_wider(names_from = room6, values_from = number, values_fill = 0) %>% 
   select(DateTime, month, day_of_week,time_of_day,  Arrived, Waiting, RAT, TRIAGE, MAJORS, RESUS, TAF, UTC, admission)
 
-outFile = paste0("EDcrowding/data-prep-for-ML/data-output/ML_matrix_JanFeb_",today(),"csv")
+outFile = paste0("EDcrowding/data-prep-for-ML/data-output/ML_matrix_all_",today(),".csv")
 write.csv(ml_matrix_wide, file = outFile, row.names = FALSE)
 
 
