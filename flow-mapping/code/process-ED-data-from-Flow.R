@@ -28,19 +28,24 @@ split_location <- function(hl7_location, n) {
 split_location <- Vectorize(split_location)
 
 # shorten ward names
-clean_wardnames7 <- function(x) {
-  if (grepl("EMERGENCY DEPT|UCH T00 CLIN DECISION",x)) {
+# use flag include_CDU to decide whether CDU is part of ED
+
+clean_wardnames7 <- function(x, include_CDU) {
+  if (grepl("EMERGENCY DEPT|UCH T00 CLIN DECISION",x) && include_CDU == 1) {
     x <- "ED"
   } 
+  else if (grepl("EMERGENCY DEPT",x) && include_CDU == 0) {
+    x <- "ED"
+  }
+  else if (grepl("CLIN DECISION",x) && include_CDU == 0) {
+    x <- "CDU"
+  }
   else if (grepl("EMERGENCY AU",x)) {
     x <- "EAU"
   }
   else if (grepl("ACUTE MEDICAL",x)) {
     x <- "AMU"
   }
-  # else if (grepl("CLIN DECISION",x)) {
-  #   x <- "CDU"
-  # }
   else if (grepl("T07",x)) { 
     x <- "T07"
   }
@@ -75,8 +80,10 @@ clean_wardnames7 <- Vectorize(clean_wardnames7)
 
 # clean room data
 # function removes bay and chair numbers
-clean_room_names <- function(dept, room) {
-  if (dept == "ED" && !is.na(room)) {
+# use flag include_CDU to decide whether CDU is part of ED
+
+clean_room_names <- function(department, room, include_CDU) {
+  if (grepl("EMERGENCY DEPT",department) && !is.na(room)) {
     room = gsub("UCHED ","",room)
     room = gsub("CHAIR [0-9]{2}", "", room)
     room = gsub("[0-9]{3}", "", room)
@@ -87,6 +94,9 @@ clean_room_names <- function(dept, room) {
 #    room = gsub("^UTC [A-z]+ ROOM","UTC",room)
     room = gsub("  "," ",room)
     room = gsub(" $","",room)
+  }
+  else if (grepl("UCH T00 CLIN DECISION",department) && include_CDU == 1) {
+    room = "CDU"
   }
   return(room)
 }
@@ -117,6 +127,7 @@ timer <- Sys.time()
 
 
 file_label <- "all_"
+include_CDU <- 0
 inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-09-28.rda")
 load(inFile)
 
@@ -179,9 +190,19 @@ print(Sys.time() - timer)
 print("ED location")
 timer <- Sys.time()
 
-ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  mutate(ED_row = case_when(department %in% c("UCH EMERGENCY DEPT", "UCH T00 CLIN DECISION") ~ 1 ,
-                          TRUE ~ 0))
+if (include_CDU == 1) {
+  ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+    mutate(ED_row = case_when(department %in% c("UCH EMERGENCY DEPT", "UCH T00 CLIN DECISION") ~ 1 ,
+                              TRUE ~ 0))
+  print("Including CDU within ED")
+  } else {
+  ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+    mutate(ED_row = case_when(department %in% c("UCH EMERGENCY DEPT") ~ 1 ,
+                              TRUE ~ 0))
+  print("CDU will not be included within ED")
+  
+}
+
 
 # set arrival row where there are multiple ED visits in same csn
 
@@ -205,6 +226,7 @@ multiple_ED_bed_moves <- ED_bed_moves_raw %>% filter(arrival_row) %>%
 # count the number of these
 num_multiple_ED_visits <- multiple_ED_bed_moves %>% 
   select(csn) %>% distinct() %>%  n_distinct()
+print(paste("Number of multiple visits to process: ",num_multiple_ED_visits))
 
 # while this number is greater than 0, calculate a new csn, arrival and
 # discharge time for the csns with multiple visits to ED 
@@ -246,6 +268,8 @@ while (num_multiple_ED_visits >0 ) {
   
   num_multiple_ED_visits <- multiple_ED_bed_moves %>% 
     select(csn) %>% distinct() %>%  n_distinct()
+  
+  print(paste("Number of multiple visits to process: ",num_multiple_ED_visits))
            
 }
 # clean up - don't worry if you get warning messages here
@@ -407,7 +431,7 @@ timer <- Sys.time()
 
 # create dept2 (see wiki for more information)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  mutate(dept2 = clean_wardnames7(department))
+  mutate(dept2 = clean_wardnames7(department, include_CDU))
 
 # use d to see which room names the function clean_wardnames5 has grouped: 
 # d <- ED_bed_moves_raw %>% group_by(department, dept2) %>% summarise(total = n()) 
@@ -419,7 +443,7 @@ print("Calculating room3")
 timer <- Sys.time()
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  mutate(room3 = clean_room_names(dept2, room2a))
+  mutate(room3 = clean_room_names(department, room2a, include_CDU))
 
 # use e to see which room names the function clean_room_names has grouped: 
 # e <- ED_bed_moves_raw %>% filter(dept2 == "ED") %>% 
@@ -639,6 +663,10 @@ ED_bed_moves <- ED_bed_moves %>%
 print("Saving data")
 
 # save ED_bed_moves for later use
+
+if (include_CDU == 1 ) {
+  file_label <- "all_CDUinED_"
+}
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
 save(ED_bed_moves, file = outFile)
