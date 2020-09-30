@@ -1,32 +1,39 @@
-library(tidymodels)
-library(discrim)
-library(dplyr)
-library(lubridate)
-library(xgboost)
-library(parsnip)
-library(caret)
-library(tune)
-library(dials)
-library(scales)
-library(yardstick)
+# About this file
+# ===============
 
-
-#------------------------------------------------------------
-#------------------------------------------------------------
-#model training and prediction
 # given the patient information, including current stage, flowsheet, labs, a model is trained with a certain period
 # of history and then prediction is performed on the current state of the ED. Prediction will yield a TRUE/FALSE for
-# each patient as well as a probability.
-#
-#
-#------------------------------------------------------------
-#------------------------------------------------------------
-mat_fromfile = read.csv('F:/Saved/ENOCKUNG/ED project/dm_with_everything_simp_col.csv')
+# each patient as well as a probability
+
+# load libraries
+# ==============
+
+# library(tidymodels)
+# library(discrim)
+library(dplyr)
+# library(lubridate)
+# library(xgboost)
+# library(parsnip)
+# library(caret)
+# library(tune)
+# library(dials)
+# library(scales)
+# library(yardstick)
+
+
+# load data
+# ==============
+mat_fromfile = read.csv('EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.csv')
+save(mat_fromfile, file = 'EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.rda')
+load('EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.rda')
+
 matrix = mat_fromfile
 matrix$X=NULL
-matrix = matrix[order(matrix$discharge),] # order matrix according to date
+#matrix = matrix[order(matrix$discharge),] # order matrix according to date
 matrix$admission = strptime(matrix$admission,format = '%d/%m/%Y %H:%M')
 matrix$discharge = strptime(matrix$discharge,format = '%d/%m/%Y %H:%M')
+
+matrix2 <- as_tibble(matrix)
 matrix = matrix %>% filter(difftime(discharge,admission)>0)
 
 # remove columns that are not needed e.g. csn, mrn, ...
