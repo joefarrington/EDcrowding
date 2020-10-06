@@ -16,8 +16,8 @@ library(tidyverse)
 load("~/EDcrowding/predict-admission/data-raw/matrix_2020-09-28.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-05.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-05.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-05.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-06.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-06.rda")
 
 
 matrix <- matrix %>% 
@@ -71,17 +71,25 @@ matrix %>%
 #   left_join(ED_csn_summ %>% select(csn, arrival_dttm)) %>% 
 #   filter(date(arrival_dttm) <= index_date, date(arrival_dttm) >= prior_date)
 
-df2 <- flowsheet_num_results %>% left_join(
-  matrix %>% select(age, sex, adm, weekend, night)
-)
+flowsheet_num_results_with_zero <- flowsheet_num_results %>% 
+  pivot_wider(names_from = mapped_name, values_from = num_results)
 
-df2 <- df2 %>% distinct()
+
+# replace NAs with zero
+flowsheet_num_results_with_zero <- flowsheet_num_results_with_zero %>%
+  mutate_at(vars(colnames(flowsheet_num_results_with_zero)[4:ncol(flowsheet_num_results_with_zero)]), replace_na, 0)
+
+df2 <- flowsheet_num_results_with_zero %>% 
+  left_join(
+  matrix %>% select(age, sex, adm, weekend, night) %>% distinct()
+)
 
 
 png("EDcrowding/predict-admission/media/Number of measurements recorded while in ED and whether admitted.png")
 
 df2 %>%
   filter(sex != "UNKNOWN") %>% 
+  pivot_longer(acvpu:morphine_pca_total_hourly_dose, names_to = "mapped_name", values_to = "num_results") %>% 
   ggplot(aes(sex, num_results, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
   facet_wrap(~mapped_name, scales = "free_y", ncol = 4) +
@@ -168,15 +176,33 @@ df %>%
 
 # try looking at number of results overall
 
-include <- lab_num_results %>% filter(!is.na(mapped_name)) %>% ungroup() %>%
+lab_num_results_with_zero <- lab_num_results %>% 
+  pivot_wider(names_from = mapped_name, values_from = num_results)
+
+
+# replace NAs with zero
+lab_num_results_with_zero <- lab_num_results_with_zero %>%
+  mutate_at(vars(colnames(lab_num_results_with_zero)[4:ncol(lab_num_results_with_zero)]), replace_na, 0)
+
+df4 <- lab_num_results_with_zero %>% 
+  
+  left_join(
+    matrix %>% select(age, sex, adm, weekend, night) %>% distinct()
+  )
+
+
+include <- lab_num_results_with_zero %>% 
+  pivot_longer(colnames(lab_num_results_with_zero)[4:ncol(lab_num_results_with_zero)], names_to = "mapped_name", values_to = "num_results") %>% 
+  ungroup() %>%
   count(mapped_name) %>% filter(n > 1000) %>% select(mapped_name)
 
 
-df4 <- lab_num_results %>%
+df4 <- lab_num_results_with_zero %>%
+  pivot_longer(colnames(lab_num_results_with_zero)[4:ncol(lab_num_results_with_zero)], names_to = "mapped_name", values_to = "num_results") %>% 
   filter(mapped_name %in% include$mapped_name) %>% 
   left_join(
-  matrix %>% select(age, sex, adm, weekend, night)
-)  %>% distinct()
+  matrix %>% select(age, sex, adm, weekend, night) %>% distinct()
+)  
 
 png("EDcrowding/predict-admission/media/Number of lab results returned while ED and whether admitted.png")
 

@@ -127,6 +127,7 @@ flowsheet_real <- flowsheet_real %>%
 
 # calculate number of results
 flowsheet_num_results <- flowsheet_raw %>% 
+  mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) %>% 
   group_by(mrn, csn, fk_bed_moves, mapped_name) %>% 
   summarise(num_results = n())
 

@@ -94,6 +94,7 @@ lab_real <- lab_real %>% left_join(ED_csn_summ %>% select(mrn, csn, arrival_dttm
 
 # calculate number of results
 lab_num_results <- lab_raw %>% 
+  mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) %>% 
   group_by(mrn, csn, fk_bed_moves, mapped_name) %>% 
   summarise(num_results = n())
 
