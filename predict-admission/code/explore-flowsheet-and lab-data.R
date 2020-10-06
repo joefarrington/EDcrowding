@@ -18,6 +18,7 @@ load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-05.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-06.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_2020-10-06.rda")
 load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-06.rda")
 
 
@@ -28,8 +29,11 @@ matrix <- matrix %>%
   mutate(night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1))
 
 
-# explore general factors
+# explore general factors on admission
 # ======================
+
+
+
 
 # effect of weekend arrival
 matrix %>% 
@@ -40,7 +44,7 @@ matrix %>%
   geom_bar(stat = "identity", position = "fill", alpha = 0.4) +
   labs(y = NULL, color = NULL, fill = NULL, x = "Weekend arrival")
 
-# effect of time of day arrival
+# effect of might arrival
 
 matrix %>% 
   ungroup() %>% 
@@ -64,37 +68,146 @@ matrix %>%
 # explore flowsheet data
 # ======================
 
-
-# try looking at number of results overall
-
-# 
-# flowsheet_num_results <- flowsheet_num_results %>% 
-#   left_join(ED_csn_summ %>% select(csn, arrival_dttm)) %>% 
-#   filter(date(arrival_dttm) <= index_date, date(arrival_dttm) >= prior_date)
-
-flowsheet_num_results_with_zero <- flowsheet_num_results %>% 
-  pivot_wider(names_from = mapped_name, values_from = num_results)
+# how many people don't have measurements at all? 
 
 
-# replace NAs with zero
-flowsheet_num_results_with_zero <- flowsheet_num_results_with_zero %>%
-  mutate_at(vars(colnames(flowsheet_num_results_with_zero)[4:ncol(flowsheet_num_results_with_zero)]), replace_na, 0)
 
-df2 <- flowsheet_num_results_with_zero %>% 
+
+
+
+
+
+
+
+# look at total number of measurements
+# need to left join with matrix to get the patients without any measurements
+
+png("EDcrowding/predict-admission/media/Number of measurements while in ED.png")
+
+p1 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
   left_join(
-  matrix %>% select(age, sex, adm, weekend, night) %>% distinct()
-)
+  flowsheet_raw %>% ungroup() %>% 
+    group_by(csn) %>% 
+    summarise(tot = n()) 
+  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
+  filter(sex != "UNKNOWN") %>% 
+  ggplot(aes(sex, tot, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  labs(y = "Total number of measurements", color = NULL, fill = NULL, x = NULL,
+       title = "Total number of measurements while in ED")
+
+p1
+dev.off()
+
+png("EDcrowding/predict-admission/media/Number of different types of measurement while in ED.png")
+
+# look at total number of different types of measurements
+p2 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+  left_join(
+    flowsheet_raw %>% ungroup() %>% 
+      group_by(csn) %>% summarise(tot = n_distinct(mapped_name)) 
+  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
+  filter(sex != "UNKNOWN") %>% 
+  ggplot(aes(sex, tot, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  labs(y = "Number of different measurements", color = NULL, fill = NULL, x = NULL,
+       title = "Number of different types of measurement while in ED")
+p2
+dev.off()
 
 
-png("EDcrowding/predict-admission/media/Number of measurements recorded while in ED and whether admitted.png")
+# find flowsheet measurements that are worth looking at
+flowsheet_num_results %>% group_by(mapped_name) %>% summarise(tot = sum(num_results)) %>% 
+  mutate(m2 = fct_reorder(mapped_name, tot)) %>% 
+  ggplot(aes(x = m2, y = tot)) + geom_bar(stat = "identity") + coord_flip() +
+  labs(y = "Number of measurements", color = NULL, fill = NULL, x = "Measurement")
+
+# create a dataframe of num_results which is wide
+flow_num_results_wide <- flowsheet_num_results %>% 
+  ungroup() %>% 
+  group_by(mrn, csn, mapped_name) %>% # need to exclude bed_moves
+  summarise(tot = sum(num_results)) %>%
+  pivot_wider(names_from = mapped_name, values_from = tot, values_fill = 0)
+
+# seems to be a clear split above and below 500
+common <- flowsheet_num_results %>% group_by(mapped_name) %>% summarise(tot = sum(num_results)) %>%
+  filter(tot > 500) %>% ungroup() %>% select(mapped_name)
+
+uncommon <- flowsheet_num_results %>% group_by(mapped_name) %>% summarise(tot = sum(num_results)) %>%
+  filter(tot <= 500) %>% ungroup() %>% select(mapped_name)
+
+# chart of number of measurements for those where > 500 measurements taken in total
+df2 <- matrix %>% ungroup() %>% select(mrn, csn, adm, sex) %>% distinct() %>% 
+  left_join(flow_num_results_wide
+) %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
+  mutate_at(vars(acvpu:morphine_pca_total_hourly_dose), replace_na, 0)
+
+
+
+
+# matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+#   left_join(flowsheet_num_results %>% ungroup() %>% select(-mrn, -fk_bed_moves) %>% 
+#               filter(mapped_name %in% common$mapped_name) %>% 
+#               pivot_wider(names_from = mapped_name, values_from = num_results, values_fill = 0)) %>% 
+#   pivot_longer(acvpu:`non-invasive_mean_arterial_pressure`, names_to = "mapped_name", values_to = "num_results") %>% 
+#   
+
+png("EDcrowding/predict-admission/media/Number of measurements recorded while in ED for 16 most common types, by type of measurement.png")
 
 df2 %>%
+  select(csn, sex, adm, common$mapped_name) %>% 
   filter(sex != "UNKNOWN") %>% 
-  pivot_longer(acvpu:morphine_pca_total_hourly_dose, names_to = "mapped_name", values_to = "num_results") %>% 
+  pivot_longer(acvpu:respiratory_rate, names_to = "mapped_name", values_to = "num_results") %>% 
   ggplot(aes(sex, num_results, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
   facet_wrap(~mapped_name, scales = "free_y", ncol = 4) +
-  labs(y = NULL, color = NULL, fill = "Admitted", title = "Number of measurements recorded while in ED")
+  labs(y = NULL, color = NULL, fill = "Admitted", title = "Number of measurements recorded while in ED, by type of measuremen",
+       subtitle = "Includes the 16 most frequently used measurements only")
+
+dev.off()
+
+# chart of number of measurements for those where < 500 measurements taken in total
+
+# trying to get this to be able to show the number of people in total, who don't have these measurements
+# could try using flowsheet_num_results_wide but not including the non-measured people
+# but that is still 121K rows instead of 3K rows
+
+# # tried this approach to show distribution of measurements but doesn't work
+# df2 %>% 
+#   select(mrn, csn, sex, adm, uncommon$mapped_name)  %>% 
+#   mutate_at(vars(uncommon$mapped_name), ~ replace(., which(.!=0), 1)) %>% 
+#   pivot_longer(uncommon$mapped_name, names_to = "mapped_name", values_to = "has_meas") %>% 
+#   group_by(mapped_name, has_meas, adm) %>% summarise(tot = n()) %>% 
+#   ggplot(aes(as.character(has_meas), tot, fill = adm, color = adm)) +
+#   geom_boxplot(alpha = 0.4) +
+#   facet_wrap(~mapped_name, scales = "free_y", ncol = 4) +
+#   labs(y = NULL, color = NULL, fill = "Admitted", title = "Had this measurement recorded at least once while in ED",
+#        subtitle = "Includes the 10 least frequently used measurements only")
+
+# note df2a only has 3000 rows - ie only includes those with these measurements
+df2a <- flowsheet_num_results %>% 
+  filter(!mapped_name %in% common$mapped_name) %>% ungroup() %>% 
+  group_by(mrn, csn, mapped_name) %>% # need to exclude bed_moves
+  summarise(tot = n()) %>% 
+  pivot_wider(names_from = mapped_name, values_from = tot, values_fill = 0)  %>% 
+  pivot_longer(tidal_volume:morphine_pca_total_hourly_dose, names_to = "mapped_name", values_to = "has_meas") %>% 
+  left_join(
+    matrix %>% select(adm, sex) %>% distinct()
+  )
+
+
+  
+  
+png("EDcrowding/predict-admission/media/Existence of unusual measurement recorded while in ED.png")
+
+
+df2a %>%
+  filter(sex != "UNKNOWN") %>% 
+  ggplot(aes(sex, has_meas, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  facet_wrap(~mapped_name, scales = "free_y", ncol = 4) +
+  labs(y = NULL, color = NULL, fill = "Admitted", title = "Had this measurement recorded at least once while in ED",
+       subtitle = "Includes the 10 least frequently used measurements only")
 
 dev.off()
 
@@ -123,9 +236,10 @@ flowsheet_num_results_1hr_with_zero <- flowsheet_num_results_1hr_with_zero %>%
   mutate_at(vars(colnames(flowsheet_num_results_1hr_with_zero)[4:ncol(flowsheet_num_results_1hr_with_zero)]), replace_na, 0)
 
 
-df3 <- flowsheet_num_results_1hr_with_zero %>% left_join(
-  matrix %>% select(age, sex, adm, weekend, night)
-) %>% distinct()
+df3 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+  left_join(
+    flowsheet_num_results_1hr_with_zero
+  )
 
 png("EDcrowding/predict-admission/media/Number of measurements recorded in first hour of ED and whether admitted.png")
 

@@ -131,6 +131,13 @@ flowsheet_num_results <- flowsheet_raw %>%
   group_by(mrn, csn, fk_bed_moves, mapped_name) %>% 
   summarise(num_results = n())
 
+# calculate wide matrix of number of results
+flowsheet_num_results_with_zero <- flowsheet_num_results %>% 
+  pivot_wider(names_from = mapped_name, values_from = num_results)
+
+# replace NAs with zero
+flowsheet_num_results_with_zero <- flowsheet_num_results_with_zero %>%
+  mutate_at(vars(colnames(flowsheet_num_results_with_zero)[4:ncol(flowsheet_num_results_with_zero)]), replace_na, 0)
 
 
 
@@ -142,3 +149,6 @@ save(flowsheet_real, file = outFile)
 
 outFile = paste0("EDcrowding/predict-admission/data-raw/flowsheet_num_results_",today(),".rda")
 save(flowsheet_num_results, file = outFile)
+
+outFile = paste0("EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_",today(),".rda")
+save(flowsheet_num_results_with_zero, file = outFile)
