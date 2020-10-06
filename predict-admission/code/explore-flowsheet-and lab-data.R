@@ -14,6 +14,7 @@ library(tidyverse)
 
 
 load("~/EDcrowding/predict-admission/data-raw/matrix_2020-09-28.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-05.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-06.rda")
@@ -104,20 +105,33 @@ flowsheet_raw <- flowsheet_raw %>%
   mutate(elapsed_mins = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
   select(-arrival_dttm)
 
+flowsheet_raw <- flowsheet_raw %>%
+  mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) 
+  
 
 flowsheet_num_results_1hr <- flowsheet_raw %>% 
   filter(elapsed_mins <= 60) %>% 
   group_by(mrn, csn, fk_bed_moves, mapped_name) %>% 
   summarise(num_results = n())
 
-df3 <- flowsheet_num_results_1hr %>% left_join(
+
+flowsheet_num_results_1hr_with_zero <- flowsheet_num_results_1hr %>% 
+  pivot_wider(names_from = mapped_name, values_from = num_results) 
+
+# replace NAs with zero
+flowsheet_num_results_1hr_with_zero <- flowsheet_num_results_1hr_with_zero %>%
+  mutate_at(vars(colnames(flowsheet_num_results_1hr_with_zero)[4:ncol(flowsheet_num_results_1hr_with_zero)]), replace_na, 0)
+
+
+df3 <- flowsheet_num_results_1hr_with_zero %>% left_join(
   matrix %>% select(age, sex, adm, weekend, night)
 ) %>% distinct()
 
-png("EDcrowding/predict-admission/media/Number of measurements recorded in firrt hour of ED and whether admitted.png")
+png("EDcrowding/predict-admission/media/Number of measurements recorded in first hour of ED and whether admitted.png")
 
 df3 %>%
   filter(sex != "UNKNOWN") %>% 
+  pivot_longer(blood_pressure:tidal_volume, names_to = "mapped_name", values_to = "num_results") %>% 
   ggplot(aes(sex, num_results, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
   facet_wrap(~mapped_name, scales = "free_y", ncol = 4) +
