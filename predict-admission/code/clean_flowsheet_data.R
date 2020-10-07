@@ -14,63 +14,47 @@ library(tidyverse)
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
 
-# # explore data
-# # ============
-# 
-# text_types <- flowsheet_raw %>% filter(mapped_name != "BLOOD PRESSURE", !is.na(result_text)) %>% group_by(result_text) %>% summarise(tot = n()) %>% arrange(desc(tot))
-# 
-# # Looking at relationship between text and real 
-# y <- flowsheet_raw %>% 
-#   filter(mapped_name != "BLOOD PRESSURE", !is.na(result_as_real)) %>% 
-#   group_by(mapped_name, result_text) %>% summarise(tot = n()) %>% arrange(mapped_name, desc(tot))
-# 
-# 
-# z <- flowsheet_raw %>% 
-#   filter(mapped_name != "BLOOD PRESSURE", !is.na(result_text)) %>% 
-#   group_by(mapped_name, result_text, result_as_real) %>% summarise(tot = n()) %>% arrange(mapped_name, desc(tot))
-
-# data transformations 
-# =====================
-
-# parse blood pressure
-
-
-# RICHMOND AGITATION SEDATION SCORE, National early warning Score, PAIN SCORE AT REST, PAIN SCORE AT MOVEMENT have both text and real
-# filter out OXYGEN DELIVERY METHOD where low values (free entry text containing ventilation info)
-# INVASIVE VENTILATION YES/NO looks like it's recording whether the person is for that (rather than it actually happening)
-# recode ACvPU ?
-# respiratory assist status has useful values as text
-# check whether the mask eg ETT is actually happening in ED or delayed update - but maybe the model could make use of this ?? 
 
 # transform data
 # ==============
 
+# convert mapped names to underscores
 flowsheet_raw <- flowsheet_raw %>%
   filter(!(is.na(result_as_real) & is.na(result_text))) %>% 
   mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) %>% 
   select(mrn, csn, fk_bed_moves, flowsheet_datetime, everything())
 
+# convert values that are text to numeric where this can be done simply
 flowsheet_raw <- flowsheet_raw %>%
   mutate(result_as_real = case_when(!is.na(as.numeric(result_text)) ~ as.numeric(result_text), 
                                     TRUE ~ result_as_real))
 
-# use this to view the values in the remaining result_text rows
-# n = flowsheet_raw %>% filter(is.na(result_as_real)) %>% distinct(mapped_name)
-# 
-# for (m in (unique(n$mapped_name))) {
-#   print(m)
-#   print(flowsheet_raw %>% filter(is.na(result_as_real), mapped_name == m) %>% count(result_text))
-# }
+flowsheet_raw <- flowsheet_raw %>% 
+  mutate(result_as_real = case_when(mapped_name == "acvpu" & result_text == "A" ~ 1,
+                                                    mapped_name == "acvpu" & result_text == "C" ~ 2,
+                                                    mapped_name == "acvpu" & result_text == "A" ~ 3,
+                                                    mapped_name == "acvpu" & result_text == "P" ~ 4,
+                                                    mapped_name == "acvpu" & result_text == "U" ~ 5,
+                                                    TRUE ~ result_as_real
+                                                    ))
 
+# remove rows with no values
 flowsheet_raw <- flowsheet_raw %>%
   mutate(keep_row = case_when(result_text == "\"\"" & is.na(result_as_real) ~ FALSE,
                        TRUE ~ TRUE)) %>% 
   filter(keep_row) %>% select(-keep_row)
+
+# add elapsed time of result to flowsheet raw
+flowsheet_raw <- flowsheet_raw %>%
+  left_join(ED_csn_summ %>% select(mrn, csn, arrival_dttm)) %>% 
+  mutate(elapsed_mins = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
+  select(-arrival_dttm)
+
+# arrange rows
+flowsheet_raw <- flowsheet_raw %>%
+  arrange(mrn, csn, fk_bed_moves, flowsheet_datetime)
                                
-
-# # use this to see which text values still need to be transformed now
-# flowsheet_text <- flowsheet_clean %>% filter(!is.na(result_text), is.na(result_as_real)) 
-
+# convert text-based numerical fields to numeric
 bp <- flowsheet_raw %>%
   filter(mapped_name == "blood_pressure") %>% 
   select(mrn, csn, fk_bed_moves, flowsheet_datetime, result_text) %>% 
@@ -79,12 +63,6 @@ bp <- flowsheet_raw %>%
          bp_dia = as.numeric(bp_dia)) %>% 
     pivot_longer(!mrn:flowsheet_datetime, names_to = "mapped_name", values_to = "result_as_real"
     )
-
-acvpu <- flowsheet_raw %>%
-  filter(mapped_name == "acvpu", !is.na(result_text)) %>% 
-  select(mrn, csn, fk_bed_moves, flowsheet_datetime, result_text) %>% 
-  mutate(mapped_name = paste0("acvpu_",result_text),
-         result_as_real = 1) %>%  select(-result_text) 
 
 respiratory_assist_status <- flowsheet_raw %>% 
   filter(mapped_name == "respiratory_assist_status", !is.na(result_text)) %>% 
@@ -108,22 +86,15 @@ ventilation_data <- flowsheet_raw %>%
          result_as_real = 1) %>%  select(-result_text) 
 
 flowsheet_real <- flowsheet_raw %>% select(-result_text) %>% 
-  filter(!mapped_name %in% c("blood_pressure","acvpu","respiratory_assist_status",
+  filter(!mapped_name %in% c("blood_pressure","respiratory_assist_status",
                              "oxygen_delivery_method", "invasive_ventilation_yes/no",
                              "ventilator_mode_",
                              "ventilator_yes/no")) %>% 
-  bind_rows(bp, acvpu, ventilation_data, respiratory_assist_status, oxygen_delivery_method) %>% 
+  bind_rows(bp, ventilation_data, respiratory_assist_status, oxygen_delivery_method) %>% 
   arrange(mrn, csn, flowsheet_datetime, mapped_name)
 
 # process data for ML
 # ==================
-
-# add elapsed time of result
-flowsheet_real <- flowsheet_real %>%
-  left_join(ED_csn_summ %>% select(mrn, csn, arrival_dttm)) %>% 
-  mutate(elapsed_mins = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
-  select(-arrival_dttm)
-
 
 # calculate number of results
 flowsheet_num_results <- flowsheet_raw %>% 

@@ -13,46 +13,72 @@ library(tidyverse)
 # ============
 
 
-load("~/EDcrowding/predict-admission/data-raw/matrix_2020-09-28.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-05.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-06.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_2020-10-06.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-06.rda")
+load("~/EDcrowding/predict-admission/data-raw/matrix_2020-10-07.rda")
+
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_2020-10-07.rda")
+
+load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-10-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-07.rda")
 
 
-matrix <- matrix %>% 
-  mutate(weekend = ifelse(weekdays(arrival_dttm, abbreviate = TRUE) %in% c("Sat", "Sun"), 1, 0))
-
-matrix <- matrix %>% 
-  mutate(night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1))
 
 
-# explore general factors on admission
+# explore general factors 
 # ======================
 
+# something like this
+matrix %>% 
+  ungroup() %>% 
+  mutate(weekend = if_else(weekend == 0, "Weekday", "Weekend"), 
+         night = if_else(night == 0, "Daytime", "Nightime")) %>% 
+  select(csn, weekend, night, sex, adm) %>% 
+  pivot_longer(weekend:sex, names_to = "var", values_to = "tot") %>% 
+  ggplot(aes(var, tot, fill = adm, color = adm)) +
+  geom_bar(stat = "identity", position = "fill", alpha = 0.4) +
+  labs(y = NULL, color = NULL, fill = NULL, x = "Hour of arrival")
 
 
+# OR
 
 # effect of weekend arrival
-matrix %>% 
+weekend <- matrix %>% 
   ungroup() %>% 
   group_by(weekend, adm) %>% 
   summarise(tot = n()) %>% 
-  ggplot(aes(as.character(weekend), tot, fill = adm, color = adm)) +
-  geom_bar(stat = "identity", position = "fill", alpha = 0.4) +
-  labs(y = NULL, color = NULL, fill = NULL, x = "Weekend arrival")
+  rename(prop = weekend) %>% 
+  mutate(prop = as.character(prop)) %>%
+  mutate(var = "Weekend arrival")
+
 
 # effect of might arrival
 
-matrix %>% 
+night <- matrix %>% 
   ungroup() %>% 
   group_by(night, adm) %>% 
   summarise(tot = n()) %>% 
-  ggplot(aes(as.character(night), tot, fill = adm, color = adm)) +
+  rename(prop = night) %>% 
+  mutate(prop = as.character(prop))  %>%
+  mutate(var = "Nightime arrival")
+
+
+sex <- matrix %>% 
+  filter(sex != "UNKNOWN") %>% 
+  ungroup() %>% 
+  group_by(sex, adm) %>% 
+  summarise(tot = n()) %>% 
+  rename(prop = sex) %>% 
+  mutate(prop = if_else(prop == "FEMALE", "1", "0"))  %>%
+  mutate(var = "Female patient")
+
+
+# then to plot
+weekend %>% bind_rows(night, sex) %>% 
+  ggplot(aes(var, tot, fill = prop)) +
   geom_bar(stat = "identity", position = "fill", alpha = 0.4) +
-  labs(y = NULL, color = NULL, fill = NULL, x = "Nightime arrival")
+  labs(y = NULL, color = NULL, fill = NULL, x = "Proportion of arrivals")
 
 # effect of time of day arrival
 
@@ -70,17 +96,17 @@ matrix %>%
 
 # how many people don't have measurements at all? 
 
+matrix %>% select(csn) %>% anti_join(flowsheet_num_results_with_zero %>% select(csn)) %>% n_distinct() 
+
+matrix %>% select(csn) %>% left_join(flowsheet_num_results_with_zero %>% select(csn)) %>% n_distinct() 
 
 
-
-
-
-
+# could do same for labs
 
 
 
 # look at total number of measurements
-# need to left join with matrix to get the patients without any measurements
+# need to left join with matrix to include the patients without any measurements
 
 png("EDcrowding/predict-admission/media/Number of measurements while in ED.png")
 
@@ -90,10 +116,9 @@ p1 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>%
     group_by(csn) %>% 
     summarise(tot = n()) 
   ) %>% mutate(tot = replace_na(tot, 0)) %>% 
-  filter(sex != "UNKNOWN") %>% 
   ggplot(aes(sex, tot, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
-  labs(y = "Total number of measurements", color = NULL, fill = NULL, x = NULL,
+  labs(y = "Total number of measurements", color = NULL, fill = "Admitted", x = NULL,
        title = "Total number of measurements while in ED")
 
 p1

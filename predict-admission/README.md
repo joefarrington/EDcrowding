@@ -5,19 +5,58 @@ This is a series of files to extract data from Star and predict admissions from 
 
 ### 1. Query.R
 
-bed moves queried from star / flow
+Gets data from flow (materialised tables on Star)
 
 Output
-- bed_moves_emergency.csv
-- demog.csv
-- encounter.csv
+- demog_raw.csv
+- flowsheet_raw.csv
+
+Note - currently using bed_moves as processed by code in the EDCrowding/flow-mapping folder
 
 ### 2. bed_moves.R
+
+Input (as processed by code in the EDCrowding/flow-mapping folder )
+- ED_bed_moves
+- ED_csn_summ
 
 using bed moves, a matrix is arranged in the following way: for a patient visit, we have the (mrn, csn, admission datetime, discharge datetime, department, room, sex, age, patient eventually admitted or not)
 
 Output
 - matrix.csv
+
+### 3. clean_flowsheet_data.R
+
+Input
+- flowsheet_raw
+- ED_csn_summ
+
+Output
+- flowsheet_real - includes date and time for each measurement
+
+and for chart purposes (but not ML)
+- flowsheet_num_results (long matrix) for each mrn, csn, fk_bed_moves and mapped_name how many measurements  there
+- flowsheet_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
+
+
+### 4. clean_lab_data.R
+
+Input
+- lab_raw
+- ED_csn_summ
+
+Output
+- lab_real - includes date and time for each measurement
+
+and for chart purposes (but not ML)
+- lab_num_results (long matrix) for each mrn, csn, fk_bed_moves and local_code showing how many measurements  there
+- lab_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
+
+
+
+
+### x. explore-flowsheet-and-lab-data.R
+
+This file is doing exploratory data analysis to decide which variables to attach to matrix
 
 ### 3. attach_flowsheet.R
 
