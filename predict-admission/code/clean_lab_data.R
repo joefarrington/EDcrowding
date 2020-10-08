@@ -19,51 +19,33 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
 # transform data
 # ==============
 
-lab_raw <- lab_raw %>% mutate(result_as_real = as.numeric(result_text))
+# remove blank rows
+lab_raw <- lab_raw %>%
+  filter(!is.na(result_text)) %>% 
+  select(mrn, csn, fk_bed_moves, result_datetime, everything())
 
 
-# two results that didn't convert to numeric have > 10K results therefore worth including
-lab_raw %>% filter(is.na(result_as_real)) %>% count(result_text) %>% arrange(desc(n))
+lab_real <- lab_raw %>% mutate(result_as_real = as.numeric(result_text))
 
-# all but 2 of the ">90" are lab_code GFR
-lab_raw %>% filter(result_text == ">90") %>% count(local_code)
+lab_real <- lab_real %>%
+  mutate(reference_range = case_when(reference_range == "" ~ NA_character_, 
+ #                                    grepl("^<",reference_range) ~ gsub("^<", "0-", reference_range),
+                                     TRUE ~ reference_range)) %>% 
+  separate(reference_range, into = c("ref_low","ref_high"), sep = "-") %>% 
+  mutate(ref_low = as.numeric(ref_low),
+         ref_high = as.numeric(ref_high)) 
 
-gfr_gt90 <- lab_raw %>% 
-  filter(result_text == ">90", local_code == "GFR") %>% 
-  mutate(local_code = "GFR>90", result_as_real = 1)
+# create out of range values
+lab_real <- lab_real %>% 
+  mutate(oor_low = as.numeric(result_text) < ref_low,
+         oor_high = as.numeric(result_text) > ref_high)
 
-
-lab_raw %>% filter(result_text == "Sample unsuitable for analysis due to haemolysis.") %>% count(local_code) %>% arrange(desc(n))
-
-lab_raw %>% filter(grepl("haemolysis|haemolysed", result_text))
-
-haemolysis_sample <- lab_raw %>% 
-  filter(grepl("haemolysis|haemolysed", result_text)) %>% 
-  mutate(local_code = "HAEMOLYSIS_SAMPLE", result_as_real = 1)
-
-
-lab_raw %>% filter(result_text == "<0.6") %>% count(local_code)
-
-crp_lt0.6 <- lab_raw %>% 
-  filter(result_text == "<0.6", local_code == "CRP") %>% 
-  mutate(local_code = "CRP<0.6", result_as_real = 1)   
-
-# negative_result <- lab_raw %>% 
-#   filter(grepl("negative", tolower(result_text))) %>% 
-#   mutate(local_code = paste0(local_code, "_NEG"), result_as_real = 1)
-# 
-# positive_result <- lab_raw %>% 
-#   select(-battery_code, -mapped_name, -reference_range) %>% 
-#   filter(grepl("positive", tolower(result_text))) %>% 
-#   mutate(local_code = paste0(local_code, "_POS"), result_as_real = 1)
-# 
-
-lab_real <- lab_raw %>% 
-  filter(!is.na(result_as_real)) %>%  # 138K rows of #145K
-  bind_rows(gfr_gt90, haemolysis_sample, crp_lt0.6) %>% 
-  arrange(mrn, csn, fk_bed_moves, result_datetime, local_code)
-
-
+# two results that didn't convert to numeric can be derived from the result text
+lab_real <- lab_real %>% 
+  mutate(oor_high = case_when(result_text == ">90" & local_code == "GFR" ~ TRUE,
+                              TRUE ~ oor_high),
+         oor_low = case_when(result_text == "<0.6" & local_code == "CRP" ~ TRUE,
+                             TRUE ~ oor_low))
 
 
 # process data for ML
@@ -83,7 +65,7 @@ lab_num_results <- lab_raw %>%
 lab_num_results_with_zero <- lab_num_results %>% 
   pivot_wider(names_from = local_code, values_from = num_results)
 
-# replace NAs with zero
+# replace NAs with zero (note this takes a long time so use separate file and run job)
 lab_num_results_with_zero <- lab_num_results_with_zero %>%
   mutate_at(vars(colnames(lab_num_results_with_zero)[4:ncol(lab_num_results_with_zero)]), replace_na, 0)
 

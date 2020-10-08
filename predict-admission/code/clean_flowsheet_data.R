@@ -14,14 +14,28 @@ library(tidyverse)
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
 
+# tidy labels
+
+abbrev= c("acvpu", "pain_nonverbal",  "bp", "temp", "o2_flowrate", "coma_score", "heart_rate", 
+          "ideal_weight", "art_pressure_inv", "vent_inv_yes_no", "morphine_dose", "news", 
+          "art_pressure_noninv", "o2_conc", "o2_delivery_method", "o2_sat", "pain_move", "pain_rest",
+          "pip", "peep", "resp_assist", "resp_rate", "rass", 
+           "tidal_vol", "vent_mode" , "vent_yes_no" 
+           )
+name_lookup <- bind_cols(unique(flowsheet_raw$mapped_name)[order(unique(flowsheet_raw$mapped_name))], 
+                         abbrev)
+colnames(name_lookup) <- c("mapped_name", "meas")
+
+flowsheet_raw <- flowsheet_raw %>% 
+  left_join(name_lookup) %>% select(-mapped_name)
+
 
 # transform data
 # ==============
 
-# convert mapped names to underscores
+# remove blank rows
 flowsheet_raw <- flowsheet_raw %>%
   filter(!(is.na(result_as_real) & is.na(result_text))) %>% 
-  mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) %>% 
   select(mrn, csn, fk_bed_moves, flowsheet_datetime, everything())
 
 # convert values that are text to numeric where this can be done simply
@@ -30,11 +44,11 @@ flowsheet_raw <- flowsheet_raw %>%
                                     TRUE ~ result_as_real))
 
 flowsheet_raw <- flowsheet_raw %>% 
-  mutate(result_as_real = case_when(mapped_name == "acvpu" & result_text == "A" ~ 1,
-                                                    mapped_name == "acvpu" & result_text == "C" ~ 2,
-                                                    mapped_name == "acvpu" & result_text == "A" ~ 3,
-                                                    mapped_name == "acvpu" & result_text == "P" ~ 4,
-                                                    mapped_name == "acvpu" & result_text == "U" ~ 5,
+  mutate(result_as_real = case_when(meas == "acvpu" & result_text == "A" ~ 1,
+                                                    meas == "acvpu" & result_text == "C" ~ 2,
+                                                    meas == "acvpu" & result_text == "A" ~ 3,
+                                                    meas == "acvpu" & result_text == "P" ~ 4,
+                                                    meas == "acvpu" & result_text == "U" ~ 5,
                                                     TRUE ~ result_as_real
                                                     ))
 
@@ -56,59 +70,35 @@ flowsheet_raw <- flowsheet_raw %>%
                                
 # convert text-based numerical fields to numeric
 bp <- flowsheet_raw %>%
-  filter(mapped_name == "blood_pressure") %>% 
-  select(mrn, csn, fk_bed_moves, flowsheet_datetime, result_text) %>% 
+  filter(meas == "bp") %>% 
+  select(mrn, csn, fk_bed_moves, elapsed_mins, flowsheet_datetime, result_text) %>% 
   separate(result_text, into = c("bp_sys","bp_dia"), sep = "/") %>% 
   mutate(bp_sys = as.numeric(bp_sys),
          bp_dia = as.numeric(bp_dia)) %>% 
-    pivot_longer(!mrn:flowsheet_datetime, names_to = "mapped_name", values_to = "result_as_real"
+    pivot_longer(!mrn:flowsheet_datetime, names_to = "meas", values_to = "result_as_real"
     )
 
-respiratory_assist_status <- flowsheet_raw %>% 
-  filter(mapped_name == "respiratory_assist_status", !is.na(result_text)) %>% 
-  select(mrn, csn, fk_bed_moves, flowsheet_datetime, result_text) %>% 
-  mutate(mapped_name = paste0("resp_assist_",tolower(gsub(" ","_", result_text))),
-         result_as_real = 1) %>%  select(-result_text) 
-
-oxygen_delivery_method <- flowsheet_raw %>% 
-  filter(mapped_name == "oxygen_delivery_method", !is.na(result_text)) %>% 
-  select(mrn, csn, fk_bed_moves, flowsheet_datetime, result_text) %>% 
-  mutate(mapped_name = paste0("o2_delivery_",tolower(gsub(" ","_", result_text))),
-         result_as_real = 1) %>%  select(-result_text) 
-
-# only 343 rows have any capture of ventilation data
-# assuming it's more relevant that it was captured than the values recorded
-ventilation_data <- flowsheet_raw %>% 
-  filter(mapped_name %in% c("invasive_ventilation_yes/no",
-                            "ventilator_mode_",
-                            "ventilator_yes/no"), !is.na(result_text)) %>% 
-  mutate(mapped_name = "ventilation_data_captured",
-         result_as_real = 1) %>%  select(-result_text) 
-
 flowsheet_real <- flowsheet_raw %>% select(-result_text) %>% 
-  filter(!mapped_name %in% c("blood_pressure","respiratory_assist_status",
-                             "oxygen_delivery_method", "invasive_ventilation_yes/no",
-                             "ventilator_mode_",
-                             "ventilator_yes/no")) %>% 
-  bind_rows(bp, ventilation_data, respiratory_assist_status, oxygen_delivery_method) %>% 
-  arrange(mrn, csn, flowsheet_datetime, mapped_name)
+  filter(!meas %in% c("bp"), !is.na(result_as_real)) %>% 
+  bind_rows(bp) %>% 
+  arrange(mrn, csn, flowsheet_datetime, meas)
 
 # process data for ML
 # ==================
 
 # calculate number of results
 flowsheet_num_results <- flowsheet_raw %>% 
-  mutate(mapped_name = tolower(gsub(" ","_", mapped_name))) %>% 
-  group_by(mrn, csn, fk_bed_moves, mapped_name) %>% 
+  group_by(mrn, csn, fk_bed_moves, meas) %>% 
   summarise(num_results = n())
 
 # calculate wide matrix of number of results
 flowsheet_num_results_with_zero <- flowsheet_num_results %>% 
-  pivot_wider(names_from = mapped_name, values_from = num_results)
+  pivot_wider(names_from = meas, values_from = num_results)
 
-# replace NAs with zero
+# replace NAs with zero 
 flowsheet_num_results_with_zero <- flowsheet_num_results_with_zero %>%
   mutate_at(vars(colnames(flowsheet_num_results_with_zero)[4:ncol(flowsheet_num_results_with_zero)]), replace_na, 0)
+
 
 
 
