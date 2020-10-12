@@ -124,7 +124,7 @@ dev.off()
 
 # has lab results
 
-chart_title = "Exploring relationship between admission and presence of at least one lab result"
+chart_title = "Exploring relationship between admission and \npresence of at least one lab result"
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
            
 matrix %>% ungroup() %>%  select(csn, adm) %>% distinct() %>% 
@@ -243,8 +243,8 @@ png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 matrix_flowsheet_num_results_with_zero %>%
   select(csn, sex, adm, common$meas) %>% 
-  pivot_longer(acvpu:resp_rate, names_to = "meas", values_to = "num_results") %>% 
-  ggplot(aes(adm, num_results, fill = adm)) +
+  pivot_longer(acvpu:temp, names_to = "meas", values_to = "num_results") %>% 
+  ggplot(aes(adm, num_results, fill = adm, col = adm)) +
   geom_boxplot(alpha = 0.4) +
   theme(legend.position = "none") +
   facet_wrap(~meas, scales = "free_y", ncol = 4) +
@@ -303,7 +303,7 @@ chart_title = "Boxplot of value of flowsheet measurements recorded while in ED f
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 flowsheet_real %>% 
-  filter(meas %in% common$meas, meas != "acvpu") %>% 
+  filter(meas %in% c(common$meas, "bp_sys", "bp_dia"), meas != "acvpu") %>% 
   left_join(
     matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
   ) %>%
@@ -312,7 +312,8 @@ flowsheet_real %>%
   geom_boxplot(alpha = 0.4) +
   facet_wrap(~meas, scales = "free_y", ncol = 4) +
   theme(legend.position = "none") +
-  labs(y = NULL, color = NULL, x = "Admitted", title = chart_title)
+  labs(y = NULL, color = NULL, x = "Admitted", title = chart_title,
+       subtitle = "Includes the 16 measurements used more than 500 times between April 2019 and August 2020; excludes ACVPU as this is ordinal")
 
 dev.off()
 
