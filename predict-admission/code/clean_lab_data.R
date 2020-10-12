@@ -13,7 +13,7 @@ library(tidyverse)
 
 
 load("~/EDcrowding/predict-admission/data-raw/lab_raw_2020-10-07.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-12.rda")
 
 
 # transform data
@@ -61,13 +61,27 @@ lab_num_results <- lab_raw %>%
   group_by(mrn, csn, fk_bed_moves, local_code) %>% 
   summarise(num_results = n())
 
-# calculate wide matrix of number of results
+# calculate wide matrix of number of results - note this includes fk_bed_moves to enable linking to location
 lab_num_results_with_zero <- lab_num_results %>% 
   pivot_wider(names_from = local_code, values_from = num_results)
 
 # replace NAs with zero (note this takes a long time so use separate file and run job)
 lab_num_results_with_zero <- lab_num_results_with_zero %>%
   mutate_at(vars(colnames(lab_num_results_with_zero)[4:ncol(lab_num_results_with_zero)]), replace_na, 0)
+
+
+# calculate wide matrix of number of results at csn level
+lab_num_results_with_zero_csn_level <- lab_num_results %>% 
+  ungroup() %>% group_by(mrn, csn, local_code) %>%
+  summarise(num_results = sum(num_results)) %>% 
+  pivot_wider(names_from = local_code, values_from = num_results) 
+
+# replace NAs with zero 
+lab_num_results_with_zero_csn_level <- lab_num_results_with_zero_csn_level %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
+  mutate_at(vars(colnames(lab_num_results_with_zero_csn_level)[3:ncol(lab_num_results_with_zero_csn_level)]), replace_na, 0)
+
+
+
 
 
 # Save data
@@ -83,3 +97,10 @@ save(lab_num_results, file = outFile)
 # note this is using local code
 outFile = paste0("EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_",today(),".rda")
 save(lab_num_results_with_zero, file = outFile)
+
+# note this is using local code
+outFile = paste0("EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_csn_level_",today(),".rda")
+save(lab_num_results_with_zero_csn_level, file = outFile)
+
+
+

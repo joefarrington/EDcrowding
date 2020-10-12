@@ -13,7 +13,7 @@ library(tidyverse)
 # ============
 
 
-load("~/EDcrowding/predict-admission/data-raw/matrix_2020-10-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/matrix_loc_2020-10-12.rda")
 
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-08.rda")
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-08.rda")
@@ -36,7 +36,9 @@ load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-
 chart_title = "Exploring relationship between admission and night time arrival"
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
-matrix %>% ungroup() %>%  select(csn, night, adm) %>% distinct() %>% 
+matrix %>% ungroup() %>%  
+  mutate(night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1)) %>%
+  select(csn, night, adm) %>% distinct() %>% 
   mutate(night = night==1) %>% 
   group_by(adm, night) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = night)) + geom_bar(stat = "identity", position = "fill") +
@@ -231,18 +233,21 @@ uncommon <- flowsheet_num_results %>% group_by(meas) %>% summarise(tot = sum(num
   filter(tot <= 500) %>% ungroup() %>% select(meas)
 
 # chart of number of measurements for those where > 500 measurements taken in total
-matrix_flowsheet_num_results_with_zero <- matrix %>% ungroup() %>% select(mrn, csn, adm, sex) %>% distinct() %>% 
-  left_join(flowsheet_num_results_with_zero %>% ungroup() %>% select(-fk_bed_moves)
+# note - I have corrected this one - was not aggregating to csn level - but others may also be incorrect
+
+matrix_flowsheet_num_results_with_zero2 <- matrix %>% ungroup() %>% select(mrn, csn, adm) %>% distinct() %>% 
+  left_join(flowsheet_num_results_with_zero_csn_level %>% ungroup()
 ) %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
   mutate_at(vars(acvpu:morphine_dose), replace_na, 0)
+
 
 
 
 chart_title = "Boxplot of number of flowsheet measurements recorded while in ED for the 16 most commonly used measurements"
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
-matrix_flowsheet_num_results_with_zero %>%
-  select(csn, sex, adm, common$meas) %>% 
+matrix_flowsheet_num_results_with_zero2 %>%
+  select(csn, adm, common$meas) %>% 
   pivot_longer(acvpu:temp, names_to = "meas", values_to = "num_results") %>% 
   ggplot(aes(adm, num_results, fill = adm, col = adm)) +
   geom_boxplot(alpha = 0.4) +
@@ -293,7 +298,7 @@ png("EDcrowding/predict-admission/media/Value of measurements recorded while in 
 flowsheet_real %>% 
   filter(meas %in% common$meas) %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix  %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
 select(csn) %>% n_distinct()
 
@@ -305,7 +310,7 @@ png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 flowsheet_real %>% 
   filter(meas %in% c(common$meas, "bp_sys", "bp_dia"), meas != "acvpu") %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -325,7 +330,7 @@ png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 flowsheet_real %>% 
   filter(meas== "acvpu") %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
   filter(!is.na(adm)) %>% 
   mutate(acvpu = factor(result_as_real, levels = c(1,2,3,4,5) , labels = c("A", "C", "V", "P", "U"))) %>% 
@@ -348,7 +353,7 @@ png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 flowsheet_real %>% 
   filter(meas== "acvpu", result_as_real !=1) %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
   filter(!is.na(adm)) %>% 
   mutate(acvpu = factor(result_as_real, levels = c(1,2,3,4,5) , labels = c("A", "C", "V", "P", "U"))) %>% 
@@ -424,7 +429,7 @@ png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 
 lab_real %>% 
   filter(local_code %in% common_labs$local_code[1:16]) %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -441,7 +446,7 @@ png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 
 lab_real %>% ungroup() %>% 
   filter(local_code %in% common_labs$local_code[17:33]) %>% 
   left_join(
-    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+    matrix %>% select(csn, age, sex, adm) %>% distinct()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +

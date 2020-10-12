@@ -19,19 +19,14 @@
 library(dplyr)
 library(tidyverse)
 library(lubridate)
-library(xgboost)
-library(data.table)
 
 
 # load data
 # =========
 
-#bed_moves = read.csv('F:/Saved/ENOCKUNG/ED project/bed_moves_emergency.csv')
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-09-30.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-12.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-12.rda")
 
-# temp fix to get pk_bed_moves
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_2020-10-07.rda")
 
 # demographic data
 load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
@@ -40,18 +35,32 @@ load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
 # process data
 # ============
 
-# join to get final admission status
+# join with ED_bed_moves (only rows in ED) and join with ED_csn_summ to final admission status
 bed_moves <- ED_bed_moves %>% 
-  left_join(ED_csn_summ %>% select(arrival_dttm, csn, ED_last_status))
+  filter(ED_row_excl_OTF == 1) %>% 
+  left_join(ED_csn_summ %>% select(arrival_dttm, csn, ED_last_status)) %>% 
+  select(mrn, csn, csn_old, arrival_dttm, admission, discharge, pk_bed_moves, room4, ED_last_status)
 
 # create boolean for admission
 bed_moves <- bed_moves %>% 
   mutate(adm = case_when(ED_last_status == "Discharged"~ FALSE,
-                         TRUE ~ TRUE))
+                         TRUE ~ TRUE)) %>% select(-ED_last_status)
 
-# attach pk_bed_moves
-bed_moves <- bed_moves %>% 
-  left_join(ED_bed_moves_raw %>% select(csn, pk_bed_moves))
+# generate vars for time in location
+bed_moves <- bed_moves %>% ungroup() %>% 
+  mutate(loc_admission = floor(as.numeric(difftime(admission, arrival_dttm, units = "mins"))),
+         loc_discharge = floor(as.numeric(difftime(discharge, arrival_dttm, units = "mins"))),
+         loc_duration = loc_discharge - loc_admission) %>% select(-admission, -discharge)
+#         loc_duration = duration_mins + 60*(duration_hours + 24*duration_days))
+
+# mark rows with repeated room4
+bed_moves <- bed_moves %>% group_by(mrn, csn, csn_old, arrival_dttm) %>% 
+  mutate(repeated_location = case_when(room4 == lag(room4) ~ TRUE,
+                                       TRUE ~ FALSE),
+         loc_discharge)
+
+# note some csns have a lot of repeated locations (max 8) - leave as is for now
+bed_moves %>% ungroup() %>% group_by(csn, room4) %>% summarise(tot = sum(repeated_location)) %>% arrange(desc(tot))
 
 ### attach age and sex 
 
@@ -62,17 +71,21 @@ bed_moves <- bed_moves %>%
   mutate(age = year(arrival_dttm) - year(birthdate))
 
 
+
+
 # select cols for matrix
 
-matrix <- bed_moves %>% select(mrn, sex, csn, arrival_dttm, age, pk_bed_moves, admission,	discharge, department, room4, adm)
+matrix_loc <- bed_moves %>% select(mrn, sex, csn, csn_old, arrival_dttm, age, pk_bed_moves, room4,
+                                   loc_admission,	loc_discharge, loc_duration, adm) %>% ungroup()
 
-# add relevant arrival time information
+save(matrix_loc, file = paste0('EDcrowding/predict-admission/data-raw/matrix_loc_',today(),'.rda'))
 
-matrix <- matrix %>% 
-  mutate(weekend = ifelse(weekdays(arrival_dttm, abbreviate = TRUE) %in% c("Sat", "Sun"), 1, 0))
 
-matrix <- matrix %>% 
-  mutate(night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1))
+matrix_csn <- bed_moves %>% select(mrn, sex, csn, csn_old, arrival_dttm, age, room4,
+                                   loc_duration, adm) %>% 
+  group_by(mrn, sex, csn, csn_old, arrival_dttm, age, room4, adm) %>% 
+  summarise(loc_duration = sum(loc_duration)) %>% 
+  pivot_wider(names_from = room4, names_prefix = "loc_duration_", values_from = loc_duration)
 
-save(matrix, file = paste0('EDcrowding/predict-admission/data-raw/matrix_',today(),'.rda'))
+save(matrix_csn, file = paste0('EDcrowding/predict-admission/data-raw/matrix_csn_',today(),'.rda'))
 

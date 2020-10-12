@@ -128,7 +128,7 @@ timer <- Sys.time()
 
 file_label <- "all_"
 include_CDU <- 0
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-09-28.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-10-07.rda")
 load(inFile)
 
 # Name changes (SQL doesn't do capitals)
@@ -227,6 +227,10 @@ multiple_ED_bed_moves <- ED_bed_moves_raw %>% filter(arrival_row) %>%
 num_multiple_ED_visits <- multiple_ED_bed_moves %>% 
   select(csn) %>% distinct() %>%  n_distinct()
 print(paste("Number of multiple visits to process: ",num_multiple_ED_visits))
+
+# save old csn for joining with other tables later
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(csn_old = csn)
 
 # while this number is greater than 0, calculate a new csn, arrival and
 # discharge time for the csns with multiple visits to ED 
@@ -648,8 +652,8 @@ ED_csn_summ <- ED_csn_summ %>%
 
 # reorder columns
 ED_bed_moves <- ED_bed_moves %>% 
-  select(mrn, csn, arrival_dttm, discharge_dttm, admission, discharge, 
-         department, dept2, hl7_location,
+  select(mrn, csn, csn_old, arrival_dttm, discharge_dttm, admission, discharge, 
+         department, dept2, hl7_location, pk_bed_moves,
          arrival_row, ED_row, OTF_row, ED_row_excl_OTF,
          ED_discharge_dttm, ED_discharge_dttm_excl_OTF, 
          ED_discharge_dttm_final, admission_row, everything()) 

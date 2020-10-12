@@ -12,7 +12,7 @@ library(tidyverse)
 
 
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-09-30.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-12.rda")
 
 # tidy labels
 
@@ -91,13 +91,25 @@ flowsheet_num_results <- flowsheet_raw %>%
   group_by(mrn, csn, fk_bed_moves, meas) %>% 
   summarise(num_results = n())
 
-# calculate wide matrix of number of results
+# calculate wide matrix of number of results - note this includes fk_bed_moves to enable linking to location
 flowsheet_num_results_with_zero <- flowsheet_num_results %>% 
   pivot_wider(names_from = meas, values_from = num_results)
+
 
 # replace NAs with zero 
 flowsheet_num_results_with_zero <- flowsheet_num_results_with_zero %>%
   mutate_at(vars(colnames(flowsheet_num_results_with_zero)[4:ncol(flowsheet_num_results_with_zero)]), replace_na, 0)
+
+
+# calculate wide matrix of number of results at csn level
+flowsheet_num_results_with_zero_csn_level <- flowsheet_num_results %>% 
+  ungroup() %>% group_by(mrn, csn, meas) %>%
+  summarise(num_results = sum(num_results)) %>% 
+  pivot_wider(names_from = meas, values_from = num_results) 
+
+# replace NAs with zero 
+flowsheet_num_results_with_zero_csn_level <- flowsheet_num_results_with_zero_csn_level %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
+  mutate_at(vars(colnames(flowsheet_num_results_with_zero_csn_level)[3:ncol(flowsheet_num_results_with_zero_csn_level)]), replace_na, 0)
 
 
 
@@ -113,3 +125,6 @@ save(flowsheet_num_results, file = outFile)
 
 outFile = paste0("EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_",today(),".rda")
 save(flowsheet_num_results_with_zero, file = outFile)
+
+outFile = paste0("EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_csn_level_",today(),".rda")
+save(flowsheet_num_results_with_zero_csn_level, file = outFile)
