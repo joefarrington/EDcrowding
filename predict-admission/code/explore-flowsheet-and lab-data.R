@@ -29,6 +29,8 @@ load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-
 # explore general factors 
 # ======================
 
+
+
 # effect of night arrival
 
 chart_title = "Exploring relationship between admission and night time arrival"
@@ -79,6 +81,27 @@ matrix %>%
        title = chart_title)
 
 dev.off()
+
+# day of week
+
+chart_title = "Exploring relationship between admission and day of week of arrival"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
+matrix %>% ungroup() %>%  select(csn, arrival_dttm, adm) %>% distinct() %>% 
+  mutate(day_of_week = 
+           factor(weekdays(arrival_dttm), 
+                  levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>% 
+  group_by(day_of_week, adm) %>% 
+  summarise(tot = n()) %>% 
+  ggplot(aes(day_of_week, tot, fill = adm)) +
+  geom_bar(stat = "identity", position = "fill") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  labs(x = "Admitted", y = "Proportion of patients", fill = "Day of week of arrival to ED",
+       title = chart_title)
+
+dev.off()
+
 
 # explore flowsheet data
 # ======================
