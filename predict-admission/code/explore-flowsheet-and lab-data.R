@@ -31,12 +31,22 @@ load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-
 
 # effect of night arrival
 
+chart_title = "Exploring relationship between admission and night time arrival"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
 matrix %>% ungroup() %>%  select(csn, night, adm) %>% distinct() %>% 
   mutate(night = night==1) %>% 
   group_by(adm, night) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = night)) + geom_bar(stat = "identity", position = "fill") +
   theme_classic() +
-  labs(x = "Admitted", y = "Proportion of patients", fill = "Nightime admission")
+  theme(legend.position = "bottom") +
+  labs(x = "Admitted", y = "Proportion of patients", fill = "Nightime (10 pm to 7 am) arrival to ED",
+       title = chart_title)
+
+dev.off()
+
+chart_title = "Exploring relationship between admission and gender"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 # gender
 matrix %>% ungroup() %>%  select(csn, sex, adm) %>% distinct() %>% 
@@ -44,45 +54,74 @@ matrix %>% ungroup() %>%  select(csn, sex, adm) %>% distinct() %>%
   group_by(adm, female) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = female)) + geom_bar(stat = "identity", position = "fill") +
   theme_classic() +
-  labs(x = "Admitted", y = "Proportion of patients", fill = "Female")
+  theme(legend.position = "bottom") +
+  labs(x = "Admitted", y = "Proportion of patients", fill = "Female",
+       title = chart_title)
 
+
+dev.off()
 
 # effect of time of day arrival
 
+
+chart_title = "Exploring relationship between admission and hour of arrival"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
 matrix %>%
-  ungroup() %>%
+  ungroup() %>% select(csn, arrival_dttm, adm) %>% distinct() %>% 
   group_by(hour = hour(arrival_dttm), adm) %>%
   summarise(tot = n()) %>%
-  ggplot(aes(hour, tot, fill = adm, color = adm)) +
-  geom_bar(stat = "identity", position = "fill", alpha = 0.4) +
-  labs(y = NULL, color = NULL, fill = NULL, x = "Hour of arrival")
+  ggplot(aes(hour, tot, fill = adm)) +
+  geom_bar(stat = "identity", position = "fill") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  labs(x = "Hour of arrival", y = "Proportion of patients", fill = "Admitted",
+       title = chart_title)
+
+dev.off()
 
 # explore flowsheet data
 # ======================
 
 # has flowsheet results 
 
+chart_title = "Exploring relationship between admission and presence of at least one flowsheet record"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
 matrix %>% ungroup() %>%  select(csn, adm) %>% distinct() %>% 
   mutate(has_results = csn %in% (flowsheet_num_results_with_zero$csn)) %>% group_by(adm, has_results) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = has_results)) + geom_bar(stat = "identity", position = "fill") +
   theme_classic() +
-  labs(x = "Admitted", y = "Proportion of patients", fill = "Has flowsheet results")
+  theme(legend.position = "bottom") +
+  labs(x = "Admitted", y = "Proportion of patients", fill = "Has at least one flowsheet record",
+       title = chart_title)
+
+dev.off()
 
 
 # has lab results
+
+chart_title = "Exploring relationship between admission and presence of at least one lab result"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+           
 matrix %>% ungroup() %>%  select(csn, adm) %>% distinct() %>% 
   mutate(has_results = csn %in% (lab_num_results_with_zero$csn)) %>% group_by(adm, has_results) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = has_results)) + geom_bar(stat = "identity", position = "fill") +
   theme_classic() +
-  labs(x = "Admitted", y = "Proportion of patients", fill = "Has lab results")
+  theme(legend.position = "bottom") +
+  labs(x = "Admitted", y = "Proportion of patients", fill = "Has at least one lab result",
+       title = chart_title)
+
+dev.off()
 
 
 # look at total number of measurements
 # need to left join with matrix to include the patients without any measurements
 
-png("EDcrowding/predict-admission/media/Number of measurements while in ED.png")
+chart_title = "Boxplot of total number of flowsheet measurements while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
-p1 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
   left_join(
     flowsheet_num_results %>% group_by(csn) %>% summarise(tot = sum(num_results))
     ) %>% 
@@ -92,14 +131,16 @@ p1 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>%
   theme_classic() +
   theme(legend.position = "none") +
   labs(y = "Total number of measurements", color = NULL, fill = NULL, x = "Admitted",
-       title = "Total number of measurements while in ED")
+       title = chart_title)
 
-p1
 dev.off()
 
 # look at total number of lab results
 
-p1a <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+chart_title = "Boxplot of total number of lab results while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
+matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
   left_join(
     lab_num_results %>% group_by(csn) %>% summarise(tot = sum(num_results))
   ) %>% 
@@ -109,16 +150,16 @@ p1a <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>%
   theme_classic() +
   theme(legend.position = "none") +
   labs(y = "Total number of lab results", color = NULL, fill = NULL, x = "Admitted",
-       title = "Total number of lab results while in ED")
-
-p1a
+       title = chart_title)
 
 
+dev.off()
 
-png("EDcrowding/predict-admission/media/Number of different types of measurement while in ED.png")
+chart_title = "Boxplot of number of different types of flowsheet measurement while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 # look at total number of different types of measurements
-p2 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
   left_join(
     flowsheet_num_results %>% ungroup() %>% group_by(csn) %>% summarise(tot = n_distinct(meas)) 
   ) %>% mutate(tot = replace_na(tot, 0)) %>% 
@@ -127,14 +168,16 @@ p2 <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>%
   theme_classic() +
   theme(legend.position = "none") +
   labs(y = "Number of different measurements", color = NULL, fill = NULL, x = "Admitted",
-       title = "Number of different types of measurement while in ED")
-p2
+       title = chart_title)
 dev.off()
 
 
 # look at total number of different types of lab results
 
-p2a <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
+chart_title = "Boxplot of number of different types of lab result while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
+matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>% 
   left_join(
     lab_num_results %>% ungroup() %>% group_by(csn) %>% summarise(tot = n_distinct(local_code)) 
   ) %>% mutate(tot = replace_na(tot, 0)) %>% 
@@ -143,19 +186,19 @@ p2a <- matrix %>% ungroup() %>% select(csn, sex, adm) %>% distinct() %>%
   theme_classic() +
   theme(legend.position = "none") +
   labs(y = "Number of different lab results", color = NULL, fill = NULL, x = "Admitted",
-       title = "Number of different types of lab result while in ED")
-p2a
+       title = chart_title)
+
 dev.off()
 
 # more detail on flowsheets
 # =========================
 
 
-# find flowsheet measurements that are worth looking at
-flowsheet_num_results %>% group_by(meas) %>% summarise(tot = sum(num_results)) %>% 
-  mutate(m2 = fct_reorder(meas, tot)) %>% 
-  ggplot(aes(x = m2, y = tot)) + geom_bar(stat = "identity") + coord_flip() +
-  labs(y = "Number of measurements", color = NULL, fill = NULL, x = "Measurement")
+# # find flowsheet measurements that are worth looking at
+# flowsheet_num_results %>% group_by(meas) %>% summarise(tot = sum(num_results)) %>% 
+#   mutate(m2 = fct_reorder(meas, tot)) %>% 
+#   ggplot(aes(x = m2, y = tot)) + geom_bar(stat = "identity") + coord_flip() +
+#   labs(y = "Number of measurements", color = NULL, fill = NULL, x = "Measurement")
 
 # seems to be a clear split above and below 500
 common <- flowsheet_num_results %>% group_by(meas) %>% summarise(tot = sum(num_results)) %>%
@@ -171,39 +214,42 @@ matrix_flowsheet_num_results_with_zero <- matrix %>% ungroup() %>% select(mrn, c
   mutate_at(vars(acvpu:morphine_dose), replace_na, 0)
 
 
-png("EDcrowding/predict-admission/media/Number of measurements recorded while in ED for 16 most common types, by type of measurement.png")
+
+chart_title = "Boxplot of number of flowsheet measurements recorded while in ED for the 16 most commonly used measurements"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 matrix_flowsheet_num_results_with_zero %>%
   select(csn, sex, adm, common$meas) %>% 
   pivot_longer(acvpu:resp_rate, names_to = "meas", values_to = "num_results") %>% 
-  ggplot(aes(adm, num_results, fill = adm, color = adm)) +
+  ggplot(aes(adm, num_results, fill = adm)) +
   geom_boxplot(alpha = 0.4) +
+  theme(legend.position = "none") +
   facet_wrap(~meas, scales = "free_y", ncol = 4) +
-  labs(y = NULL, color = NULL, x = "Admitted", title = "Number of measurements recorded while in ED, by type of measuremen",
-       subtitle = "Includes the 16 most frequently used measurements only")
+  labs(y = NULL, color = NULL, x = "Admitted", title = chart_title,
+       subtitle = "Includes the 16 measurements used more than 500 times between April 2019 and August 2020")
 
 dev.off()
 
-# chart of number of measurements for those where < 500 measurements taken in total
-
-png("EDcrowding/predict-admission/media/Existence of unusual measurement recorded while in ED.png")
-
-# this includes everyone but is not very useful
-matrix_flowsheet_num_results_with_zero %>%
-  select(csn, sex, adm, uncommon$meas) %>% 
-  mutate_at(vars(uncommon$meas), ~ replace(., which(.!=0), 1)) %>% 
-  pivot_longer(art_pressure_inv:vent_yes_no, names_to = "meas", values_to = "has_results") %>% 
-  group_by(meas, adm, has_results) %>% summarise(num = n()) %>% 
-  mutate(has_results= has_results == 1) %>% 
-  ggplot(aes(adm, num, fill = has_results)) +
-  geom_bar(stat = "identity", position = "fill") +
-  theme_classic() +
-  labs(x = "Admitted", y = "Proportion of patients", fill = "Has lab results") +
-  facet_wrap(~meas, scales = "free_y", ncol = 4) +
-  labs(y = NULL, color = NULL, x = "Admitted", title = "Number of measurements recorded while in ED, by type of measuremen",
-       subtitle = "Includes the 12 least frequently used measurements only")
-
-dev.off()
+# # chart of number of measurements for those where < 500 measurements taken in total
+# 
+# png("EDcrowding/predict-admission/media/Existence of unusual measurement recorded while in ED.png")
+# 
+# # this includes everyone but is not very useful
+# matrix_flowsheet_num_results_with_zero %>%
+#   select(csn, sex, adm, uncommon$meas) %>% 
+#   mutate_at(vars(uncommon$meas), ~ replace(., which(.!=0), 1)) %>% 
+#   pivot_longer(art_pressure_inv:vent_yes_no, names_to = "meas", values_to = "has_results") %>% 
+#   group_by(meas, adm, has_results) %>% summarise(num = n()) %>% 
+#   mutate(has_results= has_results == 1) %>% 
+#   ggplot(aes(adm, num, fill = has_results)) +
+#   geom_bar(stat = "identity", position = "fill") +
+#   theme_classic() +
+#   labs(x = "Admitted", y = "Proportion of patients", fill = "Has lab results") +
+#   facet_wrap(~meas, scales = "free_y", ncol = 4) +
+#   labs(y = NULL, color = NULL, x = "Admitted", title = "Number of measurements recorded while in ED, by type of measuremen",
+#        subtitle = "Includes the 12 least frequently used measurements only")
+# 
+# dev.off()
   
 
 # numerical flowsheet values
@@ -230,6 +276,9 @@ select(csn) %>% n_distinct()
 
 # continuing with the join
 
+chart_title = "Boxplot of value of flowsheet measurements recorded while in ED for the 16 most commonly used measurements"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
 flowsheet_real %>% 
   filter(meas %in% common$meas, meas != "acvpu") %>% 
   left_join(
@@ -239,13 +288,15 @@ flowsheet_real %>%
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
   facet_wrap(~meas, scales = "free_y", ncol = 4) +
-  theme_classic() %>% 
   theme(legend.position = "none") +
-  labs(y = NULL, color = NULL, x = "Admitted", title = "Value of measurements recorded while in ED")
+  labs(y = NULL, color = NULL, x = "Admitted", title = chart_title)
 
 dev.off()
 
 # looking at acvpu
+
+chart_title = "Exploring the relationship between ACVPU scores and admission"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
 flowsheet_real %>% 
   filter(meas== "acvpu") %>% 
@@ -258,10 +309,34 @@ flowsheet_real %>%
   ggplot(aes(adm, num, fill = acvpu)) +
   geom_bar(stat = "identity") +
   theme_classic() +
-  labs(y = "Number of patients", color = NULL, x = "Admitted", title = "Use of ACPU score")
+  theme(legend.position = "bottom") +
+  labs(y = "Number of AVPU scores recorded", fill = "ACVPU score", x = "Admitted", title = chart_title,
+       subtitle = "ACVPU: A = Alert, C = Confusion, V = Voice (not used), P = Pain, U = Unresponsive")
+
+dev.off()
 
 
+# looking at acvpu without A
 
+chart_title = "Exploring the relationship between ACPU scores and admission (excluding A)"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+
+flowsheet_real %>% 
+  filter(meas== "acvpu", result_as_real !=1) %>% 
+  left_join(
+    matrix %>% select(csn, age, sex, adm, weekend, night) %>% distinct()
+  ) %>%
+  filter(!is.na(adm)) %>% 
+  mutate(acvpu = factor(result_as_real, levels = c(1,2,3,4,5) , labels = c("A", "C", "V", "P", "U"))) %>% 
+  group_by(acvpu, adm) %>% summarise(num = n()) %>% 
+  ggplot(aes(adm, num, fill = acvpu)) +
+  geom_bar(stat = "identity", position = "fill") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  labs(y = "Proportion of patients receiving score", fill = "ACVPU score", x = "Admitted", title = chart_title,
+       subtitle = "ACVPU: A = Alert, C = Confusion, V = Voice (not used), P = Pain, U = Unresponsive")
+
+dev.off()
 
 
 
@@ -298,7 +373,7 @@ matrix_lab_num_results_with_zero %>%
   theme(legend.position = "none") +
   facet_wrap(~local_code, scales = "free_y", ncol = 4) +
   labs(y = NULL, color = NULL, x = "Admitted", title = "Number of lab results recorded while in ED (Part 1 of 2)",
-       subtitle = "Includes the 33 most frequently used lab results only (total number of lab tests is 388")
+       subtitle = "Includes the 33 most frequently used lab results only (total number of lab tests is 388)")
 
 dev.off()
 

@@ -34,6 +34,7 @@ Output
 - flowsheet_real - includes date and time for each measurement
 
 and for chart purposes (but not ML)
+- flowsheet_real
 - flowsheet_num_results (long matrix) for each mrn, csn, fk_bed_moves and mapped_name how many measurements  there
 - flowsheet_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
 
@@ -48,13 +49,11 @@ Output
 - lab_real - includes date and time for each measurement
 
 and for chart purposes (but not ML)
+- lab_real
 - lab_num_results (long matrix) for each mrn, csn, fk_bed_moves and local_code showing how many measurements  there
 - lab_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
 
-
-
-
-### x. explore-flowsheet-and-lab-data.R
+### 5. explore-flowsheet-and-lab-data.R
 
 This file is doing exploratory data analysis to decide which variables to attach to matrix
 
