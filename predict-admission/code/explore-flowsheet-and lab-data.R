@@ -23,7 +23,65 @@ load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-10-07.rda")
 load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-07.rda")
 load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-07.rda")
 
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-12.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-12.rda")
 
+
+# explore overall distribution
+# =============================
+
+chart_title = "Distribution of duration in ED (visits of less than 24 hours)"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+
+# exploring overall distribution of elapsed time
+ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
+  filter(duration < 24) %>% 
+  ggplot(aes(duration)) + geom_histogram(binwidth = .5, fill="#69b3a2", color="#e9ecef", alpha=0.9)  +
+  theme_classic() +
+  labs(title = chart_title, x = "Duration (hours)",
+       y = "Number of encounters",
+       subtitle = "191 encounters (of ~150K) have total duration of more than 24 hours")
+
+dev.off()
+
+chart_title = "Distribution of duration in Triage (where less than 10 hours)"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+
+# exploring overall distribution of elapsed time
+ED_bed_moves %>% filter(room4 == "TRIAGE") %>% 
+  mutate(duration = as.numeric(difftime(discharge, admission, units = "hours"))) %>% 
+  filter(duration < 10) %>% 
+  ggplot(aes(duration)) + geom_histogram(binwidth = .5, fill="#69b3a2", color="#e9ecef", alpha=0.9)  +
+  theme_classic() +
+  labs(title = chart_title, x = "Duration (hours)",
+       y = "Number of encounters",
+       subtitle = "46 encounters (of ~150K) have Triage duration of more than 10 hours")
+
+dev.off()
+
+
+chart_title = "Boxplot of duration in each location (for durations less than 100 hours)"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+
+# exploring overall distribution of elapsed time
+ED_bed_moves %>% 
+  filter(ED_row_excl_OTF == 1) %>% 
+  mutate(duration = duration_mins/60 + duration_hours + 24*duration_days) %>% 
+  filter(duration < 100) %>% 
+  ggplot(aes(room4, duration)) + geom_boxplot()  +
+  theme_classic() +
+  labs(title = chart_title, x = "Location",
+       y = "Duration (hours)")
+
+dev.off()
+
+
+# exploring overall distribution of admission
+ED_csn_summ %>% filter(date(arrival_dttm) < "2020-03-18", date(arrival_dttm) > "2019-05-01") %>% group_by(date(arrival_dttm)) %>% summarize(num_admitted = n()) %>% 
+  ggplot(aes(num_admitted)) + geom_histogram(binwidth = 25, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+
+ED_csn_summ %>% filter(date(arrival_dttm) > "2020-05-01") %>% group_by(date(arrival_dttm)) %>% summarize(num_admitted = n()) %>% 
+  ggplot(aes(num_admitted)) + geom_histogram(binwidth = 25, fill="#69b3a2", color="#e9ecef", alpha=0.9)
 
 
 # explore general factors 
