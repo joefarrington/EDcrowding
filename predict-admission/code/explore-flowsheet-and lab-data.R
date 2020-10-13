@@ -31,7 +31,7 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-12.rda")
 # =============================
 
 chart_title = "Distribution of duration in ED (visits of less than 24 hours)"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
 # exploring overall distribution of elapsed time
 ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
@@ -44,8 +44,23 @@ ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF
 
 dev.off()
 
+
+# number of locations
+chart_title = "Distribution of number of ED locations"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
+
+# exploring overall distribution of elapsed time
+ED_csn_summ %>% 
+  ggplot(aes(num_ED_row_excl_OTF)) + geom_histogram(binwidth = 1, fill="#69b3a2", color="#e9ecef", alpha=0.9)  +
+  theme_classic() +
+  scale_x_continuous(breaks = seq(1,10,1)) +
+  labs(title = chart_title, x = "Number of ED locations visited (includes repeat visits)",
+       y = "Number of encounters")
+
+dev.off()
+
 chart_title = "Distribution of duration in Triage (where less than 10 hours)"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
 # exploring overall distribution of elapsed time
 ED_bed_moves %>% filter(room4 == "TRIAGE") %>% 
@@ -61,7 +76,7 @@ dev.off()
 
 
 chart_title = "Boxplot of duration in each location (for durations less than 100 hours)"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png")) 
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
 # exploring overall distribution of elapsed time
 ED_bed_moves %>% 
@@ -74,6 +89,9 @@ ED_bed_moves %>%
        y = "Duration (hours)")
 
 dev.off()
+
+
+
 
 
 # exploring overall distribution of admission
