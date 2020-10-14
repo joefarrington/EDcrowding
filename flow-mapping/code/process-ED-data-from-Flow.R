@@ -148,12 +148,11 @@ timer <- Sys.time()
 ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(admission != discharge, !is.na(department))
 
 # remove csns where admission is later than discharge
-admission_later_csns <- ED_bed_moves_raw %>% filter(admission > discharge) %>% select(csn) 
+admission_later_csns <- ED_bed_moves_raw %>% filter(admission > discharge) %>% select(mrn, csn) %>% distinct()
 ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(!csn %in% admission_later_csns$csn)
 # to see the number of csns to remove: 
 print("number of csns removed because admission later than discharge:")
 print(admission_later_csns %>% select(csn) %>% n_distinct()) 
-rm(admission_later_csns)
 
 print(Sys.time() - timer)
 print("Arrival and discharge dttms")
@@ -567,38 +566,49 @@ timer <- Sys.time()
 
 
 # identify visits where someone goes to ED from another location
-elsewhere_to_ED_csn <- ED_bed_moves_raw %>% 
+elsewhere_to_ED_csn <- ED_bed_moves_raw %>% ungroup() %>% 
+  select(mrn, csn, csn_old, ED_row, arrival_row) %>% 
   group_by(csn) %>% 
-  select(csn, ED_row, arrival_row) %>% 
   mutate(check = case_when(ED_row == 1 & !arrival_row & lag(ED_row) == 0 ~ "B",
                            TRUE ~ "A")) %>% 
-  filter(check == "B") %>% select(csn) 
+  filter(check == "B") %>% 
+  select(mrn, csn, csn_old) %>% distinct() %>% 
+  mutate(duration_days = NA)
 # to see the number of csns identified: 
 print("number of elsewhere to ED csns:")
 print(elsewhere_to_ED_csn %>% select(csn) %>% n_distinct()) #0Jan/Feb; 0 in Mar/Apr; 4 in May/Jun/Jul; 0 in August
 
-# # look at csns with duration of more than one day:
-# long_ED_csn <-  ED_bed_moves_raw %>% 
-#   filter(!csn %in% elsewhere_to_ED_csn$csn,
-#          ED_duration_final >  days(1)) %>%
-#   select(csn, ED_duration_final) %>% distinct()
-# # to see the number of csns identified: 
-# print("number of long ED csns:")
-# print(long_ED_csn %>% select(csn) %>% n_distinct()) 
-# print(long_ED_csn$csn)
-#   #22 in Jan/Feb 6 in Mar/Apr; 8 in May/Jun/Jul; 2 in August
-# 
-# # a couple in May/Jun/Jul are very weird; 
-# # ED_bed_moves_raw %>% filter(mrn == "93065579") was in OTF for days and then returned to MAJORS then discharge; 
-# # ED_bed_moves_raw %>% filter(mrn == "21212090") similar to above but returned to UTC then discharge
-# # ED_bed_moves_raw %>% filter(mrn == "21176662") has two arrival rows in ED then nothing else; remove this one
-# 
-# # # several have weird arrival rows - but leave these in
-# # odd_arrival_rows <- ED_bed_moves_raw %>% filter(arrival_row, 
-# #                             hl7_location %in% c("ED^UCHED WR POOL^WR",
-# #                                                 "ED^UCHED OTF POOL^OTF")) %>% 
-# #   select(csn) %>% distinct()
-# # 
+
+# look at csns with duration of more than one day:
+long_ED_csn <-  ED_bed_moves_raw %>% ungroup() %>% 
+  filter(ED_row == 1,
+         duration_days >=1) %>%
+  select(mrn, csn, csn_old, duration_days) %>% distinct()
+
+# to see the number of csns identified:
+print("number of long ED csns:")
+print(long_ED_csn %>% select(csn) %>% n_distinct())
+print(long_ED_csn$csn)
+
+
+# several have weird arrival rows
+odd_arrival_rows <- ED_bed_moves_raw %>% 
+  filter(arrival_row,
+         hl7_location %in% c("ED^UCHED WR POOL^WR", "ED^UCHED OTF POOL^OTF")) %>%
+  select(mrn, csn, csn_old) %>% distinct()
+
+
+# create dataset of excluded csns
+excluded_csns <- admission_later_csns %>% mutate(csn_old = csn) %>% 
+  bind_rows(elsewhere_to_ED_csn %>% select(mrn, csn, csn_old))  %>% 
+  bind_rows(long_ED_csn %>% select(mrn, csn, csn_old)) %>% 
+  bind_rows(odd_arrival_rows %>% select(mrn, csn, csn_old)) %>% 
+  distinct() %>% 
+  mutate(reason = case_when(csn %in% admission_later_csns$csn ~ "Admission later than discharge",
+                            csn %in% elsewhere_to_ED_csn$csn & csn %in% long_ED_csn$csn ~ "Elsewhere to ED and long ED",
+                            csn %in% elsewhere_to_ED_csn$csn ~ "Elsewhere to ED",
+                            csn %in% long_ED_csn$csn ~ "Long ED",
+                            TRUE ~ "Odd arrival row"))
 
 
 # # a few CSNs have multiple iterations through OTF and Waiting room - use this to check
@@ -614,13 +624,7 @@ print(elsewhere_to_ED_csn %>% select(csn) %>% n_distinct()) #0Jan/Feb; 0 in Mar/
 # create clean version of ED bed moves
 
 ED_bed_moves <- ED_bed_moves_raw %>% 
-  filter(
-#    !csn %in% odd_csn$csn,
-#    !csn %in% long_ED_csn$csn, # worth doing for May to July
-#    !csn %in% odd_arrival_rows$csn, leave these in
-    !csn %in% elsewhere_to_ED_csn$csn) 
-
-rm(elsewhere_to_ED_csn)
+  filter(!csn %in% excluded_csns$csn) 
 
 
 # Create summary dataset
@@ -630,7 +634,7 @@ print("Creating summary dataset")
 
 # create summary (one row per csn)
 ED_csn_summ <- ED_bed_moves %>% 
-  group_by(mrn, csn, arrival_dttm, discharge_dttm, 
+  group_by(mrn, csn, csn_old, arrival_dttm, discharge_dttm, 
            ED_discharge_dttm, ED_discharge_dttm_final,
            ED_discharge_dttm_excl_OTF, 
            # ED_duration_excl_OTF,
@@ -648,7 +652,14 @@ ED_csn_summ <- ED_csn_summ %>%
 
 # calculate whether admitted
 ED_csn_summ <- ED_csn_summ %>%  
-  mutate(ED_last_status = if_else(discharge_dttm == ED_discharge_dttm_final, "Discharged", "Admitted"))
+  mutate(adm = if_else(discharge_dttm == ED_discharge_dttm_final, FALSE, TRUE))
+
+
+ED_csn_summ <- ED_csn_summ %>%  
+  mutate(epoch = case_when(arrival_dttm < '2020-03-31' ~ "Pre_Covid",
+                           arrival_dttm < '2020-05-31' ~ 'Surge1',
+                           TRUE ~ 'Post_Surge1')) %>% 
+  mutate(epoch = factor(epoch, levels = c("Pre_Covid", "Surge1", "Post_Surge1")))
 
 # reorder columns
 ED_bed_moves <- ED_bed_moves %>% 
@@ -658,7 +669,15 @@ ED_bed_moves <- ED_bed_moves %>%
          ED_discharge_dttm, ED_discharge_dttm_excl_OTF, 
          ED_discharge_dttm_final, admission_row, everything()) 
 
-  
+
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(epoch = case_when(arrival_dttm < '2020-03-31' ~ "Pre_Covid",
+                           arrival_dttm < '2020-05-31' ~ 'Surge1',
+                           TRUE ~ 'Post_Surge1')) %>% 
+  mutate(epoch = factor(epoch, levels = c("Pre_Covid", "Surge1", "Post_Surge1")))
+
+
+
 
 
 # Save data
@@ -682,6 +701,9 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",file_label,toda
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
+# save excluded csns
 
-
+outFile = paste0("EDcrowding/flow-mapping/data-raw/Excluded_csns_",file_label,today(),".rda")
+save(excluded_csns, file = outFile)
+rm(outFile)
 

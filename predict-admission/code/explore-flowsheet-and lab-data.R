@@ -12,44 +12,30 @@ library(tidyverse)
 # load data
 # ============
 
-load("~/EDcrowding/predict-admission/data-raw/matrix_csn_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/matrix_loc_2020-10-12.rda")
+load("~/EDcrowding/predict-admission/data-raw/matrix_csn_2020-10-14.rda")
+#load("~/EDcrowding/predict-admission/data-raw/matrix_loc_2020-10-14.rda")
 
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_csn_level_2020-10-12.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_raw_excluded_csns_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_num_results_with_zero_csn_level_2020-10-14.rda")
 
-load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-12.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_csn_level_2020-10-12.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_raw_excluded_csns_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_csn_level_2020-10-14.rda")
 
 
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-12.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-12.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
 
-ED_csn_summ <- ED_csn_summ %>%  
-  mutate(epoch = case_when(arrival_dttm < '2020-03-31' ~ "Pre-Covid",
-                           arrival_dttm < '2020-05-31' ~ 'Covid',
-                           TRUE ~ 'Post-Covid')) %>% 
-  mutate(epoch = factor(epoch, levels = c("Pre-Covid", "Covid", "Post-Covid")))
-
-ED_bed_moves <- ED_bed_moves %>%  
-  mutate(epoch = case_when(arrival_dttm < '2020-03-31' ~ "Pre-Covid",
-                           arrival_dttm < '2020-05-31' ~ 'Covid',
-                           TRUE ~ 'Post-Covid')) %>% 
-  mutate(epoch = factor(epoch, levels = c("Pre-Covid", "Covid", "Post-Covid")))
 
 ED_bed_moves <- ED_bed_moves %>%  ungroup() %>% 
   filter(ED_row_excl_OTF ==1) %>% 
-  left_join(ED_csn_summ %>% select(csn, ED_last_status))
+  left_join(ED_csn_summ %>% select(csn, adm))
 
-matrix_csn <- matrix_csn %>% 
-  mutate(epoch = case_when(arrival_dttm < '2020-03-31' ~ "Pre-Covid",
-                           arrival_dttm < '2020-05-31' ~ 'Covid',
-                           TRUE ~ 'Post-Covid')) %>% 
-  mutate(epoch = factor(epoch, levels = c("Pre-Covid", "Covid", "Post-Covid")))
 
 # explore overall distribution
 # =============================
@@ -81,9 +67,9 @@ ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF
   filter(duration < 12) %>% 
   ggplot(aes(x = duration)) +   
   geom_histogram(data=subset(ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
-                               filter(duration < 12),ED_last_status == 'Discharged'), binwidth = .5,  fill = "#F8766D")   +
+                               filter(duration < 12),!adm), binwidth = .5,  fill = "#F8766D")   +
   geom_histogram(data=subset(ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
-                               filter(duration < 12) ,ED_last_status == 'Admitted'), binwidth = .5, fill = "#00BFC4") +
+                               filter(duration < 12) ,adm), binwidth = .5, fill = "#00BFC4") +
 
   scale_x_continuous(breaks = seq(0,12,2)) +
   theme_classic() +
@@ -117,9 +103,9 @@ png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 
 ED_csn_summ %>% 
   ggplot(aes(num_ED_row_excl_OTF))  +   
   geom_histogram(data=subset(ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
-                               filter(duration < 12),ED_last_status == 'Discharged'), binwidth = .5,  fill = "#F8766D")   +
+                               filter(duration < 12),!adm), binwidth = .5,  fill = "#F8766D")   +
   geom_histogram(data=subset(ED_csn_summ %>% mutate(duration = as.numeric(difftime(ED_discharge_dttm_excl_OTF, arrival_dttm, units = "hours"))) %>% 
-                               filter(duration < 12) ,ED_last_status == 'Admitted'), binwidth = .5, fill = "#00BFC4")  +
+                               filter(duration < 12) ,adm), binwidth = .5, fill = "#00BFC4")  +
   theme_classic() +
   scale_x_continuous(breaks = seq(1,12,1)) +
   labs(title = chart_title, x = "Number of ED locations visited (includes repeat visits)",
@@ -146,8 +132,6 @@ ED_bed_moves %>% filter(room4 == "TRIAGE") %>%
 
 dev.off()
 
-chart_title = "Distribution of duration in Triage (where less than 10 hours) - with colour showing whether admitted"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
 # exploring overall distribution of  time in triage - with colour
 
@@ -161,10 +145,10 @@ ED_bed_moves %>% filter(room4 == "TRIAGE") %>%
   ggplot(aes(duration)) + 
   geom_histogram(data = subset(ED_bed_moves %>% filter(room4 == "TRIAGE") %>% 
                     mutate(duration = as.numeric(difftime(discharge, admission, units = "hours"))) %>% 
-                    filter(duration < 10), ED_last_status == 'Discharged'), binwidth = .5,  fill = "#F8766D")   +
+                    filter(duration < 10), !adm), binwidth = .5,  fill = "#F8766D")   +
   geom_histogram(data = subset(ED_bed_moves %>% filter(room4 == "TRIAGE") %>% 
                                  mutate(duration = as.numeric(difftime(discharge, admission, units = "hours"))) %>% 
-                                 filter(duration < 10), ED_last_status == 'Admitted'), binwidth = .5,  fill = "#00BFC4")   +
+                                 filter(duration < 10), adm), binwidth = .5,  fill = "#00BFC4")   +
   theme_classic() +
   scale_x_continuous(breaks = seq(0,10,1)) +
   labs(title = chart_title, x = "Duration (hours)",
@@ -175,11 +159,12 @@ ED_bed_moves %>% filter(room4 == "TRIAGE") %>%
 dev.off()
 
 
+# exploring overall distribution of elapsed time
+
 
 chart_title = "Boxplot of duration in each location (for durations less than 100 hours)"
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
-# exploring overall distribution of elapsed time
 ED_bed_moves %>% 
   filter(ED_row_excl_OTF == 1) %>% 
   mutate(duration = duration_mins/60 + duration_hours + 24*duration_days) %>% 
@@ -206,8 +191,6 @@ ED_csn_summ %>%
        y = "Count of encounters") +
   facet_wrap(~ epoch)
 
-ED_csn_summ %>% filter(date(arrival_dttm) > "2020-05-01") %>% group_by(date(arrival_dttm)) %>% summarize(num_admitted = n()) %>% 
-  ggplot(aes(num_admitted)) + geom_histogram(binwidth = 25, fill="#69b3a2", color="#e9ecef", alpha=0.9)
 
 dev.off()
 
@@ -220,7 +203,7 @@ hlines <- matrix_csn %>% group_by(epoch) %>% summarise(prop_admitted = (sum(adm)
 # effect of night arrival
 
 chart_title = "Exploring relationship between admission and night time arrival"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
 
 matrix_csn %>% ungroup() %>%  
   mutate(night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1)) %>%
@@ -236,7 +219,7 @@ matrix_csn %>% ungroup() %>%
 dev.off()
 
 chart_title = "Exploring relationship between admission and gender"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 # gender
 matrix_csn %>% ungroup() %>%  
@@ -258,7 +241,7 @@ dev.off()
 
 
 chart_title = "Exploring relationship between admission and hour of arrival"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_csn %>%  ungroup() %>% 
   group_by(hour = hour(arrival_dttm), adm, epoch) %>%
@@ -278,7 +261,7 @@ dev.off()
 # day of week
 
 chart_title = "Exploring relationship between admission and day of week of arrival"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_csn %>% ungroup() %>% 
   mutate(day_of_week = 
@@ -318,11 +301,76 @@ matrix_csn %>% ungroup() %>%
 
 dev.off()
 
+# total number of flowsheet measurements
+# need to left join with matrix to include the patients without any measurements
+
+chart_title = "Boxplot of total number of flowsheet measurements while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
+
+matrix_csn %>% ungroup() %>% 
+  left_join(
+    flowsheet_num_results %>% group_by(mrn, csn) %>% summarise(tot = sum(num_results))
+  ) %>% 
+  mutate(tot = replace_na(tot, 0)) %>% 
+  ggplot(aes(adm, tot, fill = adm, col = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(y = "Total number of measurements", color = NULL, fill = NULL, x = "Admitted",
+       title = chart_title)+
+  facet_wrap(~ epoch) 
+
+dev.off()
+
+
+chart_title = "Boxplot of number of different types of flowsheet measurement while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
+
+# look at total number of different types of measurements
+matrix_csn %>% ungroup()  %>% 
+  left_join(
+    flowsheet_num_results %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(meas))
+  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
+  ggplot(aes(adm, tot, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(y = "Number of different measurements", color = NULL, fill = NULL, x = "Admitted",
+       title = chart_title)+
+  facet_wrap(~ epoch) 
+
+dev.off()
+
+
+# look at total number of flowsheet events
+
+
+chart_title = "Boxplot of number of different flowsheet events while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
+
+matrix_csn %>% ungroup()  %>% 
+  left_join(
+    flowsheet_raw_excluded_csns %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(elapsed_mins))
+  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
+  ggplot(aes(adm, tot, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(y = "Number of different flowsheet events", color = NULL, fill = NULL, x = "Admitted",
+       title = chart_title)+
+  facet_wrap(~ epoch) 
+
+dev.off()
+
+
+# explore lab data
+# ================
+
 
 # has lab results
 
 chart_title = "Exploring relationship between admission and presence of at least one lab result"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
            
 matrix_csn %>% ungroup() %>%  
   mutate(has_results = csn %in% (lab_num_results_with_zero$csn)) %>% 
@@ -337,37 +385,16 @@ matrix_csn %>% ungroup() %>%
 dev.off()
 
 
-# look at total number of measurements
-# need to left join with matrix to include the patients without any measurements
 
-chart_title = "Boxplot of total number of flowsheet measurements while in ED"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
 
-matrix_csn %>% ungroup() %>% 
-  left_join(
-    flowsheet_num_results %>% group_by(mrn, csn) %>% summarise(tot = sum(num_results)),
-    by = c("mrn", "csn_old" = "csn")
-    ) %>% 
-  mutate(tot = replace_na(tot, 0)) %>% 
-  ggplot(aes(adm, tot, fill = adm, col = adm)) +
-  geom_boxplot(alpha = 0.4) +
-  theme_classic() +
-  theme(legend.position = "none") +
-  labs(y = "Total number of measurements", color = NULL, fill = NULL, x = "Admitted",
-       title = chart_title)+
-  facet_wrap(~ epoch) 
-
-dev.off()
-
-# look at total number of lab results
+# total number of lab results
 
 chart_title = "Boxplot of total number of lab results while in ED"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_csn %>% ungroup()  %>% 
   left_join(
-    lab_num_results %>% group_by(mrn, csn) %>% summarise(tot = sum(num_results)),
-    by = c("mrn", "csn_old" = "csn")
+    lab_num_results %>% group_by(mrn, csn) %>% summarise(tot = sum(num_results))
   ) %>% 
   mutate(tot = replace_na(tot, 0)) %>% 
   ggplot(aes(adm, tot, fill = adm, col = adm)) +
@@ -381,34 +408,16 @@ matrix_csn %>% ungroup()  %>%
 
 dev.off()
 
-chart_title = "Boxplot of number of different types of flowsheet measurement while in ED"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
-
-# look at total number of different types of measurements
-matrix_csn %>% ungroup()  %>% 
-  left_join(
-    flowsheet_num_results %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(meas)),
-    by = c("mrn", "csn_old" = "csn") 
-  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
-  ggplot(aes(adm, tot, fill = adm, color = adm)) +
-  geom_boxplot(alpha = 0.4) +
-  theme_classic() +
-  theme(legend.position = "none") +
-  labs(y = "Number of different measurements", color = NULL, fill = NULL, x = "Admitted",
-       title = chart_title)+
-  facet_wrap(~ epoch) 
-dev.off()
 
 
-# look at total number of different types of lab results
+# total number of different types of lab results
 
 chart_title = "Boxplot of number of different types of lab result while in ED"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_csn %>% ungroup() %>% 
   left_join(
-    lab_num_results %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(local_code)),
-    by = c("mrn", "csn_old" = "csn") 
+    lab_num_results %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(local_code))
   ) %>% mutate(tot = replace_na(tot, 0)) %>% 
   ggplot(aes(adm, tot, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
@@ -419,6 +428,40 @@ matrix_csn %>% ungroup() %>%
   facet_wrap(~ epoch) 
 
 dev.off()
+
+# total number of lab events
+
+chart_title = "Boxplot of number of different lab events while in ED"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
+
+matrix_csn %>% ungroup()  %>% 
+  left_join(
+    lab_raw_excluded_csns %>% ungroup() %>% group_by(mrn, csn) %>% summarise(tot = n_distinct(elapsed_mins))
+  ) %>% mutate(tot = replace_na(tot, 0)) %>% 
+  ggplot(aes(adm, tot, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(y = "Number of different lab result events", color = NULL, fill = NULL, x = "Admitted",
+       title = chart_title)+
+  facet_wrap(~ epoch) 
+
+dev.off()
+
+# # elapsed time and lab events - within a patient, what is the elapsed time after their first lab result?
+# # if anumber of lab results come close together, arguably that is one event
+# # other patients might have them spread out
+# 
+# lab_raw_excluded_csns %>% select(mrn, csn, elapsed_mins) %>% ungroup() %>% distinct() %>% 
+#   group_by(mrn, csn) %>% mutate(first_lab_time = min(elapsed_mins),
+#                                                       mean_lab_time = mean(elapsed_mins, na.rm = TRUE)) %>% 
+#   select(-elapsed_mins) %>% 
+#   left_join(
+#     matrix_csn %>% ungroup() %>% select(mrn, csn, adm)
+#   ) %>%
+#   distinct() %>% 
+#   ggplot(aes(x = adm, y = first_lab_time)) + geom_boxplot()
+
 
 # more detail on flowsheets
 # =========================
@@ -441,8 +484,7 @@ common <- flowsheet_num_results %>% group_by(meas) %>% summarise(tot = sum(num_r
 # note - I have corrected this one - was not aggregating to csn level - but others may also be incorrect
 
 matrix_flowsheet_num_results_with_zero <- matrix_csn %>% ungroup() %>% 
-  left_join(flowsheet_num_results_with_zero_csn_level %>% ungroup(),
-            by = c("mrn", "csn_old" = "csn")
+  left_join(flowsheet_num_results_with_zero_csn_level %>% ungroup()
 ) %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
   mutate_at(vars(acvpu:morphine_dose), replace_na, 0)
 
@@ -491,10 +533,6 @@ dev.off()
 # numerical flowsheet values
 # ==========================
 
-flowsheet_real %>% 
-  ungroup() %>% 
-  count(meas) %>% arrange(n)
-
 
 
 png("EDcrowding/predict-admission/media/Value of measurements recorded while in ED and whether admitted.png")
@@ -506,8 +544,7 @@ png("EDcrowding/predict-admission/media/Value of measurements recorded while in 
 flowsheet_real %>% 
   filter(meas %in% common$meas) %>% 
   left_join(
-    matrix_csn,
-    by = c("mrn", "csn" = "csn_old")
+    matrix_csn
   ) %>%
 select(csn) %>% n_distinct()
 
@@ -517,13 +554,12 @@ flowsheet_real %>% filter(meas == "temp", csn == "1010988945")
 
 
 chart_title = "Boxplots of value of flowsheet measurements for the 8 most commonly used measurements"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), height = 2000, width = 659)
 
 flowsheet_real %>% 
   filter(meas %in% c(common$meas, "bp_sys", "bp_dia"), meas != "acvpu") %>% 
   left_join(
-    matrix_csn,
-    by = c("mrn", "csn" = "csn_old")
+    matrix_csn
   ) %>%
   filter(!is.na(epoch)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -601,13 +637,12 @@ uncommon_labs <- lab_num_results %>% group_by(local_code) %>% summarise(tot = su
 matrix_lab_num_results_with_zero <- matrix_csn %>% ungroup() %>%
   left_join(lab_num_results_with_zero %>%
               ungroup() %>%
-              select(mrn, csn, common_labs$local_code, -fk_bed_moves),
-            by = c("mrn", "csn_old" = "csn")
+              select(mrn, csn, common_labs$local_code, -fk_bed_moves)
   ) %>%   # need to fill in the NA values as zeroes for people without any flowsheet measurements
   mutate_at(vars(ALB:WCC), replace_na, 0)
 
 
-png("EDcrowding/predict-admission/media/Number of labs recorded while in ED for 33 most common lab tests - Part 1.png")
+png("EDcrowding/predict-admission/media/Number of labs recorded while in ED for 33 most common lab tests - Part 1.png", width = 1077, height = 659)
 
 matrix_lab_num_results_with_zero %>%
   select(csn, adm, common_labs$local_code) %>% 
@@ -622,7 +657,7 @@ matrix_lab_num_results_with_zero %>%
 
 dev.off()
 
-png("EDcrowding/predict-admission/media/Number of labs recorded while in ED for 33 most common lab tests - Part 2.png")
+png("EDcrowding/predict-admission/media/Number of labs recorded while in ED for 33 most common lab tests - Part 2.png", width = 1077, height = 659)
 
 matrix_lab_num_results_with_zero %>%
   select(csn, adm, common_labs$local_code) %>% 
@@ -639,13 +674,13 @@ dev.off()
 
 ## values of lab tests
 
-png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 1.png")
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 1.png", width = 1077, height = 659)
 
 
 lab_real %>% 
   filter(local_code %in% common_labs$local_code[1:8]) %>% 
   left_join(
-    matrix_csn %>% ungroup(), by = c("mrn", "csn" = "csn_old")
+    matrix_csn %>% ungroup()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -657,12 +692,12 @@ lab_real %>%
 dev.off()
 
 
-png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 2.png")
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 2.png", width = 1077, height = 659)
 
 lab_real %>% ungroup() %>% 
   filter(local_code %in% common_labs$local_code[9:16]) %>% 
   left_join(
-    matrix_csn %>% ungroup(), by = c("mrn", "csn" = "csn_old")
+    matrix_csn %>% ungroup()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -675,12 +710,12 @@ dev.off()
 
 
 
-png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 3.png")
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 3.png", width = 1077, height = 659)
 
 lab_real %>% ungroup() %>% 
   filter(local_code %in% common_labs$local_code[17:24]) %>% 
   left_join(
-    matrix_csn %>% ungroup(), by = c("mrn", "csn" = "csn_old")
+    matrix_csn %>% ungroup()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -693,12 +728,12 @@ dev.off()
 
 
 
-png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 4.png")
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 4.png", width = 1077, height = 659)
 
 lab_real %>% ungroup() %>% 
   filter(local_code %in% common_labs$local_code[25:32]) %>% 
   left_join(
-    matrix_csn %>% ungroup(), by = c("mrn", "csn" = "csn_old")
+    matrix_csn %>% ungroup()
   ) %>%
   filter(!is.na(adm)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
@@ -714,13 +749,13 @@ dev.off()
 lab_real_common <- lab_real %>% ungroup() %>% 
   filter(local_code %in% common_labs$local_code, !is.na(ref_low)) %>% 
   left_join(
-    matrix_csn %>% ungroup(), by = c("mrn", "csn" = "csn_old")
+    matrix_csn %>% ungroup()
   ) %>%
   filter(!is.na(adm))
 
 ## OUt of range lab tests
 
-png("EDcrowding/predict-admission/media/Out of range lab results.png")
+png("EDcrowding/predict-admission/media/Out of range lab results.png", width = 1077, height = 659)
 
 lab_real_common %>% group_by(local_code, adm) %>% 
   summarise(out_of_range_high = sum(oor_high, na.rm = TRUE),
@@ -738,7 +773,7 @@ lab_real_common %>% group_by(local_code, adm) %>%
 dev.off()
 
 
-png("EDcrowding/predict-admission/media/Out of range lab results by epoch.png")
+png("EDcrowding/predict-admission/media/Out of range lab results by epoch.png", width = 1077, height = 659)
 
 lab_real_common %>% 
   filter(local_code %in% c("ALB", "ALP", "ALT", "AMY", "CREA", "CRP",
