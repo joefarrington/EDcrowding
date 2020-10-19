@@ -806,10 +806,13 @@ lab_real_common %>% group_by(local_code, adm) %>%
   pivot_longer(out_of_range_high:in_range, names_to = "range", values_to = "num") %>% 
   mutate(range = factor(range, levels = c("out_of_range_low", "in_range", "out_of_range_high"))) %>% 
   ggplot(aes(x = adm, y = num, fill = fct_rev(range))) + geom_bar(stat = "identity", position = "fill") +
+  scale_y_continuous(breaks = c(0,0.5,1)) +
   facet_wrap(~local_code, scales = "fixed", ncol = 6) +
+  theme(legend.position = "none") +
   labs(y = "Proportion of patients", fill = "Proportion that are:", x = "Admitted", title = "Proportion of lab results in and out of range",
-       subtitle = "Includes the 32 most frequently used lab results only (total number of lab tests is 388)") +
-  theme(legend.position = "bottom")
+       subtitle = "Includes the most frequently used lab results only (total number of lab tests is 388)") +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(values = c("out_of_range_low" = "blue", "out_of_range_high" = "red", "in_range" = "grey"))
   
 
 dev.off()
@@ -826,6 +829,7 @@ lab_real_common %>%
             in_range = sum(!oor_low & !oor_high, na.rm = TRUE)) %>% 
   pivot_longer(out_of_range_high:in_range, names_to = "range", values_to = "num") %>% 
   ggplot(aes(x = adm, y = num, fill = fct_rev(range))) + geom_bar(stat = "identity", position = "fill") +
+  
   facet_wrap(local_code~epoch, scales = "fixed", ncol = 3) +
   labs(y = "Proportion of patients", fill = "Proportion that are:", x = "Admitted", title = "Proportion of lab results in and out of range",
        subtitle = "Includes the 32 most frequently used lab results only (total number of lab tests is 388)") +
