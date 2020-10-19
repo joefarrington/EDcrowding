@@ -211,7 +211,9 @@ matrix_csn %>% ungroup() %>%
   group_by(adm, night, epoch) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = night)) + geom_bar(stat = "identity", position = "fill") +
   theme(legend.position = "bottom") +
-  labs(x = "Admitted", y = "Proportion of patients arriving at day/night", fill = "Nightime (10 pm to 7 am) arrival to ED",
+  theme_classic() +
+
+  labs(x = "Admitted", y = "Proportion of patients arriving at night", fill = "Nightime (10 pm to 7 am) arrival to ED",
        title = chart_title) +
   facet_wrap(~ epoch) +
   scale_fill_manual(values = c("#6dd3f8", "#a0f86d"))
@@ -229,7 +231,8 @@ matrix_csn %>% ungroup() %>%
   theme(panel.grid.minor = element_line(colour="black", size=0.5)) +
   scale_y_continuous(minor_breaks = seq(0 , 1, .25), breaks = seq(0 , 1, .25)) +
   theme(legend.position = "bottom") +
-  labs(x = "Admitted", y = "Proportion of patients of each gender", fill = "Female",
+  theme_classic() +
+  labs(x = "Admitted", y = "Proportion of patients who are female", fill = "Female",
        title = chart_title) +
   facet_wrap(~ epoch) +
   scale_fill_manual(values = c("#6dd3f8", "#a0f86d"))
@@ -287,7 +290,7 @@ dev.off()
 # has flowsheet results 
 
 chart_title = "Exploring relationship between admission and presence of at least one flowsheet record"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"))
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_csn %>% ungroup() %>%  
   mutate(has_results = csn %in% (flowsheet_num_results_with_zero$csn)) %>% 
@@ -491,7 +494,7 @@ matrix_flowsheet_num_results_with_zero <- matrix_csn %>% ungroup() %>%
 
 
 chart_title = "Boxplots of number of flowsheet measurements for the 8 most commonly used measurements"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), height = 2000, width = 659)
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 matrix_flowsheet_num_results_with_zero %>%
   select(csn, adm, common$meas, epoch) %>% 
@@ -499,7 +502,7 @@ matrix_flowsheet_num_results_with_zero %>%
   ggplot(aes(adm, num_results, fill = adm, col = adm)) +
   geom_boxplot(alpha = 0.4) +
   theme(legend.position = "none") +
-  facet_wrap(meas~epoch, scales = "fixed", ncol = 3) +
+  facet_wrap(meas~epoch, scales = "fixed", ncol = 6) +
   labs(y = NULL, color = NULL, x = "Admitted", title = chart_title,
        subtitle = "Includes the 8 measurements used more than 150K times between April 2019 and August 2020")
 
@@ -535,8 +538,6 @@ dev.off()
 
 
 
-png("EDcrowding/predict-admission/media/Value of measurements recorded while in ED and whether admitted.png")
-
 # note - doing this join led to me identifying 273 CSNs that exist on flowsheet_real that don't exist on matrix_csn
 # this is after allowing for the new csns created by the multiple ED visit patients
 # some are deleted by having an admission row later than a departure row - but how many
@@ -554,7 +555,7 @@ flowsheet_real %>% filter(meas == "temp", csn == "1010988945")
 
 
 chart_title = "Boxplots of value of flowsheet measurements for the 8 most commonly used measurements"
-png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), height = 2000, width = 659)
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659)
 
 flowsheet_real %>% 
   filter(meas %in% c(common$meas, "bp_sys", "bp_dia"), meas != "acvpu") %>% 
@@ -564,7 +565,7 @@ flowsheet_real %>%
   filter(!is.na(epoch)) %>% 
   ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
   geom_boxplot(alpha = 0.4) +
-  facet_wrap(meas~epoch, scales = "free_y", ncol = 3) +
+  facet_wrap(meas~epoch, scales = "free_y", ncol = 6) +
   theme(legend.position = "none") +
   labs(y = NULL, color = NULL, x = "Admitted", title = chart_title,
        subtitle = "Includes the 8 measurements used more than 500 times between April 2019 and August 2020; excludes ACVPU as this is ordinal")
@@ -672,7 +673,47 @@ matrix_lab_num_results_with_zero %>%
 
 dev.off()
 
-## values of lab tests
+## values of lab tests - without COVID epoch
+
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests without Covid epoch - Part 1.png", width = 1077, height = 659)
+
+
+lab_real %>% 
+  filter(local_code %in% common_labs$local_code[1:18]) %>% 
+  left_join(
+    matrix_csn %>% ungroup()
+  ) %>%
+  filter(!is.na(adm)) %>% 
+  ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  facet_wrap(~local_code, scales = "free_y", ncol = 6) +
+  theme(legend.position = "none") +
+  labs(y = NULL, color = NULL, x = "Admitted", title = "Values of lab results recorded while in ED (Part 1)",
+       subtitle = "Includes the 33 most frequently used lab results only (total number of lab tests is 388)")
+dev.off()
+
+
+png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests without Covid epoch - Part 2.png", width = 1077, height = 659)
+
+
+lab_real %>% 
+  filter(local_code %in% common_labs$local_code[19:32]) %>% 
+  left_join(
+    matrix_csn %>% ungroup()
+  ) %>%
+  filter(!is.na(adm)) %>% 
+  ggplot(aes(adm, result_as_real, fill = adm, color = adm)) +
+  geom_boxplot(alpha = 0.4) +
+  facet_wrap(~local_code, scales = "free_y", ncol = 6) +
+  theme(legend.position = "none") +
+  labs(y = NULL, color = NULL, x = "Admitted", title = "Values of lab results recorded while in ED (Part 2)",
+       subtitle = "Includes the 33 most frequently used lab results only (total number of lab tests is 388)")
+dev.off()
+
+
+
+
+## values of lab tests - breaking down by COVID epoch
 
 png("EDcrowding/predict-admission/media/Values of labs recorded while in ED for 33 most common lab tests - Part 1.png", width = 1077, height = 659)
 
@@ -764,7 +805,7 @@ lab_real_common %>% group_by(local_code, adm) %>%
   pivot_longer(out_of_range_high:in_range, names_to = "range", values_to = "num") %>% 
   mutate(range = factor(range, levels = c("out_of_range_low", "in_range", "out_of_range_high"))) %>% 
   ggplot(aes(x = adm, y = num, fill = fct_rev(range))) + geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~local_code, scales = "fixed", ncol = 3) +
+  facet_wrap(~local_code, scales = "fixed", ncol = 6) +
   labs(y = "Proportion of patients", fill = "Proportion that are:", x = "Admitted", title = "Proportion of lab results in and out of range",
        subtitle = "Includes the 32 most frequently used lab results only (total number of lab tests is 388)") +
   theme(legend.position = "bottom")
@@ -783,7 +824,6 @@ lab_real_common %>%
             out_of_range_low = sum(oor_low, na.rm = TRUE),
             in_range = sum(!oor_low & !oor_high, na.rm = TRUE)) %>% 
   pivot_longer(out_of_range_high:in_range, names_to = "range", values_to = "num") %>% 
-  mutate(range = factor(range, levels = c("out_of_range_low", "in_range", "out_of_range_high"))) %>% 
   ggplot(aes(x = adm, y = num, fill = fct_rev(range))) + geom_bar(stat = "identity", position = "fill") +
   facet_wrap(local_code~epoch, scales = "fixed", ncol = 3) +
   labs(y = "Proportion of patients", fill = "Proportion that are:", x = "Admitted", title = "Proportion of lab results in and out of range",
