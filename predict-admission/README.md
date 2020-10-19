@@ -8,10 +8,10 @@ This is a series of files to extract data from Star and predict admissions from 
 Gets data from flow (materialised tables on Star)
 
 Output
-- demog_raw.csv
-- flowsheet_raw.csv
+- demog_raw
+- flowsheet_raw
 
-Note - currently using bed_moves as processed by code in the EDCrowding/flow-mapping folder
+Note - bed_moves is not retrived as we are using bed_moves as processed by code in the EDCrowding/flow-mapping folder
 
 ### 2. bed_moves.R
 
@@ -21,62 +21,65 @@ Input (as processed by code in the EDCrowding/flow-mapping folder )
 
 using bed moves, a matrix is arranged in the following way: for a patient visit, we have the (mrn, csn, admission datetime, discharge datetime, department, room, sex, age, patient eventually admitted or not)
 
+Adds an epoch to denote whether this is before COVID, during Surge 1 or after Surge 1
+
+Calculates how much time is spent in each location
+
 Output
-- matrix.csv
+- matrix_csn
+- matrix_loc
+
+matrix_csn has the same number of rows as ED_csn_summ - ie all csns we are interested in
+
 
 ### 3. clean_flowsheet_data.R
 
+Takes flowsheet data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in flowsheets to revised csns that were generated in the process of cleaning/creating ED_bed_mvoes. Uses foreign and primary keys on bed_moves to do this.
+
+Cleans non-numeric fields to make them numeric (e.g. separates blood pressure into systolic and diastolic)
+
+Elapsed minutes from point of admission calculated. Names of flowsheet measurements are cleaned
+
 Input
 - flowsheet_raw
+- ED_bed_moves
 - ED_csn_summ
+- excluded_csns
 
 Output
-- flowsheet_real - includes date and time for each measurement
+- flowsheet_raw_exluded_csns - all data from flowsheets in long matrix
+- flowsheet_real - all numeric data from flowsheets in long matrix
+- flowsheet_num_results - (long matrix) for each mrn, csn, fk_bed_moves and measurement, a count of the number of measurements
+- flowsheet_num_results_with_zero (wide matrix; one row per csn and fk_bed_moves (location) with NAs replaced with zeroes for all non-existent measurements at that location)
+- flowsheet_num_results_with_zero_csn_level (wide matrix; one row per csn with NAs replaced with zeroes for all non-existent measurements)
 
-and for chart purposes (but not ML)
-- flowsheet_real
-- flowsheet_num_results (long matrix) for each mrn, csn, fk_bed_moves and mapped_name how many measurements  there
-- flowsheet_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
+Note that all of these files exclude any csns that did not have flowsheet measurements
 
 
 ### 4. clean_lab_data.R
 
+Takes lab data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in labs to revised csns that were generated in the process of cleaning/creating ED_bed_mvoes. Uses foreign and primary keys on bed_moves to do this.
+
 Input
 - lab_raw
+- ED_bed_moves
 - ED_csn_summ
+- excluded_csns
 
 Output
-- lab_real - includes date and time for each measurement
+- lab_raw_exluded_csns - all data from labs in long matrix
+- lab_real - all numeric data from labs in long matrix
+- lab_num_results - (long matrix) for each mrn, csn, fk_bed_moves and local_code, a count of the number of results
+- lab_num_results_with_zero (wide matrix; one row per csn and fk_bed_moves (location) with NAs replaced with zeroes for all non-existent lab results at that location)
+- lab_num_results_with_zero_csn_level (wide matrix; one row per csn with NAs replaced with zeroes for all non-existent lab results)
 
-and for chart purposes (but not ML)
-- lab_real
-- lab_num_results (long matrix) for each mrn, csn, fk_bed_moves and local_code showing how many measurements  there
-- lab_num_results_with_zero (wide matrix; one row per csn and mapped with zeroes for all non-existent measurements at that date time)
+Note that all of these files exclude any csns that did not have lab measurements
 
 ### 5. explore-flowsheet-and-lab-data.R
 
-This file is doing exploratory data analysis to decide which variables to attach to matrix
+This file is doing exploratory data analysis to decide which variables to attach to matrix. Produces multiple charts
 
-### 3. attach_flowsheet.R
-
-attach latest flowsheet reading to visits that apply
-
-Output
-- design_matrix.csv
-
-### 4. lab_matrix
-
-attach latest lab result to visits that apply
-
-Output 
-- dm_with_demog_flowsheet_labs.csv
-
-### 5. Simplify_flowsheet_cols
-
-flowsheet column names require simplifying ( contains the glossary of simplified terms )
-
-Output
-- dm_with_everything_simp_col.csv
+### The remaining files are left from Enoch's legacy code - will be changed or removed in future commits
 
 ### 6a. Xgboost_model
 

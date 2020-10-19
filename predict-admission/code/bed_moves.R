@@ -1,16 +1,9 @@
 # About this file
 # ==============
 
-#bed moves data organization
-# The bed moves information in bed_moves_emergency are entries of visits that go through ED.
-# In this program, this information is prepared in order to fit into the learning model.
-#
-# 1. simplify room names
-# 2. attach classification labels
-#    a) TRUE or FALSE of admission
-#    b) Finer classifications such as target wards
-# 3. add age and sex
-# 4. focusing on particular subgroups if desired
+# Loads bed_moves adds age and gender and saves two versions
+# - matrix_csn - one row per patient
+# - matrix_loc - one row per patient and location
 
 
 # load libraries
