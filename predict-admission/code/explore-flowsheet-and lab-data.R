@@ -210,9 +210,9 @@ matrix_csn %>% ungroup() %>%
   mutate(night = night==1) %>% 
   group_by(adm, night, epoch) %>% summarise(num = n()) %>% 
   ggplot(aes(adm, num, fill = night)) + geom_bar(stat = "identity", position = "fill") +
-  theme(legend.position = "bottom") +
   theme_classic() +
-
+  theme(legend.position = "bottom") +
+  
   labs(x = "Admitted", y = "Proportion of patients arriving at night", fill = "Nightime (10 pm to 7 am) arrival to ED",
        title = chart_title) +
   facet_wrap(~ epoch) +
@@ -230,8 +230,8 @@ matrix_csn %>% ungroup() %>%
   ggplot(aes(adm, num, fill = female)) + geom_bar(stat = "identity", position = "fill") +
   theme(panel.grid.minor = element_line(colour="black", size=0.5)) +
   scale_y_continuous(minor_breaks = seq(0 , 1, .25), breaks = seq(0 , 1, .25)) +
-  theme(legend.position = "bottom") +
   theme_classic() +
+  theme(legend.position = "bottom") +
   labs(x = "Admitted", y = "Proportion of patients who are female", fill = "Female",
        title = chart_title) +
   facet_wrap(~ epoch) +
@@ -274,6 +274,7 @@ matrix_csn %>% ungroup() %>%
   summarise(tot = n()) %>% 
   ggplot(aes(day_of_week, tot, fill = adm)) +
   geom_bar(stat = "identity", position = "fill") +
+  theme_classic() +
   theme(legend.position = "bottom") +
   labs(x = "Admitted", y = "Proportion of patients", fill = "Admitted",
        title = chart_title,
