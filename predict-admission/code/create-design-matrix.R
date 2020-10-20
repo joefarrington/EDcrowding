@@ -59,6 +59,10 @@ bed_moves <- ED_bed_moves %>%
   filter(ED_row_excl_OTF == 1) %>% 
   select(mrn, csn, csn_old, arrival_dttm, admission, discharge, pk_bed_moves, room4)
 
+bed_moves <- bed_moves %>% 
+  mutate(room4 = case_when(room4 %in% c("Arrived", "Waiting", "WAITING ROOM", "TRIAGE") ~ "Waiting",
+                            TRUE ~ room4))
+
 # mutate time in location to elapsed time after arrival
 bed_moves <- bed_moves %>% ungroup() %>% 
   mutate(admission = as.numeric(difftime(admission, arrival_dttm, units = "mins")),
@@ -69,7 +73,7 @@ bed_moves_15 <- bed_moves %>%
   left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
   filter(ED_duration_final >= .25, 
          admission <= 15) %>% 
-  select(-csn_old, -pk_bed_moves, -discharge_dttm, -ED_duration_final, -loc_duration)
+  select(-csn_old, -pk_bed_moves, -discharge_dttm, -ED_duration_final)
 
 # update discharge time of rows that exceed cutoff time
 bed_moves_15 <- bed_moves_15  %>% 
@@ -133,7 +137,7 @@ flowsheet_15_csn <- flowsheet_15_csn %>%
     flowsheet_15 %>% 
       group_by(mrn, csn, meas) %>% 
       summarise(num_meas = n()) %>% 
-      pivot_wider(names_from = meas, names_prefix = "num_", values_from = num_meas, values_fill = 0)    
+      pivot_wider(names_from = meas, names_prefix = "fs_num_", values_from = num_meas, values_fill = 0)    
   )
 
 # flowsheet values
@@ -141,7 +145,7 @@ flowsheet_15_csn <- flowsheet_15_csn %>%
 flowsheet_15_csn_val <- flowsheet_15 %>% 
       group_by(mrn, csn, meas) %>% 
       summarise(min_meas = min(result_as_real, na.rm = TRUE))  %>% 
-      pivot_wider(names_from = meas, names_prefix = "min_", values_from = min_meas)    
+      pivot_wider(names_from = meas, names_prefix = "fs_min_", values_from = min_meas)    
     
 # add max score for each measurement
 flowsheet_15_csn_val <- flowsheet_15_csn_val %>% 
@@ -149,7 +153,7 @@ flowsheet_15_csn_val <- flowsheet_15_csn_val %>%
     flowsheet_15 %>% 
       group_by(mrn, csn, meas) %>% 
       summarise(max_meas = max(result_as_real, na.rm = TRUE))  %>% 
-      pivot_wider(names_from = meas, names_prefix = "max_", values_from = max_meas)    
+      pivot_wider(names_from = meas, names_prefix = "fs_max_", values_from = max_meas)    
   )
 
 # add latest score for each measurement
@@ -159,7 +163,7 @@ flowsheet_15_csn_val <- flowsheet_15_csn_val %>%
       group_by(mrn, csn, meas) %>% 
       filter(elapsed_mins == max(elapsed_mins)) %>% 
       summarise(latest_meas = max(result_as_real, na.rm = TRUE))  %>%  # using max allows for possibility of two measurements in same minute
-      pivot_wider(names_from = meas, names_prefix = "latest_", values_from = latest_meas)    
+      pivot_wider(names_from = meas, names_prefix = "fs_latest_", values_from = latest_meas)    
   )
 
 
@@ -205,7 +209,7 @@ lab_15_csn <- lab_15_csn %>%
     lab_15 %>% 
       group_by(mrn, csn, local_code) %>% 
       summarise(num_lab = n()) %>% 
-      pivot_wider(names_from = local_code, names_prefix = "num_", values_from = num_lab, values_fill = 0)    
+      pivot_wider(names_from = local_code, names_prefix = "l_num_", values_from = num_lab, values_fill = 0)    
   )
 
 
@@ -214,7 +218,7 @@ lab_15_csn <- lab_15_csn %>%
 lab_15_csn_val <- lab_15 %>% 
       group_by(mrn, csn, local_code) %>% 
       summarise(min_lab = min(result_as_real, na.rm = TRUE))  %>% 
-      pivot_wider(names_from = local_code, names_prefix = "min_", values_from = min_lab)    
+      pivot_wider(names_from = local_code, names_prefix = "l_min_", values_from = min_lab)    
 
 # add max score for each result
 lab_15_csn_val <- lab_15_csn_val %>% 
@@ -222,7 +226,7 @@ lab_15_csn_val <- lab_15_csn_val %>%
     lab_15 %>% 
       group_by(mrn, csn, local_code) %>% 
       summarise(max_lab = max(result_as_real, na.rm = TRUE))  %>% 
-      pivot_wider(names_from = local_code, names_prefix = "max_", values_from = max_lab)       
+      pivot_wider(names_from = local_code, names_prefix = "l_max_", values_from = max_lab)       
   )
 
 # add latest score for each result
@@ -232,7 +236,7 @@ lab_15_csn_val <- lab_15_csn_val %>%
       group_by(mrn, csn, local_code) %>%  
       filter(elapsed_mins == max(elapsed_mins)) %>% 
       summarise(latest_lab = max(result_as_real, na.rm = TRUE))  %>%  # using max allows for possibility of two measurements in same minute
-      pivot_wider(names_from = local_code, names_prefix = "latest_", values_from = latest_lab)    
+      pivot_wider(names_from = local_code, names_prefix = "l_latest_", values_from = latest_lab)    
   )
 
 ## combine everything
@@ -244,6 +248,16 @@ matrix_15 <- csn_summ %>%
   left_join(flowsheet_15_csn) %>% 
   left_join(lab_15_csn)
 
-matrix_15_val <- matrix_15 %>% 
+# need to fill in the NA values as zeroes for people without any flowsheet measurements
+# do this before adding the valued results as these need to remain as NA
+# ideally this would not be hard-coded - if you change number of locations, this needs to change
+matrix_15 <- matrix_15 %>% 
+  mutate_at(vars(colnames(matrix_15)[25:ncol(matrix_15)]), replace_na, 0)
+
+matrix_15 <- matrix_15 %>% 
   left_join(flowsheet_15_csn_val) %>% 
-  left_join(lab_15_csn_val)
+  left_join(lab_15_csn_val) 
+
+
+outFile = paste0("EDcrowding/predict-admission/data-raw/matrix_15_",today(),".rda")
+save(matrix_15, file = outFile)

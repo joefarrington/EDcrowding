@@ -8,11 +8,11 @@
 # load libraries
 # ==============
 
-# library(tidymodels)
+library(tidymodels)
 # library(discrim)
 library(dplyr)
 # library(lubridate)
-# library(xgboost)
+library(xgboost)
 # library(parsnip)
 # library(caret)
 # library(tune)
@@ -23,152 +23,189 @@ library(dplyr)
 
 # load data
 # ==============
-mat_fromfile = read.csv('EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.csv')
-save(mat_fromfile, file = 'EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.rda')
-load('EDcrowding/predict-admission/data-raw/dm_with_everything_simp_col.rda')
 
-matrix = mat_fromfile
-matrix$X=NULL
-#matrix = matrix[order(matrix$discharge),] # order matrix according to date
-matrix$admission = strptime(matrix$admission,format = '%d/%m/%Y %H:%M')
-matrix$discharge = strptime(matrix$discharge,format = '%d/%m/%Y %H:%M')
-
-matrix2 <- as_tibble(matrix)
-matrix = matrix %>% filter(difftime(discharge,admission)>0)
+load("~/EDcrowding/predict-admission/data-raw/matrix_15_2020-10-20.rda")
 
 # remove columns that are not needed e.g. csn, mrn, ...
-remove_col = c('mrn','department','hl7')#,'admission','discharge')
-matrix = matrix[,setdiff(colnames(matrix),remove_col)]
-
-# normalize age
-
-# change label to factor ( or else classification does not work)
-matrix$ADM = as.factor(matrix$ADM)
-
-# insert date and assemble particular design matrix
-D = strptime('20/07/2020 21:44',format = '%d/%m/%Y %H:%M')
-
-# look at 30 days in the past e.g. 60*60*24*30 seconds
-days = 30 
-matrix$X.1=NULL
-matrix$X = NULL
+dm <- matrix_15 %>% 
+  filter(age >= 18) %>% 
+  select(-mrn, -csn, -csn_old, -birthdate, -ED_duration_final) %>% 
+  mutate(admitted = as.factor(adm),
+         adm_year = as.factor(year),
+         adm_month = as.factor(month),
+         adm_weekend = as.factor(weekend),
+         adm_night = as.factor(night),
+         adm_hour = as.factor(hour_of_arrival),
+         adm_epoch = as.factor(epoch)) %>% 
+  select(-adm, -year, -month, -day_of_week, -weekend, -night, -hour_of_arrival, -epoch) %>% 
+  select(admitted, age, sex, everything())
 
 
-# design matrix ------------------------------------------------------------------------------------
-# historical data are entries in which the latest appearance (in terms of discharge date ) must have happend before D
-# so as to ensure that we realistically know whether he or she is admitted
-latest_by_csn = matrix %>% group_by(csn) %>% arrange(desc(discharge), .by_group = TRUE) %>% filter(row_number()==1) %>% ungroup()
-latest_by_csn = latest_by_csn %>% filter(difftime(discharge,D)<0 & difftime(discharge,D-60*60*24*days)>0)
+# identify columns with only one value
+one_value <- dm %>% summarise_all(n_distinct) %>%  
+  pivot_longer(cols = admitted:l_latest_GLU, values_to = "count") %>% 
+  filter(count == 1) %>% select(name)
 
-dm = matrix %>% filter(is.element(csn,latest_by_csn$csn))
-dm$csn = NULL
-dm_colnames = setdiff(names(dm),c('ADM'))
+# identify columsn with only one row having a value other than zero
+only_one_non_zeroe <- dm %>% summarise_all(funs(sum(.==0))) %>%  
+  pivot_longer(cols = admitted:l_latest_GLU, values_to = "count") %>% 
+  filter(count == nrow(dm)-1) %>% select(name)
 
-# column names separate to room, demog, flow, labs so you can choose the dependence in the formula later
-# also, if some columns have only one element e.g. patients have no readings for certain labs, then eliminate those
-## columns from consideration
+dm <- dm %>% select(-one_value$name, -only_one_non_zeroe$name)
 
-room = c('room')
+## columns groups
+
+adm_chars = colnames(dm)[grep("^adm_", colnames(dm))]
+loc_durations = colnames(dm)[grep("^mins_|num_ED_row", colnames(dm))]
 demog = c('age','sex')
-flow = dm_colnames[6:28]
-labs = dm_colnames[29:length(dm_colnames)]
+flow = colnames(dm)[grep("^fs_", colnames(dm))]
+labs = colnames(dm)[grep("^l_", colnames(dm))]
 
-# for each column find out how many unique values there are
-count = dm %>% summarise_all(n_distinct)
-# isolate those that only have one unique value, which is NA
-one_factor_cols = colnames(count[,count[1,]==1])
 
-# remove column names that correspond to only one value
-room <<- setdiff(room,one_factor_cols)
-demog <<- setdiff(demog,one_factor_cols)
-flow <<- setdiff(flow,one_factor_cols)
-labs <- setdiff(labs,one_factor_cols)
 
-# ------------------------------------------------------------------------------------------------------
+# train test split
+set.seed(123)
+dm_split <- initial_split(dm, strata = admitted, prop = 3/4)
+dm_train <- training(dm_split)
+dm_test <- testing(dm_split)
 
-# entries in matrix currently in ED for prediction to be applied
-m_at_D = matrix %>% filter(difftime(admission,D)<0,
-                           difftime(discharge,D)>0,
-                           difftime(discharge,admission)>0)
 
-# predict room by room, meaning filter out dm and matrix_during_date by rooms currently with patient
-current_rooms = unique(m_at_D$room)
-# for each room in current_rooms, filter out dm
-current_room = current_rooms[1]
-dm_room = dm %>% filter(dm$room == current_room)
-m_at_D_room = m_at_D %>% filter(room == current_room)
+# while looking through this i tried applying a normalisation to all numeric variables
+# discovered some variable that only appear once e.g fs_num_rass, l_num_TDDI, 
 
-# New Features --------------------------------------------
-# There may be new packages out there that automatically create new features
-# but not in the model currently used. The recommended way is to just create 
-# our own based on certain guidelines. For example, here I add a column to the
-# matrices containing the number of flow readings the patient has had.
+prep_for_ml <- function(df) {
+  recipe(admitted~.,data=df) %>% 
+    step_normalize(all_numeric()) %>% 
+    step_dummy(starts_with("adm_")) %>% 
+    step_dummy(matches("sex")) %>% 
+#    step_downsample(admitted) %>% 
+    prep %>% bake(df)
+}
 
-col_index = which(is.element(colnames(dm_room),flow))
-count_labs = function(x){sum((is.na(x[col_index])))}
-dm_room$flow_count = apply(dm_room,1,function(x){sum((!is.na(x[col_index])))})
-m_at_D_room$flow_count = apply(m_at_D_room,1,function(x){sum((is.na(x[col_index])))})
-# -----------------------------------------------------------
+dm_train_prepped <- dm_train %>% prep_for_ml()
+
+adm_chars = colnames(dm_train_prepped)[grep("^adm_", colnames(dm_train_prepped))]
+loc_durations = colnames(dm_train_prepped)[grep("^mins_|num_ED_row", colnames(dm_train_prepped))]
+demog = c('age','sex_MALE','sex_UKNOWN')
+flow = colnames(dm_train_prepped)[grep("^fs_", colnames(dm_train_prepped))]
+labs = colnames(dm_train_prepped)[grep("^l_", colnames(dm_train_prepped))]
 
 
 # train data
-fit1<-(function(){
-  class_formula<-function(...) as.formula(paste0("ADM~1",...,collapse='+'))
+fit<-(function(){
+  class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
   
-  ## some columns don't work for reasons (refer to documentation)
-  flow = setdiff(flow,c('epi_infusion'))
-  
-  ## in prep to formula dependences e.g. ADM ~ sex+age
-  # var_rooms <- paste0('+',room,sep='')
+  # names for groups of features
+  var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
+  var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
   var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
   var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
   var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
   
   # formula 
-  formula = class_formula(var_demog, var_flow)#,var_labs)
-  ## To define manually, write "formula = as.formula('ADM~ ... )" and for ... 
-  ## link your variables together with '+', for example, age+sex
+  formula = class_formula(var_locations, var_flow, var_labs)
   
   # models
+  gbt_model<-boost_tree(mode="classification") %>% set_engine("xgboost",scale_pos_weight=5)
   ## boost_tree
-  gbt_model <- boost_tree(mode="classification",
-                          tree_depth = NULL,
-                          mtry = NULL,
-                          trees = NULL,
-                          learn_rate = NULL,
-                          loss_reduction = NULL,
-                          min_n = NULL,
-                          sample_size = NULL,
-                          stop_iter = NULL) %>% set_engine("xgboost") 
+  # xgb_model <- boost_tree(mode="classification",
+  #                         tree_depth = NULL,
+  #                         mtry = NULL,
+  #                         trees = NULL,
+  #                         learn_rate = NULL,
+  #                         loss_reduction = NULL,
+  #                         min_n = NULL,
+  #                         sample_size = NULL,
+  #                         stop_iter = NULL) %>% set_engine("xgboost") 
   
-  gbt_model %>% fit(formula,dm_room)  
+  gbt_model %>% fit(formula,dm_train)  
   
 })()
 
-# rpart ( includes variable importance ) ----------------
-# tree = rpart(formula, data = dm_room, method = 'class',  maxdepth = 4, cp=-1, na.action = na.rpart)
-# rpart.plot(tree,box.palette = "gray",nn=TRUE)
-# tree$variable.importance
-# -------------------------------------------------------
 
-
-classification_metrics<-function(fit1,data){
-  
+classification_metrics<-function(fit,data) {
   pred<-bind_cols(
-    truth=data$ADM,
-    predict(fit1,data,type="class"),
-    predict(fit1,data,type="prob")
+    truth=data$admitted,
+    predict(fit,data,type="class"), 
+    predict(fit,data,type="prob")
   )
-  # print('check')
-  
-  print(paste0("Baseline=",mean(data$ADM==FALSE)))
+  print(paste0("Baseline=",mean(data$admitted==T)))
   print(pred %>% metrics(truth,.pred_class))
   print(pred %>% conf_mat(truth, .pred_class))
   print(pred %>% roc_auc(truth,.pred_TRUE))
   print(pred %>% roc_curve(truth,.pred_TRUE) %>% autoplot())
   return(pred)
 }
+classification_metrics(fit,dm_train %>% prep_for_ml())
 
-output = classification_metrics(fit1,m_at_D_room)
-output %>% conf_mat(truth,.pred_class)
-write.csv(output,'F:/Saved/ENOCKUNG/ED project/prediction.csv')
+
+
+
+# OR from tidyverse training
+
+
+# set up model specification
+xgb_spec <- boost_tree(
+  trees = 1000, 
+  tree_depth = 10, min_n = 20, 
+  mtry = 150,        
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec
+
+
+
+# set up model specification
+xgb_spec <- boost_tree(
+  trees = 1000, 
+  tree_depth = tune(), min_n = tune(), 
+  loss_reduction = tune(),                     ## first three: model complexity
+  sample_size = tune(), mtry = tune(),         ## randomness
+  learn_rate = tune(),                         ## step size
+) %>% 
+  set_engine("xgboost") %>% 
+  set_mode("classification")
+
+xgb_spec
+
+
+# set up hyper parameter grid
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), dm_train),
+  learn_rate(),
+  size = 1
+)
+
+xgb_grid
+
+
+# set up workflow
+xgb_wf <- workflow() %>%
+  add_formula(admitted ~ .) %>%
+  add_model(xgb_spec)
+
+xgb_wf
+
+# set up cross validation
+set.seed(123)
+dm_folds <- vfold_cv(dm_train, v = 5, strata = admitted)
+
+
+
+
+
+set.seed(234)
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = dm_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+
+
