@@ -31,15 +31,42 @@ one_value <- matrix_60 %>% summarise_all(n_distinct) %>%
   pivot_longer(cols = colnames(matrix_60), values_to = "count") %>% 
   filter(count == 1) %>% select(name)
 
-# identify columsn with only one row having a value other than zero
-only_one_non_zero <- matrix_60 %>% summarise_all(funs(sum(.==0))) %>%  
-  pivot_longer(cols = colnames(matrix_60), values_to = "count") %>% 
-  filter(count == nrow(matrix_60)-1) %>% select(name)
+# identify columns where the number of non zero observations are less than 0.0001% of the whole matrix
+almost_all_zero <- matrix_60 %>% 
+  select(starts_with(c("fs_","l_"))) %>% 
+  summarise_all(funs(sum(.==0, na.rm = TRUE))) %>%  # sum the number equalling zero
+  pivot_longer(cols = colnames(matrix_60 %>% 
+                                 select(starts_with(c("fs_","l_")))), values_to = "count") %>% 
+  filter(nrow(matrix_60)-count < .0001*nrow(matrix_60)) %>% select(name)
+
+# identify columns where the number of non NA observations are less than 0.0001% of the whole matrix
+
+many_na <- matrix_60 %>% 
+  select(starts_with(c("fs_","l_"))) %>% 
+  summarise_all(funs(sum(is.na(.)))) %>% 
+  pivot_longer(cols = colnames(matrix_60 %>% 
+                                 select(starts_with(c("fs_","l_")))), values_to = "count") %>% 
+  filter(nrow(matrix_60)-count < .0001*nrow(matrix_60)) %>% select(name)
+
+# y <- matrix_60 %>% select(adm, many_na$name) %>% 
+#   filter(adm) %>% select(-adm) %>% 
+#   summarise_all(funs(sum(is.na(.))))  %>% 
+#   pivot_longer(cols = many_na$name, values_to = "count") %>% 
+#   mutate(adm = "Admitted") %>% 
+#   mutate(rows_with_values = nrow(matrix_60 %>% filter(adm))-count) %>% 
+#   dplyr::union(
+#     matrix_60 %>% select(adm, many_na$name) %>% 
+#       filter(!adm) %>% select(-adm) %>% 
+#       summarise_all(funs(sum(is.na(.))))  %>% 
+#       pivot_longer(cols = many_na$name, values_to = "count") %>% 
+#       mutate(adm = "Discharged") %>% 
+#       mutate(rows_with_values = nrow(matrix_60 %>% filter(!adm))-count)
+#   ) %>% pivot_wider(names_from = adm, values_from = rows_with_values)
 
 dm <- matrix_60 %>% 
   filter(age >= 18) %>% 
   select(-mrn, -csn, -csn_old, -birthdate, -ED_duration_final,
-         -one_value$name, -only_one_non_zero$name,
+         -one_value$name, -almost_all_zero$name, -many_na$name
         # -colnames(matrix_60)[grep("ideal_weight", colnames(matrix_60))],
         # -colnames(matrix_60)[grep("rass", colnames(matrix_60))],
         # -colnames(matrix_60)[grep("art_pressure", colnames(matrix_60))]
@@ -56,13 +83,7 @@ dm <- matrix_60 %>%
 
 
 
-# ## columns groups
-#
-adm_chars = colnames(dm)[grep("^adm_", colnames(dm))]
-loc_durations = colnames(dm)[grep("^mins_|num_ED_row", colnames(dm))]
-demog = c('age','sex')
-flow = colnames(dm)[grep("^fs_", colnames(dm))]
-labs = colnames(dm)[grep("^l_", colnames(dm))]
+
 
 
 
@@ -96,52 +117,52 @@ dm_test <- testing(dm_split)
 # flow = colnames(dm_train_prepped)[grep("^fs_", colnames(dm_train_prepped))]
 
 
-# train data
-fit<-(function(){
-  class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
-  
-  # names for groups of features
-  var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
-  var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
-  var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
-  var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
-  var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
-  
-  # formula 
-  formula = class_formula(var_demog, var_adm_chars, var_locations)
-  
-  # models
-  gbt_model<-boost_tree(mode="classification") %>% set_engine("xgboost",scale_pos_weight=5)
-  ## boost_tree
-  # xgb_model <- boost_tree(mode="classification",
-  #                         tree_depth = NULL,
-  #                         mtry = NULL,
-  #                         trees = NULL,
-  #                         learn_rate = NULL,
-  #                         loss_reduction = NULL,
-  #                         min_n = NULL,
-  #                         sample_size = NULL,
-  #                         stop_iter = NULL) %>% set_engine("xgboost") 
-  
-  gbt_model %>% fit(formula,dm_train)  
-  
-})()
+# # train data
+# fit<-(function(){
+#   class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
+#   
+#   # names for groups of features
+#   var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
+#   var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
+#   var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
+#   var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
+#   var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
+#   
+#   # formula 
+#   formula = class_formula(var_demog, var_adm_chars, var_locations)
+#   
+#   # models
+#   gbt_model<-boost_tree(mode="classification") %>% set_engine("xgboost",scale_pos_weight=5)
+#   ## boost_tree
+#   # xgb_model <- boost_tree(mode="classification",
+#   #                         tree_depth = NULL,
+#   #                         mtry = NULL,
+#   #                         trees = NULL,
+#   #                         learn_rate = NULL,
+#   #                         loss_reduction = NULL,
+#   #                         min_n = NULL,
+#   #                         sample_size = NULL,
+#   #                         stop_iter = NULL) %>% set_engine("xgboost") 
+#   
+#   gbt_model %>% fit(formula,dm_train)  
+#   
+# })()
 
-
-classification_metrics<-function(fit,data) {
-  pred<-bind_cols(
-    truth=data$admitted,
-    predict(fit,data,type="class"), 
-    predict(fit,data,type="prob")
-  )
-  print(paste0("Baseline=",mean(data$admitted==T)))
-  print(pred %>% metrics(truth,.pred_class))
-  print(pred %>% conf_mat(truth, .pred_class))
-  print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
-  print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
-  return(pred)
-}
-classification_metrics(fit,dm_train)
+# 
+# classification_metrics<-function(fit,data) {
+#   pred<-bind_cols(
+#     truth=data$admitted,
+#     predict(fit,data,type="class"), 
+#     predict(fit,data,type="prob")
+#   )
+#   print(paste0("Baseline=",mean(data$admitted==T)))
+#   print(pred %>% metrics(truth,.pred_class))
+#   print(pred %>% conf_mat(truth, .pred_class))
+#   print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
+#   print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
+#   return(pred)
+# }
+# classification_metrics(fit,dm_train)
 
 
 
@@ -152,18 +173,28 @@ classification_metrics(fit,dm_train)
 
 # set up model specification
 xgb_spec <- boost_tree(
-  trees = 1000, 
-  tree_depth = 10, 
-  min_n = 20, 
-  mtry = 10,        
-) %>% 
-  set_engine("xgboost",scale_pos_weight=5) %>% 
+  trees = 1000,
+  tree_depth = 10,
+  min_n = 20,
+  mtry = 10,
+) %>%
+  set_engine("xgboost",scale_pos_weight=5) %>%
   set_mode("classification")
 
 xgb_spec
 
 class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
-# names for groups of features
+
+# ## columns groups
+#
+adm_chars = colnames(dm)[grep("^adm_", colnames(dm))]
+loc_durations = colnames(dm)[grep("^mins_|num_ED_row", colnames(dm))]
+demog = c('age','sex')
+flow = colnames(dm)[grep("^fs_", colnames(dm))]
+labs = colnames(dm)[grep("^l_", colnames(dm))]
+
+
+# formula for groups of features
 var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
 var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
 var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
@@ -171,11 +202,14 @@ var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
 var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
 
 # formula 
-formula = class_formula(var_demog, var_adm_chars, var_locations)
+flow = colnames(dm)[grep("^fs_", colnames(dm))][20:28]
+var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
 
+formula = class_formula(var_demog, var_adm_chars, var_locations, var_flow)
+# 
 # try fitting this model
-xgb_spec_fit <- 
-  xgb_spec %>% 
+xgb_spec_fit <-
+  xgb_spec %>%
   fit(formula, dm_train)
 
 # look at results
@@ -196,7 +230,7 @@ xgb_spec <- boost_tree(
   set_engine("xgboost",scale_pos_weight=5) %>% 
   set_mode("classification")
 
-xgb_spec
+# xgb_spec
 
 
 # set up hyper parameter grid
@@ -210,7 +244,7 @@ xgb_grid <- grid_latin_hypercube(
   size = 10
 )
 
-xgb_grid
+# xgb_grid
 
 
 # set up workflow
@@ -218,7 +252,7 @@ xgb_wf <- workflow() %>%
   add_formula(formula) %>%
   add_model(xgb_spec)
 
-xgb_wf
+# xgb_wf
 
 # set up cross validation
 set.seed(123)
@@ -233,4 +267,5 @@ xgb_res <- tune_grid(
   control = control_grid(save_pred = TRUE)
 )
 
-
+outFile = paste0("EDcrowding/predict-admission/data-raw/xgb_results_60_",today(),".rda")
+save(xgb_res, file = outFile)

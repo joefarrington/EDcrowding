@@ -96,52 +96,52 @@ dm_test <- testing(dm_split)
 # flow = colnames(dm_train_prepped)[grep("^fs_", colnames(dm_train_prepped))]
 
 
-# train data
-fit<-(function(){
-  class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
-  
-  # names for groups of features
-  var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
-  var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
-  var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
-  var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
-  var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
-  
-  # formula 
-  formula = class_formula(var_demog, var_adm_chars, var_locations)
-  
-  # models
-  gbt_model<-boost_tree(mode="classification") %>% set_engine("xgboost",scale_pos_weight=5)
-  ## boost_tree
-  # xgb_model <- boost_tree(mode="classification",
-  #                         tree_depth = NULL,
-  #                         mtry = NULL,
-  #                         trees = NULL,
-  #                         learn_rate = NULL,
-  #                         loss_reduction = NULL,
-  #                         min_n = NULL,
-  #                         sample_size = NULL,
-  #                         stop_iter = NULL) %>% set_engine("xgboost") 
-  
-  gbt_model %>% fit(formula,dm_train)  
-  
-})()
+# # train data
+# fit<-(function(){
+#   class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
+#   
+#   # names for groups of features
+#   var_adm_chars <- paste('+',paste0(adm_chars,collapse='+'),sep='')
+#   var_locations <- paste('+',paste0(loc_durations,collapse='+'),sep='')
+#   var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
+#   var_flow <- paste('+',paste0(flow,collapse='+'),sep='')
+#   var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep=''))
+#   
+#   # formula 
+#   formula = class_formula(var_demog, var_adm_chars, var_locations)
+#   
+#   # models
+#   gbt_model<-boost_tree(mode="classification") %>% set_engine("xgboost",scale_pos_weight=5)
+#   ## boost_tree
+#   # xgb_model <- boost_tree(mode="classification",
+#   #                         tree_depth = NULL,
+#   #                         mtry = NULL,
+#   #                         trees = NULL,
+#   #                         learn_rate = NULL,
+#   #                         loss_reduction = NULL,
+#   #                         min_n = NULL,
+#   #                         sample_size = NULL,
+#   #                         stop_iter = NULL) %>% set_engine("xgboost") 
+#   
+#   gbt_model %>% fit(formula,dm_train)  
+#   
+# })()
 
-
-classification_metrics<-function(fit,data) {
-  pred<-bind_cols(
-    truth=data$admitted,
-    predict(fit,data,type="class"), 
-    predict(fit,data,type="prob")
-  )
-  print(paste0("Baseline=",mean(data$admitted==T)))
-  print(pred %>% metrics(truth,.pred_class))
-  print(pred %>% conf_mat(truth, .pred_class))
-  print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
-  print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
-  return(pred)
-}
-classification_metrics(fit,dm_train)
+# 
+# classification_metrics<-function(fit,data) {
+#   pred<-bind_cols(
+#     truth=data$admitted,
+#     predict(fit,data,type="class"), 
+#     predict(fit,data,type="prob")
+#   )
+#   print(paste0("Baseline=",mean(data$admitted==T)))
+#   print(pred %>% metrics(truth,.pred_class))
+#   print(pred %>% conf_mat(truth, .pred_class))
+#   print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
+#   print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
+#   return(pred)
+# }
+# classification_metrics(fit,dm_train)
 
 
 
@@ -150,17 +150,17 @@ classification_metrics(fit,dm_train)
 # and https://www.tmwr.org/models.html
 
 
-# set up model specification
-xgb_spec <- boost_tree(
-  trees = 1000, 
-  tree_depth = 10, 
-  min_n = 20, 
-  mtry = 10,        
-) %>% 
-  set_engine("xgboost",scale_pos_weight=5) %>% 
-  set_mode("classification")
-
-xgb_spec
+# # set up model specification
+# xgb_spec <- boost_tree(
+#   trees = 1000, 
+#   tree_depth = 10, 
+#   min_n = 20, 
+#   mtry = 10,        
+# ) %>% 
+#   set_engine("xgboost",scale_pos_weight=5) %>% 
+#   set_mode("classification")
+# 
+# xgb_spec
 
 class_formula<-function(...) as.formula(paste0("admitted~1",...,collapse='+'))
 # names for groups of features
@@ -172,14 +172,14 @@ var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(labs,collapse='+'), sep='
 
 # formula 
 formula = class_formula(var_demog, var_adm_chars, var_locations)
-
-# try fitting this model
-xgb_spec_fit <- 
-  xgb_spec %>% 
-  fit(formula, dm_train)
-
-# look at results
-classification_metrics(xgb_spec_fit,dm_train)
+# 
+# # try fitting this model
+# xgb_spec_fit <- 
+#   xgb_spec %>% 
+#   fit(formula, dm_train)
+# 
+# # look at results
+# classification_metrics(xgb_spec_fit,dm_train)
 
 # Tuning a model
 # ==============
@@ -196,7 +196,7 @@ xgb_spec <- boost_tree(
   set_engine("xgboost",scale_pos_weight=5) %>% 
   set_mode("classification")
 
-xgb_spec
+# xgb_spec
 
 
 # set up hyper parameter grid
@@ -210,7 +210,7 @@ xgb_grid <- grid_latin_hypercube(
   size = 10
 )
 
-xgb_grid
+# xgb_grid
 
 
 # set up workflow
@@ -218,7 +218,7 @@ xgb_wf <- workflow() %>%
   add_formula(formula) %>%
   add_model(xgb_spec)
 
-xgb_wf
+# xgb_wf
 
 # set up cross validation
 set.seed(123)
@@ -233,4 +233,5 @@ xgb_res <- tune_grid(
   control = control_grid(save_pred = TRUE)
 )
 
-
+outFile = paste0("EDcrowding/predict-admission/data-raw/xgb_results_60_",today(),".rda")
+save(xgb_res, file = outFile)
