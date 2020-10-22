@@ -1,24 +1,15 @@
 # About this file
 # ===============
 
-# given the patient information, including current stage, flowsheet, labs, a model is trained with a certain period
-# of history and then prediction is performed on the current state of the ED. Prediction will yield a TRUE/FALSE for
-# each patient as well as a probability
+ty
 
 # load libraries
 # ==============
 
 library(tidymodels)
-# library(discrim)
 library(dplyr)
-# library(lubridate)
+library(lubridate)
 library(xgboost)
-# library(parsnip)
-# library(caret)
-# library(tune)
-# library(dials)
-# library(scales)
-# library(yardstick)
 
 
 # load data
@@ -233,5 +224,5 @@ xgb_res <- tune_grid(
   control = control_grid(save_pred = TRUE)
 )
 
-outFile = paste0("EDcrowding/predict-admission/data-raw/xgb_results_60_",today(),".rda")
+outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_60_",today(),".rda")
 save(xgb_res, file = outFile)

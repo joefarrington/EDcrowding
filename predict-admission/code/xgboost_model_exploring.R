@@ -98,14 +98,7 @@ dm_test <- testing(dm_split)
 # discovered some variable that only appear once e.g fs_num_rass, l_num_TDDI, 
 # hence the removals above
 
-# prep_for_ml <- function(df) {
-#   recipe(admitted~.,data=df) %>% 
-#    step_normalize(all_numeric()) %>% 
-# #    step_dummy(starts_with("adm_"), one_hot = TRUE) %>% 
-# #    step_dummy(matches("sex"), one_hot = TRUE) %>% 
-# #    step_downsample(admitted) %>% 
-#     prep %>% bake(df)
-# }
+
 # 
 # dm_train_prepped <- dm_train %>% prep_for_ml()
 # 
@@ -215,57 +208,57 @@ xgb_spec_fit <-
 # look at results
 classification_metrics(xgb_spec_fit,dm_train)
 
-# Tuning a model
-# ==============
+# running another model using results from tuning
 
 
-# set up model specification
-xgb_spec <- boost_tree(
-  trees = 1000, 
-  tree_depth = tune(), min_n = tune(), 
-  loss_reduction = tune(),                     ## first three: model complexity
-  sample_size = tune(), mtry = tune(),         ## randomness
-  learn_rate = tune(),                         ## step size
-) %>% 
-  set_engine("xgboost",scale_pos_weight=5) %>% 
+# set up model specification 
+# using data from the model tuning process just to see
+xgb_spec_from_output <- boost_tree(
+  trees = 1000,
+  tree_depth = 11,
+  min_n = 6,
+  mtry = 133,
+  learn_rate = 0.068882066174574,
+  loss_reduction = 0.669145285713109,
+  sample_size = 0.727483741918113
+) %>%
+  set_engine("xgboost",scale_pos_weight=5) %>%
   set_mode("classification")
 
-# xgb_spec
+xgb_spec_from_output_fit <- xgb_spec_from_output %>% 
+  fit(formula, data = dm_train)
+
+classification_metrics(xgb_spec_from_output_fit,dm_train)
 
 
-# set up hyper parameter grid
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), dm_train),
-  learn_rate(),
-  size = 10
-)
-
-# xgb_grid
 
 
-# set up workflow
-xgb_wf <- workflow() %>%
-  add_formula(formula) %>%
-  add_model(xgb_spec)
+# Trying with a recipe
+#====================
 
-# xgb_wf
+# See https://recipes.tidymodels.org/reference/step_zv.html
+# note there is also step_nzv() for near
 
-# set up cross validation
-set.seed(123)
-dm_folds <- vfold_cv(dm_train, v = 5, strata = admitted)
+prep_for_ml <- 
+  recipe(formula,data=dm_train) %>%
+    step_normalize(all_numeric()) %>%
+#    step_zv(all_predictors()) %>% 
+    #    step_dummy(starts_with("adm_"), one_hot = TRUE) %>%
+    #    step_dummy(matches("sex"), one_hot = TRUE) %>%
+    #    step_downsample(admitted) %>%
+    prep(retain = TRUE) 
 
-# tune using grid
-set.seed(234)
-xgb_res <- tune_grid(
-  xgb_wf,
-  resamples = dm_folds,
-  grid = xgb_grid,
-  control = control_grid(save_pred = TRUE)
-)
+prepped <- bake(prep_for_ml, new_data = dm_train) 
 
-outFile = paste0("EDcrowding/predict-admission/data-raw/xgb_results_60_",today(),".rda")
-save(xgb_res, file = outFile)
+
+# set up a workflow
+ml_wf <- workflow() %>%
+  add_recipe(prep_for_ml) %>%
+  add_model(xgb_spec_from_output) # could now replace this with final_xgb_fit()
+
+ml_wf_fit <-fit(ml_wf, dm_train)
+  
+
+
+
+
