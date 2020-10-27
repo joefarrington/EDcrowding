@@ -291,5 +291,8 @@ bed_moves <- bed_moves %>% ungroup() %>%
 
 matrix_60 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 60)
 
+# useful function to explore data 
+skimr::skim(matrix_60)
+
 outFile = paste0("EDcrowding/predict-admission/data-raw/matrix_60_",today(),".rda")
 save(matrix_60, file = outFile)
