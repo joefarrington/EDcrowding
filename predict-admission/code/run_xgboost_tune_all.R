@@ -40,7 +40,9 @@ load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-10-21.rda")
 
 dm <- matrix_60 %>% 
   filter(age >= 18) %>% 
-  select(-mrn, -csn_old, -birthdate, -ED_duration_final
+  select(-mrn, -csn_old, -birthdate, -ED_duration_final, 
+         # realised that num ED rows has count across all of ED
+         num_ED_row_excl_OTF 
   ) %>% 
   select(adm, age, sex, everything())
 
@@ -92,7 +94,7 @@ xgb_spec <- boost_tree(
   trees = 1000, 
   tree_depth = tune(),
   min_n = tune(),
-  loss_reduction = tune(),
+#  loss_reduction = tune(),
   sample_size = tune(),
   mtry = tune(),
   learn_rate = tune(),
@@ -125,15 +127,27 @@ xgb_wf <- workflow() %>%
 
 # set up parameter grid
 set.seed(234)
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
+# xgb_grid <- grid_latin_hypercube(
+#   tree_depth(),
+#   min_n(),
+#   loss_reduction(),
+#   sample_size = sample_prop(),
+#   finalize(mtry(), proc_dm_train),
+#   learn_rate(),
+#   size = 20
+# )
+
+
+xgboostParams <- dials::parameters(
   min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), proc_dm_train),
+  tree_depth(),
   learn_rate(),
-  size = 20
+  finalize(mtry(),select(proc_dm_train,-adm)),
+  sample_size = sample_prop()
 )
+
+xgb_grid <- dials::grid_max_entropy(xgboostParams, size = 100)
+
 
 # Run tuning --------------------------------------------------------------
 
@@ -194,83 +208,97 @@ save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20_best-mcc",
 # Evaluate results --------------------------------------------------------
 
 # save_chart("demo-arrchars-locdurations-counts_60-mins_tune-tree-depth-8",
-#            xgb_res %>% collect_metrics() %>% 
+#            xgb_res %>% collect_metrics() %>%
 #              ggplot(aes(x = tree_depth, y = mean, color = .metric)) +
 #              geom_point(size = 3) + geom_line() +
 #              theme_classic() +
 #              scale_x_continuous(breaks = as.numeric(tree_depth_grid$tree_depth)) +
-#              labs(title = "Tuning for tree depth with 60 min model with 5 fold validation", 
+#              labs(title = "Tuning for tree depth with 60 min model with 5 fold validation",
 #                   y = "Mean score on metric across 5 folds")
 # )
 
-# visualising the result
-
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-auc",
-           xgb_res %>%
-             collect_metrics() %>%
-             filter(.metric == "roc_auc") %>%
-             select(mean, mtry:sample_size) %>%
-             pivot_longer(mtry:sample_size,
-                          values_to = "value",
-                          names_to = "parameter"
-             ) %>%
-             ggplot(aes(value, mean, color = parameter)) +
-             geom_point(alpha = 0.8, show.legend = FALSE) +
-             facet_wrap(~parameter, scales = "free_x") +
-             labs(x = NULL, y = "AUC")
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-grid-100",
+  xgb_res %>% collect_metrics() %>% 
+    pivot_longer(mtry:sample_size,
+                 values_to = "value",
+                 names_to = "parameter"
+    ) %>%
+    ggplot(aes(value, mean, color = parameter)) +
+    geom_point(alpha = 0.8, show.legend = FALSE) +
+    facet_grid(.metric~parameter, scales = "free") +
+    labs(x = NULL, y = "Mean score", color = "Metric")
 )
 
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-accuracy",
-           xgb_res %>%
-             collect_metrics() %>%
-             filter(.metric == "accuracy") %>%
-             select(mean, mtry:sample_size) %>%
-             pivot_longer(mtry:sample_size,
-                          values_to = "value",
-                          names_to = "parameter"
-             ) %>%
-             ggplot(aes(value, mean, color = parameter)) +
-             geom_point(alpha = 0.8, show.legend = FALSE) +
-             facet_wrap(~parameter, scales = "free_x") +
-             labs(x = NULL, y = "Accuracy")
-)
 
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-f_meas",
-           xgb_res %>%
-             collect_metrics() %>%
-             filter(.metric == "f_meas") %>%
-             select(mean, mtry:sample_size) %>%
-             pivot_longer(mtry:sample_size,
-                          values_to = "value",
-                          names_to = "parameter"
-             ) %>%
-             ggplot(aes(value, mean, color = parameter)) +
-             geom_point(alpha = 0.8, show.legend = FALSE) +
-             facet_wrap(~parameter, scales = "free_x") +
-             labs(x = NULL, y = "f_meas")
-)
 
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-mcc",
-           xgb_res %>%
-             collect_metrics() %>%
-             filter(.metric == "mcc") %>%
-             select(mean, mtry:sample_size) %>%
-             pivot_longer(mtry:sample_size,
-                          values_to = "value",
-                          names_to = "parameter"
-             ) %>%
-             ggplot(aes(value, mean, color = parameter)) +
-             geom_point(alpha = 0.8, show.legend = FALSE) +
-             facet_wrap(~parameter, scales = "free_x") +
-             labs(x = NULL, y = "mcc")
-)
-
-# Look at confusion matrix ------------------------------------------------
-
-cm <- pred %>% conf_mat(truth, .pred_class)
-cm %>% tidy()
-
-summary(cm)
+# # visualising the result
+#
+# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-auc",
+#            xgb_res %>%
+#              collect_metrics() %>%
+#              filter(.metric == "roc_auc") %>%
+#              select(mean, mtry:sample_size) %>%
+#              pivot_longer(mtry:sample_size,
+#                           values_to = "value",
+#                           names_to = "parameter"
+#              ) %>%
+#              ggplot(aes(value, mean, color = parameter)) +
+#              geom_point(alpha = 0.8, show.legend = FALSE) +
+#              facet_wrap(~parameter, scales = "free_x") +
+#              labs(x = NULL, y = "AUC")
+# )
+#
+# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-accuracy",
+#            xgb_res %>%
+#              collect_metrics() %>%
+#              filter(.metric == "accuracy") %>%
+#              select(mean, mtry:sample_size) %>%
+#              pivot_longer(mtry:sample_size,
+#                           values_to = "value",
+#                           names_to = "parameter"
+#              ) %>%
+#              ggplot(aes(value, mean, color = parameter)) +
+#              geom_point(alpha = 0.8, show.legend = FALSE) +
+#              facet_wrap(~parameter, scales = "free_x") +
+#              labs(x = NULL, y = "Accuracy")
+# )
+#
+# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-f_meas",
+#            xgb_res %>%
+#              collect_metrics() %>%
+#              filter(.metric == "f_meas") %>%
+#              select(mean, mtry:sample_size) %>%
+#              pivot_longer(mtry:sample_size,
+#                           values_to = "value",
+#                           names_to = "parameter"
+#              ) %>%
+#              ggplot(aes(value, mean, color = parameter)) +
+#              geom_point(alpha = 0.8, show.legend = FALSE) +
+#              facet_wrap(~parameter, scales = "free_x") +
+#              labs(x = NULL, y = "f_meas")
+# )
+#
+# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-mcc",
+#            xgb_res %>%
+#              collect_metrics() %>%
+#              filter(.metric == "mcc") %>%
+#              select(mean, mtry:sample_size) %>%
+#              pivot_longer(mtry:sample_size,
+#                           values_to = "value",
+#                           names_to = "parameter"
+#              ) %>%
+#              ggplot(aes(value, mean, color = parameter)) +
+#              geom_point(alpha = 0.8, show.legend = FALSE) +
+#              facet_wrap(~parameter, scales = "free_x") +
+#              labs(x = NULL, y = "mcc")
+# )
+#
+# # Look at confusion matrix ------------------------------------------------
+#
+# cm <- pred %>% conf_mat(truth, .pred_class)
+# cm %>% tidy()
+#
+# summary(cm)
 
 
 
