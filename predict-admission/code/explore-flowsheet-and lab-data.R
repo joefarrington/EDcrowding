@@ -9,6 +9,7 @@ library(tidyverse)
 
 
 
+
 # load data
 # ============
 
@@ -30,6 +31,8 @@ load("~/EDcrowding/predict-admission/data-raw/lab_num_results_with_zero_csn_leve
 
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
 load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
+
 
 
 ED_bed_moves <- ED_bed_moves %>%  ungroup() %>% 
@@ -41,6 +44,35 @@ ED_bed_moves <- ED_bed_moves %>%  ungroup() %>%
 # =============================
 
 # ggplot two colours"#F8766D" "#00BFC4"
+
+chart_title = "Distribution of age"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
+ED_csn_summ %>% 
+  left_join(demog_raw) %>% 
+  mutate(age = year(arrival_dttm) - year(birthdate))  %>% 
+  ggplot(aes(age)) + geom_histogram(binwidth = 1) + 
+  theme_classic() +
+  labs(title = chart_title, x = "Age",
+       y = "Number of encounters") +
+  facet_wrap(~epoch) 
+
+dev.off()
+
+
+chart_title = "Distribution of age - under 18"
+png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 
+ED_csn_summ %>% 
+  left_join(demog_raw) %>% 
+  mutate(age = year(arrival_dttm) - year(birthdate)) %>% 
+  filter(age < 18) %>% 
+  ggplot(aes(age)) + geom_histogram(binwidth = 1) + 
+  theme_classic() +
+  labs(title = chart_title, x = "Age",
+       y = "Number of encounters") +
+  facet_wrap(~epoch) 
+
+dev.off()
+
 
 chart_title = "Distribution of duration in ED (visits of less than 12 hours)"
 png(paste0("EDcrowding/predict-admission/media/", chart_title, ".png"), width = 1077, height = 659) 

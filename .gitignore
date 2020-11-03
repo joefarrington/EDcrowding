@@ -3,6 +3,7 @@
 # You will need to specifically add data you want to publish to .gitkeep
 flow-mapping/data-raw/*
 predict-admission/data-raw/*
+predict-admission/data-output/*
 data/secure/*
 data/*
 
