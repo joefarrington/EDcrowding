@@ -2,6 +2,7 @@
 
 # Trying to follow the approach outlined here
 # https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
+# to tune step by step
 
 # Create functions --------------------------------------------------------
 
@@ -108,12 +109,12 @@ xgb_spec <- boost_tree(
 
 
 # set up formula
-arrchars = colnames(dm)[grep("^adm_", colnames(dm))]
-locdurations = colnames(dm)[grep("^mins_|num_ED_row", colnames(dm))]
+arrchars = colnames(proc_dm_train)[grep("^adm_", colnames(proc_dm_train))]
+locdurations = colnames(proc_dm_train)[grep("^mins_|num_ED_row", colnames(proc_dm_train))]
 demog = c('age','sex')
-counts = colnames(dm)[grep("^has_|num_fs|num_l", colnames(dm))]
-flow = colnames(dm)[grep("^fs_", colnames(dm))]
-labs = colnames(dm)[grep("^l_", colnames(dm))]
+counts = colnames(proc_dm_train)[grep("^has_|num_fs|num_l", colnames(proc_dm_train))]
+flow = colnames(proc_dm_train)[grep("^fs_", colnames(proc_dm_train))]
+labs = colnames(proc_dm_train)[grep("^l_", colnames(proc_dm_train))]
 
 var_arrchars <- paste('+',paste0(arrchars,collapse='+'),sep='')
 var_locations <- paste('+',paste0(locdurations,collapse='+'),sep='')
@@ -182,37 +183,7 @@ save_chart("demo-arrchars-locdurations-counts_60-mins_tune-trees",
                   y = "Mean score on metric across 5 folds")
 )
 
-best_mod <- select_best(xgb_res, "roc_auc")
-
-# # Look like 200 estimators gets best ROC 
-# 
-# 
-# tree_grid2 <- expand.grid(trees = seq(50, 400, 50))
-# 
-# xgb_res2 <- tune_grid(
-#   object = xgb_wf, 
-#   resamples = dm_folds, 
-#   grid = tree_grid2, 
-#   metrics = metric_set(mcc, f_meas, roc_auc, accuracy, kap, precision, recall, ppv, npv)
-# )
-# 
-# 
-# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-trees-around-200",
-#            xgb_res2 %>% collect_metrics() %>% 
-#              ggplot(aes(x = trees, y = mean, color = .metric)) +
-#              geom_point(size = 3) + geom_line() +
-#              theme_classic() +
-#              scale_x_continuous(breaks = as.numeric(tree_grid2$trees)) +
-#              labs(title = "Tuning for trees with 60 min model with 5 fold validation", 
-#                   y = "Mean score on metric across 5 folds")
-# )
-
-best_mod <- select_best(xgb_res, "roc_auc")
-
-# Fit best model ----------------------------------------------------------
-
-
-
+best_mod <- select_best(xgb_res, "mcc")
 
 # Fit best model
 final_xgb <- finalize_workflow(
@@ -231,12 +202,11 @@ pred<-bind_cols(
 )
 
 
-outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-auc",today(),".rda")
+outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-mcc",today(),".rda")
 save(pred, file = outFile)
 
 
-# Look at variable importance ---------------------------------------------
-
+# Look at variable importance 
 
 p <- final_xgb %>%
   fit(data = proc_dm_train) %>%
@@ -245,20 +215,21 @@ p <- final_xgb %>%
 
 p
 
-save_chart("vip_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-auc",
+save_chart("vip_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-mcc",
            p +
-             labs(title = "Variable importance after tuning number of trees with 60 min design matrix - best ROC model",
+             labs(title = "Variable importance after tuning number of trees with 60 min design matrix - best mcc model",
                   x = "Variable",
                   y = "Importance")
           
 )
 
 # show results
+
 print(pred %>% metrics(truth,.pred_class))
 print(pred %>% conf_mat(truth, .pred_class))
 print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
 
-save_chart("AUC_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-auc",
+save_chart("AUC_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-mcc",
   print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()) +
     annotate("text", x = .9, y = .00, label = paste0("Area under ROC: ",
                                                      round(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second") %>% select(.estimate),2)))
@@ -268,10 +239,10 @@ save_chart("AUC_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-auc",
 
 cm <- pred %>% conf_mat(truth, .pred_class) 
 
-save_chart("conf-mat_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-auc",
+save_chart("conf-mat_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-mcc",
            
   cm %>% autoplot(type = "heatmap") + 
-    labs(title = "Confusion matrix after tuning number of trees with 60 min design matrix - best ROC model") 
+    labs(title = "Confusion matrix after tuning number of trees with 60 min design matrix - best mcc model") +theme(text = element_text(size=rel(3.5)))
 )
 
 
@@ -280,7 +251,7 @@ save_chart("conf-mat_demo-arrchars-locdurations-counts_60-mins_tune-trees-best-a
 # STEP 2: TUNE TREE DEPTH AND MIN_N -----------------------------------------------------
 
 xgb_spec <- boost_tree(
-  trees = 200, 
+  trees = 400, 
   tree_depth = tune(), 
   min_n = tune(), 
   sample_size = .8, # suggested by blog
@@ -311,28 +282,173 @@ xgb_res <- tune_grid(
 
 # Save results
 
-outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_demo-arrchars-locdurations-counts_60-mins_tune-depth",today(),".rda")
+outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_demo-arrchars-locdurations-counts_60-mins_tune-depth-minn",today(),".rda")
 save(xgb_res, file = outFile)
 
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-depth",
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-depth", width = 500,
            xgb_res %>% collect_metrics() %>% 
-             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas")) %>% 
+             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas", "mcc")) %>% 
              ggplot(aes(x = tree_depth, y = mean, color = .metric)) +
+             scale_x_continuous(breaks = param_grid$tree_depth) +
+             
              geom_point(size = 1) + geom_line() +
              theme_classic() +
              labs(title = "Tuning for tree depth with 60 min model with 5 fold validation", 
                   y = "Mean score on metric across 5 folds")
 )
 
-save_chart("demo-arrchars-locdurations-counts_60-mins_tune-minn",
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-minn", width = 500,
            xgb_res %>% collect_metrics() %>% 
-             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas")) %>% 
-             ggplot(aes(x = tree_depth, y = mean, color = .metric)) +
+             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas", "mcc")) %>% 
+             ggplot(aes(x = min_n, y = mean, color = .metric)) +
+             scale_x_continuous(breaks = param_grid$min_n) +
+            
              geom_point(size = 1) + geom_line() +
              theme_classic() +
              labs(title = "Tuning for min_n with 60 min model with 5 fold validation", 
                   y = "Mean score on metric across 5 folds")
 )
 
-best_mod <- select_best(xgb_res, "kap")
+
+
+best_mod <- select_best(xgb_res, "mcc")
+
+
+
+
+# STEP 3: TUNE GAMMA -----------------------------------------------------
+
+xgb_spec <- boost_tree(
+  trees = 400, 
+  tree_depth = 7, # best tree depth from previous round
+  min_n = 3,  # best min_n from previous round
+  sample_size = .8, # suggested by blog
+  mtry = 20, # there are 26 predictors; 0.8 * 26 is 20
+  learn_rate = 0.1,
+) %>% 
+  set_engine("xgboost",scale_pos_weight=5, gamma = tune()) %>%  # gamma suggested by blog
+  set_mode("classification")
+
+
+xgb_wf <- workflow() %>% 
+  add_model(xgb_spec) %>% 
+  add_formula(formula)
+
+
+param_grid <- expand.grid(gamma = seq(0, 0.5, 0.1))
+
+# Run tuning
+
+xgb_res <- tune_grid(
+  object = xgb_wf, 
+  resamples = dm_folds, 
+  grid = param_grid, 
+  metrics = metric_set(mcc, f_meas, roc_auc, accuracy, kap, precision, recall, ppv, npv)
+)
+
+
+# Save results
+
+outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_demo-arrchars-locdurations-counts_60-mins_tune-gamma",today(),".rda")
+save(xgb_res, file = outFile)
+
+
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-gamma", 
+           xgb_res %>% collect_metrics() %>% 
+             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas", "mcc")) %>% 
+             ggplot(aes(x = gamma, y = mean, color = .metric)) +
+             scale_x_continuous(breaks = param_grid$gamma) +
+             
+             geom_point(size = 1) + geom_line() +
+             theme_classic() +
+             labs(title = "Tuning for gamma with 60 min model with 5 fold validation", 
+                  y = "Mean score on metric across 5 folds")
+)
+
+
+
+
+best_mod <- select_best(xgb_res, "mcc")
+
+
+# STEP 4: TUNE SAMPLE_SIZE AND MTRY() -----------------------------------------------------
+
+xgb_spec <- boost_tree(
+  trees = 400, 
+  tree_depth = 7, 
+  min_n = 3, 
+  sample_size = tune(), # suggested by blog
+  mtry = tune(), # there are 26 predictors; 0.8 * 26 is 20
+  learn_rate = 0.1,
+) %>% 
+  set_engine("xgboost",scale_pos_weight=5, gamma =0.4) %>%  # best gamma from previous round
+  set_mode("classification")
+
+
+xgb_wf <- workflow() %>% 
+  add_model(xgb_spec) %>% 
+  add_formula(formula)
+
+# from earlier attempts
+xgb_grid <- grid_latin_hypercube(
+  sample_size = sample_prop(),
+  finalize(mtry(), proc_dm_train)
+
+)
+
+# or more straightforward - ### note these are hardcoded!!
+param_grid <- expand.grid(sample_size = seq(0.2, 1, 0.2),
+                          mtry = seq(5, 25, 5)) 
+
+
+
+# Run tuning
+
+xgb_res <- tune_grid(
+  object = xgb_wf, 
+  resamples = dm_folds, 
+  grid = param_grid, 
+  metrics = metric_set(mcc, f_meas, roc_auc, accuracy, kap, precision, recall, ppv, npv)
+)
+
+
+# Save results
+
+outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_demo-arrchars-locdurations-counts_60-mins_tune-mtry-sample-size",today(),".rda")
+save(xgb_res, file = outFile)
+
+
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-mtry", 
+           xgb_res %>% collect_metrics() %>% 
+             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas", "mcc")) %>% 
+             ggplot(aes(x = mtry, y = mean, color = .metric)) +
+             scale_x_continuous(breaks = param_grid$mtry) +
+             
+             geom_point(size = 1) + geom_line() +
+             theme_classic() +
+             labs(title = "Tuning for mtry with 60 min model with 5 fold validation", 
+                  y = "Mean score on metric across 5 folds")
+)
+
+
+save_chart("demo-arrchars-locdurations-counts_60-mins_tune-sample-size", 
+           xgb_res %>% collect_metrics() %>% 
+             filter(.metric %in% c("roc_auc", "accuracy", "kap", "f_meas", "mcc")) %>% 
+             ggplot(aes(x = sample_size, y = mean, color = .metric)) +
+             scale_x_continuous(breaks = param_grid$sample_size) +
+             
+             geom_point(size = 1) + geom_line() +
+             theme_classic() +
+             labs(title = "Tuning for sample size with 60 min model with 5 fold validation", 
+                  y = "Mean score on metric across 5 folds")
+)
+
+
+
+best_mod <- select_best(xgb_res, "mcc")
+
+
+
+
+# STEP 5: TUNE ALPHA  -----------------------------------------------------
 

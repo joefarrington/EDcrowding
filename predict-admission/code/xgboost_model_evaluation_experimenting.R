@@ -1,6 +1,8 @@
 # About this file
 # ===============
 
+# Here I'm going back to an earlier model to try to understand why it was so good.
+# Realised that mtry was set to be too large given the number of features allowed in the model - could this be why? 
 
 # from tidyverse training
 # https://juliasilge.com/blog/xgboost-tune-volleyball/
@@ -10,11 +12,9 @@
 # load libraries
 # ==============
 
-
+library(tidymodels)
 library(dplyr)
 library(lubridate)
-
-library(tidymodels)
 library(xgboost)
 library(vip)
 
@@ -39,10 +39,10 @@ dm <- matrix_60 %>%
   filter(age >= 18) %>% 
   select(-mrn, -csn, -csn_old, -birthdate, -ED_duration_final,
          -one_value$name, -only_one_non_zero$name,
-        # -colnames(matrix_60)[grep("ideal_weight", colnames(matrix_60))],
-        # -colnames(matrix_60)[grep("rass", colnames(matrix_60))],
-        # -colnames(matrix_60)[grep("art_pressure", colnames(matrix_60))]
-) %>% 
+         # -colnames(matrix_60)[grep("ideal_weight", colnames(matrix_60))],
+         # -colnames(matrix_60)[grep("rass", colnames(matrix_60))],
+         # -colnames(matrix_60)[grep("art_pressure", colnames(matrix_60))]
+  ) %>% 
   mutate(admitted = as.factor(adm),
          adm_year = as.factor(year),
          adm_month = as.factor(month),
@@ -87,14 +87,8 @@ formula = class_formula(var_demog, var_adm_chars, var_locations)
 # Read tuning results
 # ===================
 
-model = "demo-arrchars-locdurations"
-timeslice = "60-mins"
-inFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_",model,"_", timeslice,"_2020-10-22.rda")
-load(inFile)
 
-parameters_used <- xgb_res %>% collect_metrics()
-outFile = paste0("EDcrowding/predict-admission/data-output/xgb_metrics_",model,"_", timeslice,"_2020-10-22.rda")
-save(parameters_used, file = outFile)
+load("~/EDcrowding/predict-admission/data-output/xgb_results_60_2020-10-22.rda")
 
 
 # recreate tuning model specification
@@ -129,8 +123,7 @@ xgb_res %>%
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "AUC",
-       title = "Parameters used in model tuning with resulting AUC")
+  labs(x = NULL, y = "AUC")
 
 xgb_res %>%
   collect_metrics() %>%
@@ -143,66 +136,33 @@ xgb_res %>%
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "Accuracy",
-       title = "Parameters used in model tuning with resulting Accuracy")
+  labs(x = NULL, y = "Accurancy")
 
 show_best(xgb_res, "roc_auc")
-show_best(xgb_res, "accuracy")
 
 best_auc <- select_best(xgb_res, "roc_auc") #Model03 is best for AUC
 best_acc <- select_best(xgb_res, "accuracy") #Model09 is best for accuracy
+best_auc
 
 
-
-final_xgb_acc <- finalize_workflow(
+final_xgb <- finalize_workflow(
   xgb_wf,
   best_acc # using the model that is best for accuracy
 )
 
+final_xgb
 
-final_xgb_auc <- finalize_workflow(
-  xgb_wf,
-  best_auc # using the model that is best for AUC
-)
+# print a plot showing which variables are most important
 
-# fit the final models
-final_xgb_fit_acc <- fit(final_xgb_acc, dm_train)
-final_xgb_fit_auc <- fit(final_xgb_auc, dm_train)
-
-
-# make predictions based on both models
-pred<-bind_cols(
-  truth=dm_train$admitted,
-  class_auc = predict(final_xgb_fit_auc,dm_train,type="class"),
-  prob_auc = predict(final_xgb_fit_auc,dm_train, type="prob"),
-  class_acc = predict(final_xgb_fit_acc,dm_train,type="class"),
-  prob_acc = predict(final_xgb_fit_acc,dm_train, type="prob")
-)
-
-# save predictions 
-outFile = paste0("EDcrowding/predict-admission/data-output/xgb_predicitions_",model,"_", timeslice,"_2020-10-22.rda")
-save(pred, file = outFile)
+final_xgb %>%
+  fit(data = dm_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
 
 
-# print charts
-chart_title <- paste0("Results for best accuracy model: ", model, "_", timeslice)
-save_chart(chart_title,
-           pred %>% conf_mat(truth, .pred_class) %>% autoplot(type = "heatmap"),
-           width = 200, height = 200
-           )
-
-chart_title <- paste0("Results for best AUC model: ", model, "_", timeslice)
-save_chart(chart_title,
-           pred %>% conf_mat(truth, .pred_class) %>% autoplot(type = "heatmap"),
-           width = 200, height = 200
-)
-
-
-chart_title <- paste0("ROC for best accuracy model: ", model, "_", timeslice)
-
-
-
-p2 <- pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()
+# fit the final model
+final_xgb_fit <- fit(final_xgb, dm_train)
+ 
 
 # 
 classification_metrics<-function(fit,data) {
@@ -218,13 +178,25 @@ classification_metrics<-function(fit,data) {
   print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
   return(pred)
 }
-classification_metrics(final_xgb_fit, dm_train)
+pred <- classification_metrics(final_xgb_fit, dm_train)
 
+# Trying with Brier scores to evaluate which samples are overfit ----------
 
+# calculate Brier score
+pred <- pred %>% 
+  mutate(truth2 = as.numeric(truth)-1) %>% 
+  mutate(brier = (.pred_TRUE - (as.numeric(truth)-1))^2)
 
-# print a plot showing which variables are most important
+# add preds to dm
+dm_with_pred <- dm_train %>% bind_cols(pred) %>% 
+  select(- starts_with("l_"), - starts_with("fs_")) %>% 
+  select(admitted, .pred_TRUE, brier, everything()) %>% arrange(desc(brier))
 
-p3 <- final_xgb %>%
-  fit(data = dm_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
+dm_false_positive <- dm_with_pred %>% 
+  filter(admitted == "FALSE", .pred_class == "TRUE") 
+
+dm_false_positive %>% 
+  filter(mins_RESUS > 0) %>% 
+  ggplot(aes(x = mins_RESUS, y = brier)) + geom_point()
+
+         

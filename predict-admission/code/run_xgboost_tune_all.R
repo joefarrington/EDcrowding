@@ -42,7 +42,7 @@ dm <- matrix_60 %>%
   filter(age >= 18) %>% 
   select(-mrn, -csn_old, -birthdate, -ED_duration_final, 
          # realised that num ED rows has count across all of ED
-         num_ED_row_excl_OTF 
+         -num_ED_row_excl_OTF 
   ) %>% 
   select(adm, age, sex, everything())
 
@@ -104,12 +104,12 @@ xgb_spec <- boost_tree(
 
 
 # set up formula
-arrchars = colnames(dm)[grep("^adm_", colnames(dm))]
-locdurations = colnames(dm)[grep("^mins_|num_ED_row", colnames(dm))]
+arrchars = colnames(proc_dm_train)[grep("^adm_", colnames(proc_dm_train))]
+locdurations = colnames(proc_dm_train)[grep("^mins_|num_ED_row", colnames(proc_dm_train))]
 demog = c('age','sex')
-counts = colnames(dm)[grep("^has_|num_fs|num_l", colnames(dm))]
-flow = colnames(dm)[grep("^fs_", colnames(dm))]
-labs = colnames(dm)[grep("^l_", colnames(dm))]
+counts = colnames(proc_dm_train)[grep("^has_|num_fs|num_l", colnames(proc_dm_train))]
+flow = colnames(proc_dm_train)[grep("^fs_", colnames(proc_dm_train))]
+labs = colnames(proc_dm_train)[grep("^l_", colnames(proc_dm_train))]
 
 var_arrchars <- paste('+',paste0(arrchars,collapse='+'),sep='')
 var_locations <- paste('+',paste0(locdurations,collapse='+'),sep='')
@@ -231,74 +231,27 @@ save_chart("demo-arrchars-locdurations-counts_60-mins_tune-grid-100",
 
 
 
-# # visualising the result
-#
-# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-auc",
-#            xgb_res %>%
-#              collect_metrics() %>%
-#              filter(.metric == "roc_auc") %>%
-#              select(mean, mtry:sample_size) %>%
-#              pivot_longer(mtry:sample_size,
-#                           values_to = "value",
-#                           names_to = "parameter"
-#              ) %>%
-#              ggplot(aes(value, mean, color = parameter)) +
-#              geom_point(alpha = 0.8, show.legend = FALSE) +
-#              facet_wrap(~parameter, scales = "free_x") +
-#              labs(x = NULL, y = "AUC")
-# )
-#
-# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-accuracy",
-#            xgb_res %>%
-#              collect_metrics() %>%
-#              filter(.metric == "accuracy") %>%
-#              select(mean, mtry:sample_size) %>%
-#              pivot_longer(mtry:sample_size,
-#                           values_to = "value",
-#                           names_to = "parameter"
-#              ) %>%
-#              ggplot(aes(value, mean, color = parameter)) +
-#              geom_point(alpha = 0.8, show.legend = FALSE) +
-#              facet_wrap(~parameter, scales = "free_x") +
-#              labs(x = NULL, y = "Accuracy")
-# )
-#
-# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-f_meas",
-#            xgb_res %>%
-#              collect_metrics() %>%
-#              filter(.metric == "f_meas") %>%
-#              select(mean, mtry:sample_size) %>%
-#              pivot_longer(mtry:sample_size,
-#                           values_to = "value",
-#                           names_to = "parameter"
-#              ) %>%
-#              ggplot(aes(value, mean, color = parameter)) +
-#              geom_point(alpha = 0.8, show.legend = FALSE) +
-#              facet_wrap(~parameter, scales = "free_x") +
-#              labs(x = NULL, y = "f_meas")
-# )
-#
-# save_chart("demo-arrchars-locdurations-counts_60-mins_tune-all-20-params-for-mcc",
-#            xgb_res %>%
-#              collect_metrics() %>%
-#              filter(.metric == "mcc") %>%
-#              select(mean, mtry:sample_size) %>%
-#              pivot_longer(mtry:sample_size,
-#                           values_to = "value",
-#                           names_to = "parameter"
-#              ) %>%
-#              ggplot(aes(value, mean, color = parameter)) +
-#              geom_point(alpha = 0.8, show.legend = FALSE) +
-#              facet_wrap(~parameter, scales = "free_x") +
-#              labs(x = NULL, y = "mcc")
-# )
-#
-# # Look at confusion matrix ------------------------------------------------
-#
-# cm <- pred %>% conf_mat(truth, .pred_class)
-# cm %>% tidy()
-#
-# summary(cm)
+
+# show results
+print(pred %>% metrics(truth,.pred_class))
+print(pred %>% conf_mat(truth, .pred_class))
+print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
+
+save_chart("AUC_demo-arrchars-locdurations-counts_60-mins_tune-all-best-mcc",
+           print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()) +
+             annotate("text", x = .9, y = .00, label = paste0("Area under ROC: ",
+                                                              round(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second") %>% select(.estimate),2)))
+)
+
+# Look at confusion matrix ------------------------------------------------
+
+cm <- pred %>% conf_mat(truth, .pred_class) 
+
+save_chart("conf-mat_demo-arrchars-locdurations-counts_60-mins_tune-all-best-mcc", width = 400, height = 400,
+           
+           cm %>% autoplot(type = "heatmap") +theme(text = element_text(size=rel(3.5)))
+)
+
 
 
 
