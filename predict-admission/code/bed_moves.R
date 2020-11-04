@@ -17,22 +17,34 @@ library(lubridate)
 # load data
 # =========
 
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
 
 
 # demographic data
+load("~/EDcrowding/predict-admission/data-raw/demog_2020-11-03.rda")
+demog_raw2 <- demog_raw
 load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
+demog_raw <- demog_raw %>% bind_rows(demog_raw2)
 
 
 # process data
 # ============
 
+### attach age and sex 
+
+ED_csn_summ <- ED_csn_summ %>% 
+  left_join(demog_raw %>% select(mrn, sex, birthdate)) %>% 
+  # clean records with birthdate of 1900-01-01
+  mutate(age = case_when(birthdate == "1900-01-01" ~ NA_real_,
+                         TRUE ~ year(arrival_dttm) - year(birthdate)))
+  
+
 # join with ED_bed_moves (only rows in ED) and join with ED_csn_summ to final admission status
 bed_moves <- ED_bed_moves %>% 
   filter(ED_row_excl_OTF == 1) %>% 
-  left_join(ED_csn_summ %>% select(arrival_dttm, csn, adm)) %>% 
-  select(mrn, csn, csn_old, arrival_dttm, epoch, admission, discharge, pk_bed_moves, room4, adm)
+  left_join(ED_csn_summ %>% select(arrival_dttm, csn, adm, sex, age)) %>% 
+  select(mrn, sex, csn, csn_old, age, arrival_dttm, epoch, admission, discharge, pk_bed_moves, room4, adm)
 
 # generate vars for time in location
 bed_moves <- bed_moves %>% ungroup() %>% 
@@ -41,32 +53,12 @@ bed_moves <- bed_moves %>% ungroup() %>%
          loc_duration = loc_discharge - loc_admission) %>% select(-admission, -discharge)
 #         loc_duration = duration_mins + 60*(duration_hours + 24*duration_days))
 
-# # mark rows with repeated room4
-# bed_moves <- bed_moves %>% group_by(mrn, csn, csn_old, arrival_dttm) %>% 
-#   mutate(repeated_location = case_when(room4 == lag(room4) ~ TRUE,
-#                                        TRUE ~ FALSE),
-#          loc_discharge)
-# 
-# # note some csns have a lot of repeated locations (max 8) - leave as is for now
-# bed_moves %>% ungroup() %>% group_by(csn, room4) %>% summarise(tot = sum(repeated_location)) %>% arrange(desc(tot))
-
-### attach age and sex 
-
-bed_moves <- bed_moves %>% 
-  left_join(demog_raw)
-
-bed_moves <- bed_moves %>% 
-  mutate(age = year(arrival_dttm) - year(birthdate))
-
-
-
-
 # select cols for matrix
-
-matrix_loc <- bed_moves %>% select(mrn, sex, csn, csn_old, arrival_dttm, epoch, age, pk_bed_moves, room4,
-                                   loc_admission,	loc_discharge, loc_duration, adm) %>% ungroup()
-
-save(matrix_loc, file = paste0('EDcrowding/predict-admission/data-raw/matrix_loc_',today(),'.rda'))
+# 
+# matrix_loc <- bed_moves %>% select(mrn, sex, csn, csn_old, arrival_dttm, epoch, age, pk_bed_moves, room4,
+#                                    loc_admission,	loc_discharge, loc_duration, adm) %>% ungroup()
+# 
+# save(matrix_loc, file = paste0('EDcrowding/predict-admission/data-raw/matrix_loc_',today(),'.rda'))
 
 
 matrix_csn <- bed_moves %>% select(mrn, sex, csn, csn_old, arrival_dttm, epoch, age, room4,

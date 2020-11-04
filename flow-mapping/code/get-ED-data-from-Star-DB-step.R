@@ -23,13 +23,18 @@ sqlQuery <- "select
   a.csn,
   b.arrival_dttm,
   b.discharge_dttm,
+  c.num_ED_rows,
   a.admission,
   a.discharge,
   a.department,
   a.room, 
   a.bed,
   a.hl7_location,
-  c.num_ED_rows
+  age(a.discharge, a.admission) as duration_row, 
+  Date_part('day',a.discharge-a.admission) as duration_days,
+  Date_part('hour',a.discharge-a.admission) as duration_hours,
+  Date_part('minute',a.discharge-a.admission) as duration_mins,
+  Date_part('second',a.discharge-a.admission) as duration_secs
   from star.bed_moves a
     join (
           select mrn, csn, min(admission) as arrival_dttm, 
@@ -55,8 +60,8 @@ sqlQuery <- "select
     FROM
     star.bed_moves 
     where department = 'UCH EMERGENCY DEPT'
-    and date(admission) >= '2019-09-01'
-    and date(admission) <= '2019-10-31'
+    and date(admission) >= '2020-09-01'
+    and date(admission) <= '2020-10-31'
     group by csn
     ) 
   and a.csn not in 
@@ -69,7 +74,7 @@ sqlQuery <- gsub('\n','',sqlQuery)
 
 start <- Sys.time()
 ED_bed_moves_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
-Sys.time() - start
+print(Sys.time() - start)
 # DB Forge took 2.51 for two months and 12.09 for 2020 year to date
 # R took 14.28 min for Jan and Feb; 8.36 minutes for Mar Apr; 11.9 for May-Jul
 # R took 3.33 mins for 1-6 August
