@@ -30,7 +30,7 @@ load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
 
 
 dm <- matrix_60 %>% 
-  filter(age >= 18, age < 110) %>% 
+  filter(age >= 18, age < 110, epoch == "Post_Surge1") %>% 
   select(-mrn, -csn_old, -ED_duration_final
   ) %>% 
   select(adm, age, sex, gt70, everything())
@@ -59,7 +59,7 @@ dm_recipe <- recipe(adm ~ .,
   step_mutate(adm = as.factor(adm)) %>% 
   step_mutate(hour_of_arrival = as.factor(hour_of_arrival)) %>% 
   step_mutate(month = as.factor(month)) %>% 
-  step_mutate(year = as.factor(year)) %>% 
+#  step_mutate(year = as.factor(year)) %>% 
   step_mutate(weekend = as.factor(weekend)) %>% 
   step_mutate(night = as.factor(night)) %>%
   step_zv(all_predictors()) %>% 
@@ -84,20 +84,20 @@ dm_folds <- proc_dm_train %>%  #  not sure if this shoudl be dm_train or proc_dm
 
 # Set up formula ----------------------------------------------------------
 
-arrchars = colnames(proc_dm_train %>% select(epoch:num_ED_rows))
+arrchars = colnames(proc_dm_train %>% select(hour_of_arrival:num_ED_rows))
 locdurations = colnames(proc_dm_train)[grep("^mins_", colnames(proc_dm_train))]
 locvisited = colnames(proc_dm_train)[grep("^visited_", colnames(proc_dm_train))]
 demog = c('age','sex', 'gt70')
-counts = colnames(proc_dm_train %>% select(num_fs_results:l_num_PROT))
-flow_values = colnames(proc_dm_train %>% select(fs_min_bp_sys:fs_latest_resp_rate))
-lab_values = colnames(proc_dm_train %>% select(l_min_BA:l_latest_APTM))
+counts = colnames(proc_dm_train %>% select(num_fs_results:l_num_ESR))
+# flow_values = colnames(proc_dm_train %>% select(fs_min_bp_sys:fs_latest_resp_rate))
+# lab_values = colnames(proc_dm_train %>% select(l_min_BA:l_latest_APTM))
 
 var_arrchars <- paste('+',paste0(arrchars,collapse='+'),sep='')
 var_locations <- paste('+',paste0(locvisited,collapse='+'),sep='') # note - missing lodurations at the moment
 var_demog <- paste('+',paste0(demog,collapse='+'),sep='')
 var_counts <- paste('+',paste0(counts,collapse='+'),sep='')
-var_flow <- paste('+',paste0(flow_values,collapse='+'),sep='')
-var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(lab_values,collapse='+'), sep=''))
+# var_flow <- paste('+',paste0(flow_values,collapse='+'),sep='')
+# var_labs <- ifelse(length(labs)==0,'',paste('+',paste0(lab_values,collapse='+'), sep=''))
 
 class_formula<-function(...) as.formula(paste0("adm~1",...,collapse='+'))
 formula <- class_formula(var_demog, var_arrchars, var_locations, var_counts)
@@ -128,7 +128,7 @@ pred<-bind_cols(
 )
 
 
-outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_all_60-mins_default-params",today(),".rda")
+outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_post_surge1_60-mins_default-params",today(),".rda")
 save(pred, file = outFile)
 
 
@@ -145,7 +145,7 @@ p <- xgb_fit %>%
 
 p
 
-save_chart("vip_demo-arrchars-locvisited-counts_60-mins_default_params",
+save_chart("vip_post_surge1_60-mins_default_params",
            p +
              labs(title = "Variable importance with default params on 60 min design matrix",
                   x = "Variable",
@@ -159,7 +159,7 @@ print(pred %>% metrics(truth,.pred_class))
 print(pred %>% conf_mat(truth, .pred_class))
 print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
 
-save_chart("AUC_demo-arrchars-locvisited-counts_60-mins_default_params",
+save_chart("AUC_post_surge1_60-mins_default_params",
            print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()) +
              annotate("text", x = .9, y = .00, label = paste0("Area under ROC: ",
                                                               round(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second") %>% select(.estimate),2)))
@@ -169,7 +169,7 @@ save_chart("AUC_demo-arrchars-locvisited-counts_60-mins_default_params",
 
 cm <- pred %>% conf_mat(truth, .pred_class) 
 
-save_chart("conf-mat_demo-arrchars-locvisited-counts_60-mins_tune-default-params",
+save_chart("conf-mat_post_surge1_60-mins_tune-default-params",
            
            cm %>% autoplot(type = "heatmap") + 
              labs(title = "Confusion matrix with default params on 60 min design matrix") +theme(text = element_text(size=rel(3.5)))
@@ -193,7 +193,7 @@ pred <- pred %>%
 
 cm75 <- pred %>% conf_mat(truth, .pred_TRUE.75) 
 
-save_chart("conf-mat-75-cut_demo-arrchars-locvisited-counts_60-mins_tune-default-params",
+save_chart("conf-mat-75-post_surge1_60-mins_tune-default-params",
            
            cm75 %>% autoplot(type = "heatmap") + 
              labs(title = "Confusion matrix with default params on 60 min design matrix and threshold of .75") +theme(text = element_text(size=rel(3.5)))
