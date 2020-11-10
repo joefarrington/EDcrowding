@@ -127,10 +127,7 @@ print(Sys.time() - timer)
 timer <- Sys.time()
 
 
-file_label <- "SepOct_"
-include_CDU <- 0
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-11-03.rda")
-load(inFile)
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_SepOct_2020-11-03.rda")
 
 # Name changes (SQL doesn't do capitals)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
@@ -139,8 +136,23 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 
 # add pk_bed_moves as system time plus rownumber
 key_start = as.numeric(Sys.time())
-ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>% 
+ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>%
   mutate(pk_bed_moves = paste0(key_start,row_number()))
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(source = "Star")
+
+ED_bed_moves_raw_star <- ED_bed_moves_raw
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_2020-10-07.rda")
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(source = "Flow")
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(pk_bed_moves <- as.character(pk_bed_moves)) %>% 
+  bind_rows(ED_bed_moves_raw_star)
+
 
 # Basic checks
 # ============

@@ -29,7 +29,7 @@ registerDoParallel(cores = 4)
 load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
 
 
-dm <- matrix_60 %>% 
+dm <- matrix_60 %>%
   filter(age >= 18, age < 110, epoch == "Post_Surge1") %>% 
   select(-mrn, -csn_old, -ED_duration_final
   ) %>% 
@@ -215,6 +215,32 @@ dm_with_pred <- proc_dm_train %>% bind_cols(pred) %>%
 dm_false_positive <- dm_with_pred %>% 
   filter(adm == "FALSE", .pred_TRUE>0.75) 
 
+
+
+# Try changing the probability threshold
+
+pred <- pred %>% 
+  mutate(.pred_TRUE.6 = factor(case_when(.pred_TRUE>0.6 ~ TRUE,
+                                  TRUE ~ FALSE)),
+         .pred_TRUE.7 = factor(case_when(.pred_TRUE>0.7 ~ TRUE,
+                                         TRUE ~ FALSE)),
+         .pred_TRUE.75 = factor(case_when(.pred_TRUE>0.75 ~ TRUE,
+                                         TRUE ~ FALSE)),
+         .pred_TRUE.8 = factor(case_when(.pred_TRUE>0.8 ~ TRUE,
+                                         TRUE ~ FALSE)),
+         .pred_TRUE.9 = factor(case_when(.pred_TRUE>0.9 ~ TRUE,
+                                         TRUE ~ FALSE)))
+
+pred %>% conf_mat(truth, .pred_TRUE.8) 
+
+print(pred %>% metrics(truth,.pred_TRUE.75))
+print(pred %>% conf_mat(truth, .pred_TRUE.75))
+
+
+
+# Explore results ---------------------------------------------------------
+
+
 resus_false <- dm_false_positive %>% 
   filter(mins_RESUS > 15) %>% select(csn) %>% left_join(ED_csn_summ)
 
@@ -263,24 +289,16 @@ dm_with_pred  %>%
        colour = "Admitted") +
   theme(legend.position = "bottom")
 
+dm_with_pred  %>% 
+  ggplot(aes(x = adm, y = num_prior_visits)) + geom_boxplot() 
 
+dm_with_pred  %>% 
+  group_by(adm, night) %>% summarise(tot = n()) 
 
-
-# Try changing the probability threshold
-
-pred <- pred %>% 
-  mutate(.pred_TRUE.6 = factor(case_when(.pred_TRUE>0.6 ~ TRUE,
-                                  TRUE ~ FALSE)),
-         .pred_TRUE.7 = factor(case_when(.pred_TRUE>0.7 ~ TRUE,
-                                         TRUE ~ FALSE)),
-         .pred_TRUE.75 = factor(case_when(.pred_TRUE>0.75 ~ TRUE,
-                                         TRUE ~ FALSE)),
-         .pred_TRUE.8 = factor(case_when(.pred_TRUE>0.8 ~ TRUE,
-                                         TRUE ~ FALSE)),
-         .pred_TRUE.9 = factor(case_when(.pred_TRUE>0.9 ~ TRUE,
-                                         TRUE ~ FALSE)))
-
-pred %>% conf_mat(truth, .pred_TRUE.8) 
-
-print(pred %>% metrics(truth,.pred_TRUE.75))
-print(pred %>% conf_mat(truth, .pred_TRUE.75))
+dm_with_pred  %>% 
+  ggplot(aes(x = num_fs_results, y = brier, col = adm)) + geom_point() +
+  labs(title = "XXX by Brier score",
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+  

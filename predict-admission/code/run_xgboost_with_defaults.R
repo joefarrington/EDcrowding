@@ -30,6 +30,7 @@ load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
 
 
 dm <- matrix_60 %>% 
+  distinct() %>%  # in case of duplicate rows where data extract dates overlap
   filter(age >= 18, age < 110) %>% 
   select(-mrn, -csn_old, -ED_duration_final
   ) %>% 

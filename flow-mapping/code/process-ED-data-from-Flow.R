@@ -118,6 +118,7 @@ group_room_names <- Vectorize(group_room_names)
 
 
 
+
 # # Load bed_move data
 # # ==================
 timer <- Sys.time()
@@ -135,6 +136,11 @@ load(inFile)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   rename(ED_arrival_dttm = ed_arrival_dttm,
          ED_discharge_dttm = ed_discharge_dttm)
+
+
+
+
+
 
 # Basic checks
 # ============
@@ -154,6 +160,12 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(!csn %in% admission_later_csns$c
 print("number of csns removed because admission later than discharge:")
 print(admission_later_csns %>% select(csn) %>% n_distinct()) 
 
+# blank line added to match Star script
+# blank line added to match Star script
+# blank line added to match Star script
+# blank line added to match Star script
+# blank line added to match Star script
+
 print(Sys.time() - timer)
 print("Arrival and discharge dttms")
 timer <- Sys.time()
@@ -163,6 +175,9 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   group_by(mrn, csn) %>% mutate(arrival_dttm = min(admission),
                                 discharge_dttm = max(discharge)) %>% 
   select(mrn, csn, arrival_dttm, discharge_dttm, everything())
+
+# blank line added to match Star script
+# blank line added to match Star script
 
 # identify arrival rows (first row for each encounter)
 
@@ -180,7 +195,6 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 # 
 # ED_bed_moves_raw <- ED_bed_moves_raw %>% 
 #   mutate(duration_row = difftime(discharge, admission, units = "hours"))
-
 
 
 # indicate whether row is ED location
@@ -603,11 +617,13 @@ excluded_csns <- admission_later_csns %>% mutate(csn_old = csn) %>%
   bind_rows(elsewhere_to_ED_csn %>% select(mrn, csn, csn_old))  %>% 
   bind_rows(long_ED_csn %>% select(mrn, csn, csn_old)) %>% 
   bind_rows(odd_arrival_rows %>% select(mrn, csn, csn_old)) %>% 
+  # blank line added to match Star script
   distinct() %>% 
   mutate(reason = case_when(csn %in% admission_later_csns$csn ~ "Admission later than discharge",
                             csn %in% elsewhere_to_ED_csn$csn & csn %in% long_ED_csn$csn ~ "Elsewhere to ED and long ED",
                             csn %in% elsewhere_to_ED_csn$csn ~ "Elsewhere to ED",
                             csn %in% long_ED_csn$csn ~ "Long ED",
+                            # blank line added to match Star script
                             TRUE ~ "Odd arrival row"))
 
 
