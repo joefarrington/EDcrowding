@@ -24,7 +24,7 @@ library(vip)
 
 library(doParallel)
 all_cores <- parallel::detectCores(logical = FALSE)
-registerDoParallel(cores = 4)
+registerDoParallel(cores = all_cores - 2)
 
 load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
 

@@ -128,7 +128,7 @@ timer <- Sys.time()
 
 
 file_label <- "all_"
-include_CDU <- 0
+include_CDU <- 1
 inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-10-07.rda")
 load(inFile)
 

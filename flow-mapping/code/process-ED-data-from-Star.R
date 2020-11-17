@@ -127,8 +127,8 @@ print(Sys.time() - timer)
 timer <- Sys.time()
 
 
-file_label <- "SepOct_"
-include_CDU <- 0
+file_label <- "SepOct_" # note - updated the file names of the flow datasets at the end of this file (if dates have changed)
+include_CDU <- 1
 inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-11-03.rda")
 load(inFile)
 
@@ -704,7 +704,7 @@ print("Saving data")
 # save ED_bed_moves for later use
 
 if (include_CDU == 1 ) {
-  file_label <- "all_CDUinED_"
+  file_label <- "all_CDUinED_SepOct_"
 }
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
@@ -731,9 +731,9 @@ ED_csn_summ_SepOct <- ED_csn_summ
 excluded_csns_SepOct <- excluded_csns
 
 # load previous datasets and merge
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_2020-10-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_CDUinED_2020-11-16.rda")
+load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_CDUinED_2020-11-16.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_CDUinED_2020-11-16.rda")
 
 ED_bed_moves <- ED_bed_moves %>% 
   mutate(pk_bed_moves = as.character(pk_bed_moves)) %>% 
@@ -755,7 +755,13 @@ excluded_csns <- excluded_csns %>%
 
 # save data
 
-file_label = "all_"
+if (include_CDU == 1 ) {
+  file_label <- "all_CDUinED_"
+} else {
+  file_label = "all_"
+}
+
+
 
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
