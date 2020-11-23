@@ -27,11 +27,11 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   print("Processing bed moves")
   
   # select only rows where the admission began before the cutoff time(includes rows where discharge is later)
-  bed_moves_cutoff <- bed_moves %>% 
+  bed_moves_cutoff <- bed_moves %>% ungroup() %>% 
     left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= 60/cutoff, 
+    filter(ED_duration_final >= cutoff/60, 
            admission <= cutoff) %>% 
-    select(-csn_old, -pk_bed_moves, -discharge_dttm, -ED_duration_final)
+    select(-csn_old, -pk_bed_moves, -discharge_dttm, -ED_duration_final) %>% distinct()
   
   # count number of rows
   bed_moves_cutoff <- bed_moves_cutoff  %>%
@@ -84,7 +84,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   flowsheet_cutoff <- flowsheet_real %>% ungroup() %>% 
     filter(elapsed_mins < cutoff) %>% 
     left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= 60/cutoff)  %>% select(-ED_duration_final, -fk_bed_moves, -flowsheet_datetime)
+    filter(ED_duration_final >= cutoff/60)  %>% select(-ED_duration_final, -fk_bed_moves, -flowsheet_datetime)
   
   # add number of results for csn
   flowsheet_cutoff_csn <- flowsheet_cutoff %>% ungroup() %>% 
@@ -130,7 +130,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
         group_by(csn) %>% distinct() %>% 
         mutate(fs_o2_sat_lt90 = sum(o2_sat_lt90) > 0,
                fs_o2_sat_lt94 = sum(o2_sat_lt94) > 0) %>% 
-        select(-starts_with("o2_sat"))
+        select(-starts_with("o2_sat")) %>% distinct()
     )
     
     # add news categories
@@ -147,7 +147,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
           group_by(csn) %>% distinct() %>% 
           mutate(fs_news_medium = sum(news_medium) > 0,
                  fs_news_high = sum(news_high) > 0) %>% 
-          select(-starts_with("news_"))
+          select(-starts_with("news_"))  %>% distinct()
       )
   
   print("Processing flowsheet values")
@@ -194,7 +194,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   lab_cutoff <- lab_real %>% ungroup() %>% 
     filter(elapsed_mins < cutoff) %>% 
     left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= 60/cutoff)  %>% 
+    filter(ED_duration_final >= cutoff/60)  %>% 
     select(-ED_duration_final, -fk_bed_moves, -result_datetime, -mapped_name)
   
   # add number of results for csn
@@ -264,7 +264,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   
   
   matrix_cutoff <- csn_summ %>%
-    filter(ED_duration_final >= 60/cutoff) %>% 
+    filter(ED_duration_final >= cutoff/60) %>% distinct() %>% 
     left_join(bed_moves_cutoff_csn) %>% 
     left_join(flowsheet_cutoff_csn) %>% 
     left_join(lab_cutoff_csn)
@@ -298,10 +298,7 @@ load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-11-05.rda")
 load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
 
 # demographic data
-load("~/EDcrowding/predict-admission/data-raw/demog_2020-11-03.rda")
-demog_raw2 <- demog_raw
-load("~/EDcrowding/predict-admission/data-raw/demog_2020-09-21.rda")
-demog_raw <- demog_raw %>% bind_rows(demog_raw2) 
+load("~/EDcrowding/predict-admission/data-raw/demog_2020-11-23.rda")
 
 # all prior bed moves data to get prior visit info
 load("~/EDcrowding/flow-mapping/data-raw/visit_summ_all_flow_and_star_2020-11-09.rda")
@@ -328,11 +325,12 @@ csn_summ <- ED_csn_summ %>%
 ### attach age and sex 
 
 csn_summ <- csn_summ %>% 
-  left_join(demog_raw %>% select(mrn, sex, birthdate) %>% distinct()) %>% 
+  left_join(demog_raw %>% select(mrn, sex, date_of_birth) %>% distinct()) %>% 
   # clean records with birthdate of 1900-01-01
-  mutate(age = case_when(birthdate <= "1900-01-01" ~ NA_real_,
-                         TRUE ~ year(arrival_dttm) - year(birthdate)),
+  mutate(age = case_when(date_of_birth <= "1900-01-01" ~ NA_real_,
+                         TRUE ~ year(arrival_dttm) - year(date_of_birth)),
          gt70 = factor(age >= 70)) 
+
 
 
 ### add prior visits
@@ -348,7 +346,7 @@ csn_summ <- csn_summ %>%
   mutate(num_prior_visits = visit_num -1)
 
 csn_summ <- csn_summ %>% 
-  select(-arrival_dttm, -birthdate, -num_ED_row_excl_OTF, -visit_num)
+  select(-arrival_dttm, -date_of_birth, -num_ED_row_excl_OTF, -visit_num)
 
 
 # select only ED rows
@@ -366,10 +364,11 @@ bed_moves <- bed_moves %>% ungroup() %>%
          discharge = as.numeric(difftime(discharge, arrival_dttm, units = "mins")))
 
 
-matrix_60 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 60)
+#matrix_60 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 60)
+matrix_120 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 120)
 
 # useful function to explore data 
-skimr::skim(matrix_60)
+#skimr::skim(matrix_60)
 
-outFile = paste0("EDcrowding/predict-admission/data-raw/matrix_60_",today(),".rda")
-save(matrix_60, file = outFile)
+outFile = paste0("EDcrowding/predict-admission/data-raw/matrix_120_",today(),".rda")
+save(matrix_120, file = outFile)

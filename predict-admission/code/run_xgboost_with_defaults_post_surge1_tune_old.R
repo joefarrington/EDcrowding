@@ -58,6 +58,12 @@ dm_train_val <- testing(dm_split_train_val)
 
 dm_recipe <- recipe(adm ~ ., 
                     data = dm_train_train
+                      # data = dm_train_train %>% 
+                      # 
+                      # select(-starts_with("fs_"),
+                      #        -starts_with("l_")
+                      #)
+                      
                     ) %>% 
   update_role(csn, new_role = "id") %>% 
   step_mutate(adm = as.factor(adm)) %>% 
@@ -72,11 +78,17 @@ dm_recipe <- recipe(adm ~ .,
 
 proc_dm_train_train <- dm_recipe %>% bake(
   dm_train_train
+    # dm_train_train %>%
+    # 
+    # select(-starts_with("fs_"), -starts_with("l_"))
 )
 
 
 proc_dm_train_val <- dm_recipe %>% bake(
   dm_train_val
+  # dm_train_train %>%
+  # 
+  # select(-starts_with("fs_"), -starts_with("l_"))
 )
 
 # Cross validation --------------------------------------------------------
@@ -156,19 +168,14 @@ xgb_res %>% collect_metrics() %>%
 
 best_mod = select_best(xgb_res, "mcc")
 
-# run best model on whole training set
-xgb_spec_full <- boost_tree(
-  
-) %>%
-  set_engine("xgboost",scale_pos_weight=best_mod$scale_pos_weight) %>%
-  set_mode("classification")
-
-xgb_wf_full <- workflow() %>%
-  add_model(xgb_spec_full) %>%
-  add_formula(formula)
-
-# fit to the training data
-xgb_fit_full <- fit(xgb_wf_full, data = proc_dm_train_train)
+# # Fit best model
+# final_xgb <- finalize_workflow(
+#   xgb_wf,
+#   best_mod # using the model that is best for mcc
+# )
+# 
+# final_xgb_fit <- fit(final_xgb, proc_dm_train_train)
+# 
 
 # score predictions
 
@@ -186,11 +193,66 @@ classification_metrics<-function(fit,data) {
   return(pred)
 }
 
+classification_metrics(final_xgb_fit, proc_dm_train_train)
+
+
+# outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_",today(),".rda")
+# save(pred, file = outFile)
+# 
+# 
+# save_chart("AUC_post_surge1_60-mins_default_params",
+#            print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()) +
+#              annotate("text", x = .9, y = .00, label = paste0("Area under ROC: ",
+#                                                               round(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second") %>% select(.estimate),2)))
+# )
+
+# Look at training set output ------------------------------------------------
+
+#
+
+p <- final_xgb_fit %>%
+  fit(data = proc_dm_train_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point", num_features = 20) 
+
+p  + labs(title = "Variable importance for best model mcc - training data")
+
+
+
+
+
+# Fit to validation set ------------------------------------------------
+
+# final_res <- last_fit(final_xgb, dm_split_train_val)
+# collect_metrics(final_res)
+
+# NOTE - this is causing an error because the recipe is not part of my workflow;
+# worth fixing if I continue with tidymodels - not otherwise
+
+
+# so try re-training the final model on the whole training set
+
+
+xgb_spec_full <- boost_tree(
+
+) %>%
+  set_engine("xgboost",scale_pos_weight=best_mod$scale_pos_weight) %>%
+  set_mode("classification")
+
+xgb_wf_full <- workflow() %>%
+  add_model(xgb_spec_full) %>%
+  add_formula(formula)
+
+
+# Fit model ---------------------------------------------------------------
+
+# fit to the training data
+xgb_fit_full <- fit(xgb_wf_full, data = proc_dm_train_train)
 
 # then predict on validation set
-pred_train <- classification_metrics(xgb_fit_full, proc_dm_train_train)
 pred_val <- classification_metrics(xgb_fit_full, proc_dm_train_val)
 
 
-outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_class_weight_val_set_",today(),".rda")
+outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_val_set_",today(),".rda")
 save(pred_val, file = outFile)
+
