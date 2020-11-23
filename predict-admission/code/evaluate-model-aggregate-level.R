@@ -65,10 +65,10 @@ eval_model = function(count,distr_collect){
   # refer to Admission probability distribution evaluation in Model Evaluation.docx
   
   # change all distr to cdfs
-  cdf_collect = pdf_to_cdf(distr_collect)  # step 1
+  cdf_collect = pdf_to_cdf(distr_collect_)  # step 1
   # for each threshold alpha, cycle through all distr and get corresponding number of adm
-  M = 1000
-  D = length(count)
+  M = 10
+  D = length(count_)
   model_1 = c()
   model_2 = c()
   model_3 = c()
@@ -85,13 +85,13 @@ eval_model = function(count,distr_collect){
     model_hi = 0
     for (j in 1:D){
       
-      distr = distr_collect[[j]]
+      distr_ = distr_collect_[[j]]
       cdf = cdf_collect[[j]]
       # step 2
       if (alpha < 1){
         thresh_N = threshold_to_N(cdf,alpha) 
       } else {
-        thresh_N = c(length(distr)-1,length(distr),length(distr))
+        thresh_N = c(length(distr_)-1,length(distr_),length(distr_))
       }
       ## for lower, alpha corresponds to lower
       ## for mid, alpha corresponds to lower if alpha is less than midpoint between lower and upper level
@@ -157,7 +157,7 @@ threshold_to_N = function(cdf,alpha){
   }
   # print(alpha)
   low = i-1
-  hi = i
+  hi = i # note - Enoch adds 1 to i here, rather than setting the higher band at the next alpha threshhold for the cdf
   
   if (i==1){
     if(alpha<0.5*cdf[i]){
@@ -194,14 +194,36 @@ threshold_to_N = function(cdf,alpha){
 #------------------------------------------------------------
 #------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-output/xgb_pred_demo-arrchars-locdurations_60-mins_tune-trees-8_best-auc-excl-1-tree_2020-10-27.rda")
-# for now load dm_train via other script to get date and include its csn
+load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
+# for now load proc_dm_train via other script to get date and include its csn
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
 
-pred_with_csn <- bind_cols(pred, dm_train$csn)
+pred_with_csn <- bind_cols(pred, proc_dm_train$csn)
 pred_with_csn <- pred_with_csn %>% rename(csn = ...5)
 pred_with_csn <- pred_with_csn %>% left_join(ED_csn_summ %>% select(csn, arrival_dttm))
 pred_with_csn <- pred_with_csn %>% mutate(date = date(arrival_dttm))
+
+save(pred_with_csn, file = "~/EDcrowding/predict-admission/data-raw/pred_with_csn_60_2020-11-09.rda")
+
+# Simple test of the poly prod function ---------------------------------------------
+
+load("~/EDcrowding/predict-admission/data-raw/pred_with_csn_60_2020-11-09.rda")
+date_range = seq(date("2020-08-01"), date("2020-08-31"), length = 100)
+i = 1
+# get dataframe of predictions for 1 August
+df <- as.data.frame(pred_with_csn %>% filter(date == as.character(date_range[i])) %>% select(truth:.pred_TRUE))
+probs = df[,4][order(df[,4])]
+
+# show the individual predictions
+probs %>% plot()
+probs %>% ecdf() %>% plot()
+
+# show the distribution 
+pp <- poly_prod(df)
+pp %>% plot()
+pp %>% ecdf() %>% plot()
+
+# End ----------------------------------------------------------------------
 
 
 
@@ -221,22 +243,22 @@ pred_with_csn <- pred_with_csn %>% mutate(date = date(arrival_dttm))
 # generate using the xgboost model the series of predictions and change to necessary format (leave this to you, sorry)
 
 # create date range to analyse
-date_range = seq(date("2020-08-01"), date("2020-08-31"), length = 100)
+date_range = seq(date("2020-05-31"), date("2020-09-01"), length = 94)
 
-distr_collect = list()
-count = c()
+distr_collect_ = list()
+count_ = c()
 
 for (i in 1:length(date_range)) {
   # note sure why I had to add the as.character ??
   df <- as.data.frame(pred_with_csn %>% filter(date == as.character(date_range[i])) %>% select(truth:.pred_TRUE))
-  distr_collect[[i]] <- poly_prod(df)
-  count <- c(count,sum(as.numeric(df$truth)-1))
+  distr_collect_[[i]] <- poly_prod(df)
+  count_ <- c(count_,sum(as.numeric(df$truth)-1))
 }
 
 
 # plug into the function
 
-result = eval_model(count,distr_collect)
+result = eval_model(count_,distr_collect_)
 
 library(ggplot2)
 print(result)
@@ -249,6 +271,7 @@ p = ggplot(data=result, aes(x,y)) + geom_point(aes(y=r_low,color='data: mid appr
   geom_point(aes(y=r_hi,color='data: hi approx'),size=0.8) +
   geom_point(aes(y=m_hi,color='model: hi approx'),alpha=0.3,size=0.8)+
   scale_color_manual(labels=c('data:','2','3'),values = c('green','orange','red','black','black','black'))
+
 
 print(p + labs(x="confidence",y="proportion of cases under bound") + theme(legend.title = element_blank()))
 

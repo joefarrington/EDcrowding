@@ -1,4 +1,7 @@
 
+# About this file ---------------------------------------------------------
+
+# Takes flowsheet data and cleans it ready for creating design matrix
 # load libraries
 # =============
 
@@ -11,9 +14,9 @@ library(tidyverse)
 # =========
 
 
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_2020-09-28.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/flowsheet_raw_with_Star_2020-11-05.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
 load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_2020-10-14.rda")
 
 # remove flowsheet rows that are not included in ED_bed_moves
@@ -25,7 +28,9 @@ flowsheet_raw_excluded_csns <- flowsheet_raw %>%
 # this uses the bed_moves foreign key which will map the old csn to the new one if relevant
 # using an inner join to exclude any csns which are not in ED_bed_moves
 flowsheet_raw_excluded_csns <- flowsheet_raw_excluded_csns %>% 
-  inner_join(ED_bed_moves %>% ungroup() %>% select(csn, csn_old, pk_bed_moves) %>% distinct() %>% rename(csn_new = csn),
+  inner_join(ED_bed_moves %>% ungroup() %>% select(csn, csn_old, pk_bed_moves) %>% 
+               mutate(pk_bed_moves = as.character(pk_bed_moves) ) %>% 
+               distinct() %>% rename(csn_new = csn),
              by = c("csn" = "csn_old", "fk_bed_moves" = "pk_bed_moves")) %>% 
   select(-csn) %>% 
   rename(csn = csn_new)
@@ -36,9 +41,6 @@ flowsheet_raw_excluded_csns <- flowsheet_raw_excluded_csns %>%
               select(mrn, csn, arrival_dttm) %>% distinct()) %>% 
   mutate(elapsed_mins = as.numeric(difftime(flowsheet_datetime, arrival_dttm, units = "mins"))) %>% 
   select(-arrival_dttm)
-
-
-
 
 # tidy labels
 
@@ -54,6 +56,13 @@ colnames(name_lookup) <- c("mapped_name", "meas")
 
 flowsheet_raw_excluded_csns <- flowsheet_raw_excluded_csns %>% 
   left_join(name_lookup) %>% select(-mapped_name)
+
+
+# for now exclude all except main flowsheet values
+flowsheet_raw_excluded_csns <- flowsheet_raw_excluded_csns %>% 
+  filter(meas %in% c("acvpu", "bp", "temp",  "heart_rate",  "news", 
+                                                    "o2_sat", "resp_assist", "resp_rate"))
+
 
 
 # transform data

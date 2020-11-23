@@ -184,19 +184,61 @@ pred <- classification_metrics(final_xgb_fit, dm_train)
 
 # calculate Brier score
 pred <- pred %>% 
-  mutate(truth2 = as.numeric(truth)-1) %>% 
   mutate(brier = (.pred_TRUE - (as.numeric(truth)-1))^2)
 
 # add preds to dm
-dm_with_pred <- dm_train %>% bind_cols(pred) %>% 
+dm_with_pred <- proc_dm_train %>% bind_cols(pred) %>% 
   select(- starts_with("l_"), - starts_with("fs_")) %>% 
-  select(admitted, .pred_TRUE, brier, everything()) %>% arrange(desc(brier))
+  select(adm, .pred_TRUE, brier, everything()) %>% arrange(desc(brier))
 
 dm_false_positive <- dm_with_pred %>% 
-  filter(admitted == "FALSE", .pred_class == "TRUE") 
+  filter(adm == "FALSE", .pred_class == "TRUE") 
 
 dm_false_positive %>% 
-  filter(mins_RESUS > 0) %>% 
-  ggplot(aes(x = mins_RESUS, y = brier)) + geom_point()
+  filter(mins_RESUS > 15) %>% 
+  ggplot(aes(x = mins_RESUS, y = brier)) + geom_point() + 
+  scale_y_continuous(limits = c(0,1)) +
+  labs(title = "False positives: minutes in resus by brier score")
+
+
+dm_with_pred  %>%  filter(mins_RESUS > 0) %>% 
+  ggplot(aes(x = mins_RESUS, y = brier, col = adm)) + geom_point() +
+  labs(title = "Minutes in Resus by Brier score",
+       subtitle = "Approx 1300 patients of the 20K false positives spent more than 15 min in Resus", 
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+
+dm_with_pred  %>%  filter(mins_RAT > 0) %>% 
+  ggplot(aes(x = mins_RAT, y = brier, col = adm)) + geom_point() +
+  labs(title = "Minutes in RAT by Brier score",
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+
+
+
+dm_with_pred  %>% filter(mins_Waiting > 0) %>% 
+  ggplot(aes(x = mins_Waiting, y = brier, col = adm)) + geom_point() +
+  labs(title = "Minutes in waiting by Brier score",
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+
+dm_with_pred  %>% filter(mins_Waiting > 0) %>% 
+  ggplot(aes(x = mins_Waiting, y = brier, col = adm)) + geom_point() +
+  labs(title = "Minutes in waiting by Brier score",
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+
+dm_with_pred  %>% 
+  ggplot(aes(x = age, y = brier, col = adm)) + geom_point() +
+  labs(title = "Age by Brier score",
+       y = "Brier score (0 is best score possible)",
+       colour = "Admitted") +
+  theme(legend.position = "bottom")
+
+
 
          

@@ -2,19 +2,44 @@
 
 This is a series of files to extract data from Star and analyse patient moves between locations.  The focus is on moves within ED. 
 
+Flow schema tables are materialised database tables derived from a one-off extract from Star that was done in early September 2020. They are quick to run but not updated. Star is based on views and very slow to run, but up to date. Use this for data later than September 2020.
+
+
+### 0. Exploratory file
+
+get-all-bed-move-data-from-Flow-and-Star.R
+
+Retrieves all data from both schemas, in order to do exploratory processing of odd situations. The main goals are:
+
+- find patients who have multiple csns per visit
+- find patients who spend time in AEDU
+- create a summary dataset of prior visits
+
+
+
 ## Order to run files in
 
-### 1. Retrieve and process data
+### 1. Retrieve data
 
 get-ED-data-from-Flow-DB-step.R 
-process-ED-data-from-Flow.R
+get-ED-data-from-Star-DB-step.R 
 
-These two files retrieve and process data from Star
+These two files retrieve and process data from the relevant schema.  
+
+output
+- ED_bed_moves_raw
+
+### 1a. Process data
+
+process-ED-data-from-Flow.R
+process-ED-data-from-Star.R
+
+These are identical with some tiny differences due to the nature of data retrieved from Star. The flow version produces a historical dataset. The star version processes the recent data and, at the end, merges it with the historical dataset. 
 
 output
 - ED_bed_moves
 - ED_csn_summ
-(- ED_bed_moves_extra - currently commented out; adds an additional waiting node)
+- excluded_csns - a list of csns that need to be excluded from later processing
 
 ### 2. Get data on vital signs
 

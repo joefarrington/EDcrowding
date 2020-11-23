@@ -12,9 +12,9 @@ library(tidyverse)
 # =========
 
 
-load("~/EDcrowding/predict-admission/data-raw/lab_raw_2020-10-07.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_raw_with_Star_2020-11-05.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
 load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_2020-10-14.rda")
 
 # remove lab csns that are not included in ED_bed_moves
@@ -37,8 +37,8 @@ lab_raw_excluded_csns <- lab_raw_excluded_csns %>%
   mutate(elapsed_mins = as.numeric(difftime(result_datetime, arrival_dttm, units = "mins"))) %>% 
   select(-arrival_dttm)
 
-# transform data
-# ==============
+# Transform data ----------------------------------------------------------
+
 
 # remove blank rows
 lab_raw_excluded_csns <- lab_raw_excluded_csns %>%
@@ -75,8 +75,9 @@ lab_real <- lab_real %>%
          oor_high = as.numeric(result_text) > ref_high)
 
 
-# process data for ML
-# ==================
+
+# Process data for ML -----------------------------------------------------
+
 
 # calculate number of results
 lab_num_results <- lab_raw_excluded_csns %>% 
@@ -103,6 +104,9 @@ lab_num_results_with_zero_csn_level <- lab_num_results_with_zero_csn_level %>%  
   mutate_at(vars(colnames(lab_num_results_with_zero_csn_level)[3:ncol(lab_num_results_with_zero_csn_level)]), replace_na, 0)
 
 
+
+
+# Save data ---------------------------------------------------------------
 
 
 

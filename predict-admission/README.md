@@ -1,33 +1,43 @@
 # About this folder
 
 This is a series of files to extract data from Star and predict admissions from ED. 
+
 ## Order to run files in
 
 ### 1. Get-data-from-flow.R
 
-Gets data from flow (materialised tables on Star)
+Gets data from flow (materialised tables on Star) only for patients in ED
 
 Output
-- demog_raw
-- flowsheet_raw
+- demog_raw 
+- flowsheet_raw 
+- lab_raw
 
 Note - bed_moves is not retrived as we are using bed_moves as processed by code in the EDCrowding/flow-mapping folder
+
+### 1a Get-data-from-star.R
+
+I have added get-data-from-star.R to get recent months from Star, to add to the flow data which runs to September 2020
+
+Output
+- demog_raw (for ALL patients including those not in ED - note that due to an error; this doesn't seem to include all patients, therefore I have added a step in bed_moves.R to add demog data from either source)
+- flowsheet_raw - for all ED patients including those retrieved from flow
+- lab_raw - for all ED patients
 
 ### 2. bed_moves.R
 
 Input (as processed by code in the EDCrowding/flow-mapping folder )
+- demog_raw (see note above about two sources for this)
 - ED_bed_moves
 - ED_csn_summ
 
-using bed moves, a matrix is arranged in the following way: for a patient visit, we have the (mrn, csn, admission datetime, discharge datetime, department, room, sex, age, patient eventually admitted or not)
-
-Adds an epoch to denote whether this is before COVID, during Surge 1 or after Surge 1
+using bed moves, a matrix is arranged in the following way: for a patient visit, we have the (mrn, csn, admission datetime, discharge datetime, sex, age, patient eventually admitted or not). Adds an epoch to denote whether this is before COVID, during Surge 1 or after Surge 1
 
 Calculates how much time is spent in each location
 
 Output
 - matrix_csn
-- matrix_loc
+
 
 matrix_csn has the same number of rows as ED_csn_summ - ie all csns we are interested in
 
@@ -41,7 +51,7 @@ Cleans non-numeric fields to make them numeric (e.g. separates blood pressure in
 Elapsed minutes from point of admission calculated. Names of flowsheet measurements are cleaned
 
 Input
-- flowsheet_raw
+- flowsheet_raw - including those retrieved from both Star and flow 
 - ED_bed_moves
 - ED_csn_summ
 - excluded_csns
@@ -61,7 +71,7 @@ Note that all of these files exclude any csns that did not have flowsheet measur
 Takes lab data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in labs to revised csns that were generated in the process of cleaning/creating ED_bed_mvoes. Uses foreign and primary keys on bed_moves to do this.
 
 Input
-- lab_raw
+- lab_raw - including those retrieved from both Star and flow 
 - ED_bed_moves
 - ED_csn_summ
 - excluded_csns

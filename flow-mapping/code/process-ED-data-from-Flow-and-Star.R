@@ -110,12 +110,12 @@ group_room_names <- function(room) {
     length(grep("MAJ", room)) >0 ~ "MAJORS",
     length(grep("RAT", room)) >0 ~ "RAT",
     length(grep("TRIAGE", room)) >0 ~ "TRIAGE",
+    length(grep("SPECIALTY ASSESSMENT AREA", room)) >0 ~ "SAA",
     TRUE ~ room)
   return(room_)
 }
 
 group_room_names <- Vectorize(group_room_names)
-
 
 
 
@@ -127,19 +127,31 @@ print(Sys.time() - timer)
 timer <- Sys.time()
 
 
-file_label <- "all_"
-include_CDU <- 1
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-10-07.rda")
-load(inFile)
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_SepOct_2020-11-03.rda")
 
 # Name changes (SQL doesn't do capitals)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  rename(ED_arrival_dttm = ed_arrival_dttm,
-         ED_discharge_dttm = ed_discharge_dttm)
+  rename(ED_arrival_dttm = arrival_dttm,
+         ED_discharge_dttm = discharge_dttm)
 
+# add pk_bed_moves as system time plus rownumber
+key_start = as.numeric(Sys.time())
+ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>%
+  mutate(pk_bed_moves = paste0(key_start,row_number()))
 
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(source = "Star")
 
+ED_bed_moves_raw_star <- ED_bed_moves_raw
 
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_2020-10-07.rda")
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(source = "Flow")
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(pk_bed_moves <- as.character(pk_bed_moves)) %>% 
+  bind_rows(ED_bed_moves_raw_star)
 
 
 # Basic checks
@@ -160,11 +172,11 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(!csn %in% admission_later_csns$c
 print("number of csns removed because admission later than discharge:")
 print(admission_later_csns %>% select(csn) %>% n_distinct()) 
 
-# blank line added to match Star script
-# blank line added to match Star script
-# blank line added to match Star script
-# blank line added to match Star script
-# blank line added to match Star script
+duplicate_admission_csns <- ED_bed_moves_raw %>% group_by(mrn, csn, admission) %>% summarise(tot = n()) %>% filter(tot >1) %>% select(mrn, csn) %>% distinct()
+ED_bed_moves_raw <- ED_bed_moves_raw %>% filter(!csn %in% duplicate_admission_csns$csn)
+print("number of csns removed because more than one row with same admission time:")
+print(duplicate_admission_csns %>% select(csn) %>% n_distinct()) 
+
 
 print(Sys.time() - timer)
 print("Arrival and discharge dttms")
@@ -176,8 +188,8 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
                                 discharge_dttm = max(discharge)) %>% 
   select(mrn, csn, arrival_dttm, discharge_dttm, everything())
 
-# blank line added to match Star script
-# blank line added to match Star script
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  arrange(mrn, csn, admission)
 
 # identify arrival rows (first row for each encounter)
 
@@ -249,13 +261,13 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 # discharge time for the csns with multiple visits to ED 
 # and update ED_bed_moves_raw with these
 
-i <- 0
+#i <- 0
 while (num_multiple_ED_visits >0 ) {
-  i <- i + 1
+#  i <- i + 1
   mult_visit_csn <- multiple_ED_bed_moves %>% filter(arrival_row) %>% 
     group_by(csn) %>% summarise(latest_ED_arrival = max(admission)) %>% 
    select(csn, latest_ED_arrival) %>% 
-    mutate(csn_new = as.character(as.numeric(csn)*10^i)) %>% 
+    mutate(csn_new = as.character(as.numeric(csn)*10)) %>% 
     select(csn, csn_new, latest_ED_arrival)
   
   multiple_ED_bed_moves <- multiple_ED_bed_moves %>% 
@@ -617,13 +629,13 @@ excluded_csns <- admission_later_csns %>% mutate(csn_old = csn) %>%
   bind_rows(elsewhere_to_ED_csn %>% select(mrn, csn, csn_old))  %>% 
   bind_rows(long_ED_csn %>% select(mrn, csn, csn_old)) %>% 
   bind_rows(odd_arrival_rows %>% select(mrn, csn, csn_old)) %>% 
-  # blank line added to match Star script
+  bind_rows(duplicate_admission_csns %>% select(mrn, csn, csn_old = csn)) %>% 
   distinct() %>% 
   mutate(reason = case_when(csn %in% admission_later_csns$csn ~ "Admission later than discharge",
                             csn %in% elsewhere_to_ED_csn$csn & csn %in% long_ED_csn$csn ~ "Elsewhere to ED and long ED",
                             csn %in% elsewhere_to_ED_csn$csn ~ "Elsewhere to ED",
                             csn %in% long_ED_csn$csn ~ "Long ED",
-                            # blank line added to match Star script
+                            csn %in% duplicate_admission_csns$csn ~ "Duplicate admission dttm",
                             TRUE ~ "Odd arrival row"))
 
 
@@ -723,3 +735,53 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/Excluded_csns_",file_label,to
 save(excluded_csns, file = outFile)
 rm(outFile)
 
+
+
+# Merge into main Bed moves and csn summ
+ED_bed_moves_SepOct <- ED_bed_moves 
+ED_csn_summ_SepOct <- ED_csn_summ
+excluded_csns_SepOct <- excluded_csns
+
+# load previous datasets and merge
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-10-14.rda")
+load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_2020-10-14.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-10-14.rda")
+
+ED_bed_moves <- ED_bed_moves %>% 
+  mutate(pk_bed_moves = as.character(pk_bed_moves)) %>% 
+  bind_rows(ED_bed_moves_SepOct)
+
+# some rows may be duplicates where SQL queries overlap
+duplicate_rows <- ED_bed_moves %>% ungroup() %>%  group_by(mrn, csn, admission) %>% summarise(tot = n()) %>% filter(tot > 1) 
+
+dups_to_remove <-duplicate_rows %>% left_join(ED_bed_moves %>% select(mrn, csn, admission, pk_bed_moves)) %>% 
+  filter(as.numeric(pk_bed_moves) > 1e+9 ) %>% select(pk_bed_moves)
+
+ED_bed_moves <- ED_bed_moves %>% filter(!pk_bed_moves %in% dups_to_remove$pk_bed_moves)
+
+ED_csn_summ <- ED_csn_summ %>% 
+  bind_rows(ED_csn_summ_SepOct)
+
+excluded_csns <- excluded_csns %>% 
+  bind_rows(excluded_csns_SepOct)
+
+# save data
+
+file_label = "all_"
+
+
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
+save(ED_bed_moves, file = outFile)
+rm(outFile)
+
+# save ED_csn_summ for future use
+
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",file_label,today(),".rda")
+save(ED_csn_summ, file = outFile)
+rm(outFile)
+
+# save excluded csns
+
+outFile = paste0("EDcrowding/flow-mapping/data-raw/Excluded_csns_",file_label,today(),".rda")
+save(excluded_csns, file = outFile)
+rm(outFile)
