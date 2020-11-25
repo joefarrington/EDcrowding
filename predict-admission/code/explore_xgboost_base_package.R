@@ -15,7 +15,7 @@ library(tidyverse)
 
 # Function to one-hot encode factors
 
-# frin https://stackoverflow.com/questions/39905820/how-to-one-hot-encode-factor-variables-with-data-table
+# from https://stackoverflow.com/questions/39905820/how-to-one-hot-encode-factor-variables-with-data-table
 one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
   # One-Hot-Encode unordered factors in a data.table
   # If cols = "auto", each unordered factor column in dt will be encoded. (Or specifcy a vector of column names to encode)
@@ -255,3 +255,6 @@ bstcv_test <- xgb.train (params = params, data = dataX,
                    early_stopping_rounds = 10,
                    maximize = F , 
                    eval_metric = "error")
+
+
+
