@@ -327,7 +327,7 @@ lrn = rr$learners[[1]]
 lrn$model
 
 # get predictions
-rr$prediction() # all predictions merged into a single Prediction
+rr$prediction() # all predictions merged into a single Prediction - note: these are for training set
 rr$predictions()[[1]] # prediction of first resampling iteration
 
 # plotting
@@ -337,8 +337,13 @@ autoplot(rr, type = "roc")  # nice !!
 
 # Benchmarking ------------------------------------------------------------
 
+# A design is a combination of learner, task and resampling
+
+tasks = lapply(c("german_credit", "sonar"), tsk) # this is looking up existing tasks in ml3 dictionary; see this in as.data.table(mlr_tasks)
+# not sure if you can add a task that covers more than one dataset; I assume not
+
 design = benchmark_grid(
-  tasks = tsk("iris"),
+  tasks = task,
   learners = list(lrn("classif.rpart"), lrn("classif.featureless")),
   resamplings = rsmp("holdout")
 )
