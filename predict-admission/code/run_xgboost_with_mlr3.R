@@ -13,12 +13,15 @@ library(mlr3proba)
 library(mlr3viz)
 library(GGally)
 library(precrec)
+library(paradox)
+library(mlr3tuning)
+library(mlr3fselect)
 
 
 library(parallel)
 library(parallelMap) 
 parallelStartSocket(cpus = detectCores())
-parallelStop()
+#parallelStop()
 
 
 
@@ -192,6 +195,8 @@ task60$col_roles$feature = setdiff(task60$col_roles$feature, "csn")
 task120$col_roles$name = "csn"
 task120$col_roles$feature = setdiff(task120$col_roles$feature, "csn")
 
+learner = lrn("classif.xgboost", predict_type = "prob")
+
 resamplings = rsmp("cv", folds = 3)
 
 design = benchmark_grid(
@@ -203,11 +208,16 @@ print(design)
 
 bmr = benchmark(design)
 
+# to see measures 
+# as.data.table(mlr_measures)
 
 measures = list(
 #  msr("classif.auc", id = "auc_train", predict_sets = "train"),
   msr("classif.acc", id = "acc_test"),
-  msr("classif.auc", id = "auc_test")
+  msr("classif.ce", id = "ce_test"),
+  msr("classif.auc", id = "auc_test"),
+  msr("classif.auc", id = "mcc_test")
+
 )
 bmr$aggregate(measures)
 tab = bmr$aggregate(measures) # see book for more on ranking measures
@@ -240,3 +250,97 @@ tab = bmr2$aggregate(measures) # see book for more on ranking measures
 
 
 # extracting best perforrming learner is possible but I haven't achieved; see book
+
+
+# Tuning ------------------------------------------------------------------
+
+# to see current learner set
+learner$param_set
+
+# set param grid
+tune_ps = ParamSet$new(list(
+#  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
+  ParamInt$new("scale_pos_weight", lower = 1, upper = 5)
+))
+
+# choose resampling strategy and performance measure
+cv = rsmp("cv")
+measure = msr("classif.mcc")
+
+# set budget
+# to see list of possible terminators
+as.data.table(mlr_terminators)
+
+# short way
+evals20 = trm("evals", n_evals = 20)
+# or this way: 
+evals20 = mlr_terminators$get("evals")
+evals20$param_set$values = list("n_evals" = 20)
+
+# create tuner instance
+instance = TuningInstanceSingleCrit$new(
+  task = task60,
+  learner = learner,
+  resampling = cv,
+  measure = measure,
+  search_space = tune_ps,
+  terminator = evals20
+)
+instance
+
+# set tuner class
+as.data.table(mlr_tuners)
+
+tuner = tnr("grid_search", resolution = 5)
+
+# apply the instance to the tuner class
+# see https://mlr3book.mlr-org.com/tuning.html for how it works
+tuner$optimize(instance)
+
+instance$result_learner_param_vals # best params
+instance$result_y # best result
+
+# can see all the instances
+instance$archive$data()
+results = as.data.frame(instance$archive$data())
+results %>% ggplot(aes(x = scale_pos_weight, y = classif.mcc)) + geom_point()
+autoplot(as.data.frame(instance$archive$data()))
+
+# see the results for each resampling iteration on a different performance measure
+instance$archive$benchmark_result$score(msr("classif.acc"))
+
+# use the best performing parameters and train on full dataset
+learner$param_set$values = instance$result_learner_param_vals
+learner$train(task60)
+
+
+
+# Trying feature selection ------------------------------------------------
+
+# note - this doesn't optimise the parameters, just the tuning
+
+cv2 = rsmp("cv")
+
+instanceF = FSelectInstanceSingleCrit$new(
+  task = task60,
+  learner = learner,
+  resampling = cv2,
+  measure = measure,
+  terminator = evals20
+)
+instanceF
+
+fselector = fs("random_search")
+fselector$optimize(instanceF)
+
+instanceF$result_feature_set # has selected 223 of the 254 features but one of them is year?? 
+instanceF$result_y
+
+instanceF$archive$data()
+
+instanceF$archive$benchmark_result$data
+
+# fit the optimised feature set to the data in the task
+task60$select(instanceF$result_feature_set)
+learner$train(task60)
+
