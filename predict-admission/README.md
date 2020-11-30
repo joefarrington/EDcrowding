@@ -20,7 +20,7 @@ Note - bed_moves is not retrived as we are using bed_moves as processed by code 
 I have added get-data-from-star.R to get recent months from Star, to add to the flow data which runs to September 2020
 
 Output
-- demog_raw (for ALL patients including those not in ED - note that due to an error; this doesn't seem to include all patients, therefore I have added a step in bed_moves.R to add demog data from either source)
+- demog_raw (now retrieving from star_test, the refactored database)
 - flowsheet_raw - for all ED patients including those retrieved from flow
 - lab_raw - for all ED patients
 
@@ -110,6 +110,9 @@ output-
 
 ### 7. Machine learning scripts
 
+- run_xgboost_with_defaults.R 
+- run_xgboost_with_defaults_post_Surge1.R 
+
 - run_xgboost_tune_all.R
 
 tunes all params using a maximum entropy grid (NOTE I have edited this due to an error with num_ED_rows_excl_OTF being included erroneously in the model, but haven't tested this). Code includes charts showing performance of models
@@ -134,3 +137,10 @@ I have left these in, but they may now be superceded
 
 From the predictions made in xgboost, this yields the performance measure for different metrics: distribution evaluation, hosmer-lemeshow statistic, madcap
 
+- evalute-model-aggregate-level-2.R ; contains my code
+- evalute-model-aggregate-level.R ; contains Enoch's original code (and functions)
+
+
+### 9. Other models
+
+- run_glm.R = as it sounds

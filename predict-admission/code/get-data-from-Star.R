@@ -6,6 +6,8 @@
 # All patients are retrived (to make the SQL faster) so flowsheet data for non-ED patients, 
 # and flowsheet data for ED patients after they leave ED are deleted
 
+# For demog data, this is now coming from star_test
+
 # For labs and flowsheets an additional step is required to create a foreign key to bed moves
 
 # Note - this needs bed_moves and csn summary data already processed for the relevant motnhs
@@ -45,10 +47,16 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 
 
-# Get demog data ---------------------------------------------------------
+# Get demog data NOTE THIS IS STAR_TEST---------------------------------------------------------
 
-sqlQuery <- "select d.mrn, d.sex, d.birthdate, d.death_date, d.death_indicator
-    from star.demographics d
+sqlQuery <- "select mrn, 
+ date_of_birth, 
+ date_of_death, 
+ alive, 
+ sex
+ from star_test.core_demographic d,
+  star_test.mrn m
+  where m.mrn_id = d.mrn_id
 "
 sqlQuery <- gsub('\n','',sqlQuery)
 demog_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))

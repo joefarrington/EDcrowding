@@ -26,7 +26,11 @@ library(doParallel)
 all_cores <- parallel::detectCores(logical = FALSE)
 registerDoParallel(cores = all_cores - 2)
 
-load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-09.rda")
+load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-23.rda")
+
+# once star_test is done, check for duplicates mrns for same csn; 
+matrix_60 %>% ungroup() %>% select(mrn, csn) %>% group_by(csn) %>% 
+  summarise(tot = sum(n())) %>% filter(tot > 1) %>% arrange(desc(tot))
 
 
 dm <- matrix_60 %>%
@@ -54,12 +58,6 @@ dm_train_val <- testing(dm_split_train_val)
 
 dm_recipe <- recipe(adm ~ ., 
                     data = dm_train_train
-                      # data = dm_train_train %>% 
-                      # 
-                      # select(-starts_with("fs_"),
-                      #        -starts_with("l_")
-                      #)
-                      
                     ) %>% 
   update_role(csn, new_role = "id") %>% 
   step_mutate(adm = as.factor(adm)) %>% 
@@ -74,11 +72,12 @@ dm_recipe <- recipe(adm ~ .,
 
 proc_dm_train_train <- dm_recipe %>% bake(
   dm_train_train
-    # dm_train_train %>%
-    # 
-    # select(-starts_with("fs_"), -starts_with("l_"))
 )
 
+
+proc_dm_train_val <- dm_recipe %>% bake(
+  dm_train_val
+)
 
 # Cross validation --------------------------------------------------------
 
@@ -121,7 +120,8 @@ xgb_wf <- workflow() %>%
   add_model(xgb_spec) %>% 
   add_formula(formula)
 
-param_grid <- expand.grid(scale_pos_weight = c(0.2, 1, 5))
+class_weight <- sum(proc_dm_train_train$adm == FALSE)/sum(proc_dm_train_train$adm == TRUE)
+param_grid <- expand.grid(scale_pos_weight = c(0.2, 1, class_weight, 5))
 
 # Run tuning --------------------------------------------------------------
 
@@ -135,96 +135,42 @@ xgb_res <- tune_grid(
 
 # Save results ------------------------------------------------------------
 
-outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_60-mins_tune-scale_pos_weight_",today(),".rda")
+outFile = paste0("EDcrowding/predict-admission/data-output/xgb_results_60-mins_tune-scale_pos_weight_new_dataset_",today(),".rda")
 save(xgb_res, file = outFile)
 
 
 # Evaluate results --------------------------------------------------------
 
 
-load("~/EDcrowding/predict-admission/data-output/xgb_results_60-mins_tune-scale_pos_weight_2020-11-18.rda")
+load("~/EDcrowding/predict-admission/data-output/xgb_results_60-mins_tune-scale_pos_weight_new_dataset_2020-11-23.rda")
 
 
-xgb_res %>% collect_metrics() %>% 
-  filter(!.metric %in% c("npv", "ppv", "recall", "precision")) %>% 
+xgb_res %>% collect_metrics() %>%
+  filter(!.metric %in% c("npv", "ppv", "recall", "precision")) %>%
   ggplot(aes(x = scale_pos_weight, y = mean, color = .metric)) +
   geom_point(size = 3) + geom_line() +
   theme_classic() +
   scale_x_continuous(breaks = as.numeric(param_grid$scale_pos_weight)) +
-  labs(title = "Tuning for trees with 60 min model with 5 fold validation", 
+  labs(title = "Tuning for trees with 60 min model with 5 fold validation",
        y = "Mean score on metric across 5 folds")
 
-# Fit best model
-final_xgb <- finalize_workflow(
-  xgb_wf,
-  best_mod # using the model that is best for mcc
-)
+best_mod = select_best(xgb_res, "mcc")
 
-final_xgb_fit <- fit(final_xgb, proc_dm_train_train)
+# run best model on whole training set
+xgb_spec_full <- boost_tree(
+  
+) %>%
+  set_engine("xgboost",scale_pos_weight=best_mod$scale_pos_weight) %>%
+  set_mode("classification")
 
+xgb_wf_full <- workflow() %>%
+  add_model(xgb_spec_full) %>%
+  add_formula(formula)
 
-# save predictions
-pred<-bind_cols(
-  truth=proc_dm_train_train$adm,
-  predict(final_xgb_fit,proc_dm_train_train,type="class"),
-  predict(final_xgb_fit,proc_dm_train_train,type="prob")
-)
+# fit to the training data
+xgb_fit_full <- fit(xgb_wf_full, data = proc_dm_train_train)
 
-
-outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_",today(),".rda")
-save(pred, file = outFile)
-
-
-save_chart("AUC_post_surge1_60-mins_default_params",
-           print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot()) +
-             annotate("text", x = .9, y = .00, label = paste0("Area under ROC: ",
-                                                              round(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second") %>% select(.estimate),2)))
-)
-
-# Look at training set output ------------------------------------------------
-
-# 
-
-p <- final_xgb_fit %>%
-  fit(data = proc_dm_train_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point", num_features = 20)
-
-p
-
-
-# Confusion matrix
-
-cm <- pred %>% conf_mat(truth, .pred_class) 
-
-
-
-# Fit to validation set ------------------------------------------------
-
-final_res <- last_fit(final_xgb, dm_split_train_val)
-collect_metrics(final_res)
-
-# NOTE - this is causing an error because the recipe is not part of my workflow; 
-# worth fixing if I continue with tidymodels - not otherwise
-
-
-# Just doing this gave me very nice results on the validation set but I don't think this can be right
-proc_dm_train_val <- dm_recipe %>% bake(
-  dm_train_val)
-
-final_xgb_fit_val <- fit(final_xgb, proc_dm_train_val)
-
-pred_test<-bind_cols(
-  truth=proc_dm_train_val$adm,
-  predict(final_xgb_fit_val,proc_dm_train_val,type="class"),
-  predict(final_xgb_fit_val,proc_dm_train_val,type="prob")
-)
-
-
-cm <- pred_test %>% conf_mat(truth, .pred_class) 
-
-
-
+# score predictions
 
 classification_metrics<-function(fit,data) {
   pred<-bind_cols(
@@ -233,53 +179,18 @@ classification_metrics<-function(fit,data) {
     predict(fit,data,type="prob")
   )
   print(paste0("Baseline=",mean(data$adm==T)))
+  print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
   print(pred %>% metrics(truth,.pred_class))
   print(pred %>% conf_mat(truth, .pred_class))
-  print(pred %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
   print(pred %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
   return(pred)
 }
-classification_metrics(final_xgb_fit_val, proc_dm_train_val)
 
 
-# so try re-training on the whole training set
+# then predict on validation set
+pred_train <- classification_metrics(xgb_fit_full, proc_dm_train_train)
+pred_val <- classification_metrics(xgb_fit_full, proc_dm_train_val)
 
 
-xgb_spec <- boost_tree(
-  
-) %>% 
-  set_engine("xgboost",scale_pos_weight=1) %>%  
-  set_mode("classification")
-
-xgb_wf <- workflow() %>% 
-  add_model(xgb_spec) %>% 
-  add_formula(formula)
-
-
-# Fit model ---------------------------------------------------------------
-
-xgb_fit <- fit(xgb_wf, data = proc_dm_train_train)
-
-xgb_fit %>% 
-  pull_workflow_fit() 
-
-xgb_pred_val <- predict(xgb_fit, new_data = proc_dm_train_val, type = "prob")
-
-pred_val<-bind_cols(
-  truth=proc_dm_train_val$adm,
-  predict(xgb_fit, new_data = proc_dm_train_val, type = "class"),
-  predict(xgb_fit, new_data = proc_dm_train_val, type = "prob"),
-  adm = dm_train_val$adm,
-  csn = dm_train_val$csn
-)
-
-
-print(pred_val %>% metrics(truth,.pred_class))
-print(pred_val %>% conf_mat(truth, .pred_class))
-print(pred_val %>% roc_auc(truth,.pred_TRUE, event_level = "second"))
-print(pred_val %>% roc_curve(truth,.pred_TRUE, event_level = "second") %>% autoplot())
-
-outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_val_set_",today(),".rda")
+outFile <- paste0("EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_class_weight_val_set_",today(),".rda")
 save(pred_val, file = outFile)
-
-  

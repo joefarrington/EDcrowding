@@ -20,10 +20,43 @@ poly_prod = function(df){
 
 # Load predictions --------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_val_set_2020-11-18.rda")
+load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-23.rda")
+
+# once star_test is done, check for duplicates mrns for same csn; 
+matrix_60 %>% ungroup() %>% select(mrn, csn) %>% group_by(csn) %>% 
+  summarise(tot = sum(n())) %>% filter(tot > 1) %>% arrange(desc(tot))
+
+
+dm <- matrix_60 %>%
+  filter(age >= 18, age < 110, epoch == "Post_Surge1") %>% 
+  select(-mrn, -csn_old, -ED_duration_final
+  ) %>% 
+  select(adm, age, sex, gt70, everything())
+
+
+# Train test split --------------------------------------------------------
+
+set.seed(123)
+dm_split_train_test <- initial_split(dm, strata = adm, prop = 4/5)
+dm_train <- training(dm_split_train_test)
+
+# dm_test <- testing(dm_split)
+
+# create validation set 
+dm_split_train_val <- initial_split(dm_train, strata = adm, prop = 7/8)
+dm_train_train <- training(dm_split_train_val)
+dm_train_val <- testing(dm_split_train_val)
+
+
+load("~/EDcrowding/predict-admission/data-output/xgb_pred_60-mins_tune-scale_pos_weight_class_weight_val_set_2020-11-23.rda")
+# check I've got the right datasets 
+nrow(dm_train_val) == nrow(pred_val)
+
+pred_val <- pred_val %>% bind_cols(dm_train_val %>% select(csn))
 load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
 
 pred_val <- pred_val %>% left_join(ED_csn_summ %>% select(csn, arrival_dttm)) %>% mutate(date = date(arrival_dttm))
+# note - this seems to reduce the number of pred_val - need to check why
 
 df1 = pred_val  %>% select(date, .pred_TRUE, truth)
 
@@ -31,7 +64,8 @@ df1 = pred_val  %>% select(date, .pred_TRUE, truth)
 adm <- df1 %>% group_by(date) %>% summarise(tot_pat = n(), 
                                             num_adm = sum(as.numeric(truth)-1))
 
-adm <- adm %>% mutate(fake_adm = num_adm + 20)
+# adding a temporary fix to get more of a distribution
+adm <- adm %>% filter(num_adm > 3)
 
 # save a probability distribution for each day, for each possible admission value 
 # on any day, this ranges from 0 admissions to max possible admissions (ie all patients admitted)
@@ -125,9 +159,10 @@ cutoff_cdf_normalised %>% pivot_longer(actual_less_than_lower_limit:model_lower_
                                        names_to = "model", 
                                        values_to = "proportion") %>% 
   ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line()  + theme_classic() +
-  labs(title = "Admission probability distribution evaluation", 
+  labs(title = "Admission probability distribution evaluation - logistic regression results", 
        y = "Proportion of instances <= X on cdf",
-       x = "X")
+       subtitle = "Due to small size of validaiton set, days with less than 3 actual admissions in validation set not included",
+       x = "X") 
 
 
 
