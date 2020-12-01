@@ -84,22 +84,44 @@ bed_moves <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 # Initial processing ------------------------------------------------------
 
+# remove csns that began before the beginning of epic
+
+csn_summ <- csn_summ %>% filter(admission_time > "2019-03-31")
+
 
 # find visits involving ED 
 
 bed_moves <- bed_moves %>% 
   mutate(department = split_location(location_string, 1),
-         room2 = split_location(location_string, 1))
+         room = split_location(location_string, 2))
 
 bed_moves <- bed_moves %>% 
-  mutate(ED_row = case_when(department == "ED" ~ 1,
+  mutate(ED_row = case_when(department == "ED" | department == "UCHT00CDU" ~ 1,
                                         TRUE ~ 0))
 
 csn_summ <- csn_summ %>% left_join(
   bed_moves %>% group_by(csn) %>% summarise(num_ED_rows = sum(ED_row)) %>% filter(num_ED_rows > 0)
 )
 
+# select csns involving ED
+
 ED_csn_summ_raw <- csn_summ %>% filter(!is.na(num_ED_rows))
+
+# add demographic information 
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  left_join(demog_raw) %>% 
+  # clean records with birthdate of 1900-01-01
+  mutate(age = case_when(date_of_birth <= "1915-01-01" ~ NA_integer_,
+                         TRUE ~ as.integer(as.period(interval(start = date_of_birth, end = admission_time))$year)))
+
+# delete under 18s
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  filter(age >= 18)
+
+# select bed moves for csns involving ED
+
 ED_bed_moves_raw <- bed_moves %>% left_join((ED_csn_summ_raw %>% select(csn, num_ED_rows))) %>% filter(!is.na(num_ED_rows))
 
 # deal with missing admission time in ED_csn_summ
@@ -116,9 +138,23 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
   mutate(admission_time = case_when(is.na(admission_time) ~ admission_time_,
                                     TRUE ~ admission_time)) %>% select(-admission_time_)
 
-# deal with missing discharge time - some of these will be patients still in
-missing_dis_time <- ED_csn_summ_raw %>% filter(is.na(discharge_time)) %>% select(csn, admission_time, num_ED_rows)
+# deal with missing presentation time
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))
 
+# calculate ED discharge time
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  left_join(
+    ED_bed_moves_raw %>% 
+  filter(ED_row ==1) %>% 
+  group_by(mrn, csn) %>% 
+  summarise(last_ED_discharge_time = max(discharge, na.rm = TRUE))
+  )
+
+# deal with missing discharge time - some of these will be patients still in
+missing_dis_time <- ED_csn_summ_raw %>% filter(is.na(discharge_time)) %>% select(csn, admission_time, last_ED_discharge_time, num_ED_rows)
+
+# delete any ED rows without any kind of dischrage time (ie only one row per patient) where arrival was prior to yesterday
 missing_dis_time <- missing_dis_time %>% 
   mutate(delete = case_when(admission_time < Sys.Date() - 1 & num_ED_rows == 1 ~ TRUE))
 
@@ -130,13 +166,7 @@ ED_bed_moves_raw <- ED_bed_moves_raw  %>% left_join(
   missing_dis_time %>% select(csn, delete) 
 ) %>% filter(is.na(delete)) %>% select(-delete)
 
-# add demographic information 
 
-ED_csn_summ_raw <- ED_csn_summ_raw %>% 
-  left_join(demog_raw) %>% 
-  # clean records with birthdate of 1900-01-01
-  mutate(age = case_when(date_of_birth <= "1915-01-01" ~ NA_integer_,
-                         TRUE ~ as.integer(as.period(interval(start = date_of_birth, end = admission_time))$year)))
 
 # delete patients who died on the day of being in ED
 died <- ED_csn_summ_raw %>% filter(discharge_destination == "Patient Died", patient_class == "EMERGENCY") %>% 
@@ -165,13 +195,19 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_",today(
 save(ED_bed_moves_raw, file = outFile)
 rm(outFile)
 
+# save csn_summ for later use
+
 outFile = paste0("EDcrowding/flow-mapping/data-raw/csn_summ_",today(),".rda")
 save(csn_summ, file = outFile)
 rm(outFile)
-
 
 # save ED_csn_summ for future use
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_all_",today(),".rda")
 save(ED_csn_summ_raw, file = outFile)
+rm(outFile)
+
+# save demog for later use
+outFile = paste0("EDcrowding/flow-mapping/data-raw/demog_all_",today(),".rda")
+save(demog_raw, file = outFile)
 rm(outFile)
