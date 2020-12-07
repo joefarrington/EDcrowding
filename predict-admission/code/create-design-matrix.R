@@ -29,27 +29,25 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   # select only rows where the admission began before the cutoff time(includes rows where discharge is later)
   bed_moves_cutoff <- bed_moves %>% ungroup() %>% 
     left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= cutoff/60, 
+    filter(ED_duration_final/60 >= cutoff/60, 
            admission <= cutoff) %>% 
-    select(-csn_old, -pk_bed_moves, -discharge_dttm, -ED_duration_final) %>% distinct()
+    select(csn, admission, discharge, room4, duration_row, covid_pathway, presentation_time)
   
   # count number of rows
   bed_moves_cutoff <- bed_moves_cutoff  %>%
-    group_by(mrn, csn, arrival_dttm) %>% 
+    group_by(csn, presentation_time) %>% 
     mutate(num_ED_rows = n())
     
   
   # update discharge time of rows that exceed cutoff time
   bed_moves_cutoff <- bed_moves_cutoff  %>% ungroup() %>% 
-    group_by(mrn, csn, arrival_dttm, room4) %>%
-    mutate(discharge = case_when(discharge > cutoff & discharge == max(discharge) ~ cutoff,
-                                 TRUE ~ discharge)) %>% ungroup() %>%
-    select(-arrival_dttm )
+    mutate(discharge = case_when(discharge > cutoff  ~ cutoff,
+                                 TRUE ~ discharge)) %>% ungroup()
 
   # collate to csn level
   bed_moves_cutoff_csn <- bed_moves_cutoff  %>%
     mutate(loc_duration = discharge - admission) %>%
-    group_by(mrn, csn, room4, num_ED_rows) %>%
+    group_by(csn, room4, num_ED_rows) %>%
     summarise(loc_duration = sum(as.numeric(loc_duration))) %>%
     pivot_wider(names_from = room4, names_prefix = "mins_", values_from = loc_duration, values_fill = 0)
   
@@ -57,8 +55,8 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   bed_moves_cutoff_csn <-   bed_moves_cutoff_csn %>% 
     left_join(
       bed_moves_cutoff  %>%
-        ungroup() %>% select(mrn, csn, room4) %>% 
-        group_by(mrn, csn, room4) %>% 
+        ungroup() %>% select(csn, room4) %>% 
+        group_by(csn, room4) %>% 
         mutate(visited = n()) %>%
         pivot_wider(names_from = room4, names_prefix = "visited_", values_from = visited, values_fn = sum, values_fill = 0)
     )
@@ -264,7 +262,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   
   
   matrix_cutoff <- csn_summ %>%
-    filter(ED_duration_final >= cutoff/60) %>% distinct() %>% 
+    filter(ED_duration_final/60 >= cutoff/60) %>% distinct() %>% 
     left_join(bed_moves_cutoff_csn) %>% 
     left_join(flowsheet_cutoff_csn) %>% 
     left_join(lab_cutoff_csn)
@@ -288,21 +286,20 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
 # load data
 # =========
 
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
+load("~/EDcrowding/predict-admission/data-raw/ED_csn_summ_final_csns_2020-12-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/final_csns_2020-12-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/ED_bed_moves_final_csns_2020-12-07.rda")
 
 # flowsheet data
 load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-11-05.rda")
+flowsheet_real <- flowsheet_real %>% inner_join(final_csns)
 
 # lab data
 load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
-
-# demographic data
-load("~/EDcrowding/predict-admission/data-raw/demog_2020-11-23.rda")
+lab_real <- lab_real %>% inner_join(final_csns)
 
 # all prior bed moves data to get prior visit info
-load("~/EDcrowding/flow-mapping/data-raw/visit_summ_all_flow_and_star_2020-11-09.rda")
-
+load("~/EDcrowding/flow-mapping/data-raw/visits_all_2020-12-02.rda")
 
 
 # prepare csn level data
@@ -311,57 +308,33 @@ load("~/EDcrowding/flow-mapping/data-raw/visit_summ_all_flow_and_star_2020-11-09
 # attach admission relevant variables
 
 csn_summ <- ED_csn_summ %>% 
-  select(mrn, csn, csn_old, arrival_dttm, num_ED_row_excl_OTF, adm, epoch, ED_duration_final) %>% 
-  mutate(hour_of_arrival = hour(arrival_dttm),
-         month = month(arrival_dttm), 
+  select(csn, age, sex, presentation_time, adm, epoch, ED_duration_final) %>% 
+  mutate(hour_of_arrival = hour(presentation_time),
+         month = month(presentation_time), 
          quarter = factor((month %/% 3)+1),
-         year = year(arrival_dttm), 
-         day_of_week = factor(weekdays(arrival_dttm, abbreviate = TRUE)),
+         year = year(presentation_time), 
+         day_of_week = factor(weekdays(presentation_time, abbreviate = TRUE)),
          weekend = if_else(day_of_week %in% c("Sun", "Sat"), 1,0),
-         night = ifelse(hour(arrival_dttm) < 22 & hour(arrival_dttm) > 7, 0, 1),
-         time_of_day = factor((hour_of_arrival %/% 4)+1))
+         night = ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1),
+         time_of_day = factor((hour_of_arrival %/% 4)+1),
+         gt70 = factor(age >= 70))
 
 
-### attach age and sex 
-
-csn_summ <- csn_summ %>% 
-  left_join(demog_raw %>% select(mrn, sex, date_of_birth) %>% distinct()) %>% 
-  # clean records with birthdate of 1900-01-01
-  mutate(age = case_when(date_of_birth <= "1900-01-01" ~ NA_real_,
-                         TRUE ~ year(arrival_dttm) - year(date_of_birth)),
-         gt70 = factor(age >= 70)) 
-
-
+csn_summ %>% select(csn) %>% n_distinct() #152429
 
 ### add prior visits
 
-print("Processing prior visits")
-
-vs <- vs %>% rename(csn_old = csn)
-
-csn_summ <- csn_summ %>%  
-  left_join(vs)
-
-csn_summ <- csn_summ %>%  
-  mutate(num_prior_visits = visit_num -1)
-
-csn_summ <- csn_summ %>% 
-  select(-arrival_dttm, -date_of_birth, -num_ED_row_excl_OTF, -visit_num)
+csn_summ <- csn_summ %>% ungroup() %>% 
+  left_join(visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED))
 
 
 # select only ED rows
-bed_moves <- ED_bed_moves %>% 
-  filter(ED_row_excl_OTF == 1) %>% 
-  select(mrn, csn, csn_old, arrival_dttm, admission, discharge, pk_bed_moves, room4)
 
-bed_moves <- bed_moves %>% 
-  mutate(room4 = case_when(room4 %in% c("Arrived", "Waiting", "WAITING ROOM", "TRIAGE") ~ "Waiting",
+bed_moves <- bed_moves %>% filter(!room4 %in% c("CDU", "OTF POOL")) %>% 
+  mutate(room4 = case_when(room4 %in% c("Waiting", "TRIAGE") ~ "Waiting",
                            TRUE ~ room4))
 
-# mutate time in location to elapsed time after arrival
-bed_moves <- bed_moves %>% ungroup() %>% 
-  mutate(admission = as.numeric(difftime(admission, arrival_dttm, units = "mins")),
-         discharge = as.numeric(difftime(discharge, arrival_dttm, units = "mins")))
+bed_moves %>% select(csn) %>% n_distinct() #152429
 
 
 #matrix_60 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 60)

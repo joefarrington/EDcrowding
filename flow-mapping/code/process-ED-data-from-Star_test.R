@@ -350,7 +350,7 @@ print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinc
 
 # calculate whether admitted
 ED_csn_summ <- ED_csn_summ_raw %>%  
-  mutate(adm = if_else(patient_class == "INPATIENT", FALSE, TRUE))
+  mutate(adm = if_else(patient_class == "INPATIENT", TRUE, FALSE))
 
 
 ED_csn_summ <- ED_csn_summ %>%  
