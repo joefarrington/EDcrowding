@@ -101,13 +101,23 @@ csn_summ %>% select(csn) %>% n_distinct() # total csns all classees
 ED_csn_summ_raw <- csn_summ %>% left_join(patient_class) %>% filter(!is.na(max_emerg_class)) %>% 
   mutate(hospital_visit_id = as.character(hospital_visit_id))
 
-# select csns that began before the beginning of epic
-
-ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-03-31")
 ED_bed_moves_raw <- ED_csn_summ_raw %>% select(csn) %>% left_join(bed_moves) %>% 
   mutate(hospital_visit_id = as.character(hospital_visit_id))
 
-# find visits involving ED 
+ED_csn_summ_raw %>% select(csn) %>% n_distinct()
+ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+
+# find csns with NA in admission row - these are all outpatients with no bed move info
+NA_in_admission_csn <- ED_bed_moves_raw %>% filter(is.na(admission)) %>% select(csn)
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(NA_in_admission_csn)
+ED_bed_moves_raw <- ED_bed_moves_raw  %>% anti_join(NA_in_admission_csn)
+
+ED_csn_summ_raw %>% select(csn) %>% n_distinct()
+ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+
+
+# add room and dept information to ED
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(department = split_location(location_string, 1),
@@ -117,7 +127,32 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   mutate(ED_row = case_when(department == "ED" | department == "UCHT00CDU" ~ 1,
                                         TRUE ~ 0))
 
+# find csns with no ED location information
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  left_join(
+    ED_bed_moves_raw %>% filter(ED_row == 1) %>% group_by(csn) %>% summarise(num_ED_rows = n())
+  )
+
+missing_ED <- ED_csn_summ_raw %>% filter(is.na(num_ED_rows)) %>% select(csn) 
+missing_ED_bed_moves <- missing_ED %>% inner_join(bed_moves)
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(missing_ED)
+ED_bed_moves_raw <- ED_bed_moves_raw  %>%  inner_join(ED_csn_summ_raw %>% select(csn))
+
 ED_csn_summ_raw %>% select(csn) %>% n_distinct()
+ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+
+
+# select csns that began before the beginning of epic
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-03-31")
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>%  inner_join(ED_csn_summ_raw %>% select(csn))
+
+
+ED_csn_summ_raw %>% select(csn) %>% n_distinct()
+ED_bed_moves_raw %>% select(csn) %>% n_distinct()
 
 # add demographic information  --------------------------------------------
 
@@ -163,7 +198,7 @@ missing_adm_time <- ED_csn_summ_raw %>% filter(is.na(admission_time)) %>% select
 
 
 # deal with missing presentation time
-ED_csn_summ_raw %>% filter(is.na(presentation_time)) %>% select(csn) %>% n_distinct() # 1507 missing
+ED_csn_summ_raw %>% filter(is.na(presentation_time)) %>% select(csn) %>% n_distinct() # 213 missing
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))
@@ -172,8 +207,9 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
 ED_discharge =  ED_bed_moves_raw %>% 
       filter(ED_row ==1) %>% 
       group_by(csn) %>% 
-      summarise(last_ED_discharge_time = max(discharge, na.rm = TRUE),
-                num_ED_rows = sum(ED_row))
+      summarise(last_ED_discharge_time = max(discharge, na.rm = TRUE))
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% left_join(ED_discharge)
 
 # # filter out the mistmatches, allowing a 5 min difference bewteen the timestamps
 # ED_discharge_mismatch = ED_discharge %>% 
@@ -202,14 +238,7 @@ ED_discharge =  ED_bed_moves_raw %>%
 # ED_discharge_mismatch %>% filter(location_string == "ED^UCHED OTF POOL^OTF") %>% select(csn) %>% n_distinct()
 
 
-ED_csn_summ_raw <- ED_csn_summ_raw %>% 
-  left_join(ED_discharge) %>% filter(!is.na(num_ED_rows))
 
-ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  inner_join(ED_csn_summ_raw %>% select(csn))
-
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
 
 # deal with missing discharge time - some of these will be patients still in
 missing_dis_time <- ED_csn_summ_raw %>% filter(is.na(discharge_time)) %>% 
@@ -254,39 +283,6 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
 ED_csn_summ_raw %>% select(csn) %>% n_distinct()
 ED_bed_moves_raw %>% select(csn) %>% n_distinct()
 
-# # delete patients who died on the day of being in ED
-# died <- ED_csn_summ_raw %>% filter(discharge_destination == "Patient Died", patient_class == "EMERGENCY") %>% 
-#   mutate(died_in_ED = TRUE)
-# 
-# ED_csn_summ_raw <- ED_csn_summ_raw %>% left_join(
-#   died %>% select(csn, died_in_ED) 
-# ) %>% filter(is.na(died_in_ED)) %>% select(-died_in_ED)
-# 
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% left_join(
-#   died %>% select(csn, died_in_ED) 
-# ) %>% filter(is.na(died_in_ED)) %>% select(-died_in_ED)
-# 
-# 
-# ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-# ED_bed_moves_raw %>% select(csn) %>% n_distinct()
-# 
-# 
-# # delete patients who discharged against medical advice 
-# against_med <- ED_csn_summ_raw %>% filter(discharge_disposition == "AGAINST MED", patient_class == "EMERGENCY") %>% 
-#   mutate(against_med = TRUE)
-# 
-# ED_csn_summ_raw <- ED_csn_summ_raw %>% left_join(
-#   against_med %>% select(csn, against_med) 
-# ) %>% filter(is.na(against_med)) %>% select(-against_med)
-# 
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% left_join(
-#   against_med %>% select(csn, against_med) 
-# ) %>% filter(is.na(against_med)) %>% select(-against_med)
-# 
-# 
-# 
-# ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-# ED_bed_moves_raw %>% select(csn) %>% n_distinct()
 
 
 # Create visit history ----------------------------------------------------
@@ -362,6 +358,16 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/demog_all_",today(),".rda")
 save(demog_raw, file = outFile)
 rm(outFile)
 
+# save patient class for later use
+outFile = paste0("EDcrowding/flow-mapping/data-raw/patient_class_",today(),".rda")
+save(patient_class, file = outFile)
+rm(outFile)
+
 # save visits for later use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/visits_all_",today(),".rda")
 save(visits, file = outFile)
+
+
+# save missing bed moves data
+outFile = paste0("EDcrowding/flow-mapping/data-raw/missing_ED_",today(),".rda")
+save(missing_ED_bed_moves, file = outFile)

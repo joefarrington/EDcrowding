@@ -129,10 +129,10 @@ get_covid_pathway <- Vectorize(get_covid_pathway)
 # # ==================
 
 file_label <- "all_" # note - updated the file names of the flow datasets at the end of this file (if dates have changed)
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-12-02.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-12-08.rda")
 load(inFile)
 
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_",file_label,"2020-12-02.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_",file_label,"2020-12-08.rda")
 load(inFile)
 
 
@@ -255,8 +255,6 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 ED_csn_summ_raw <- ED_csn_summ_raw  %>% 
   anti_join(OTF_arrival_csn)
 
-rm(OTF_arrival_csn)
-
 
 print("After removing OTF_arrival_csn")
 print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
@@ -273,7 +271,7 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   mutate(room3 = clean_room_names(department, room))
 
 # create temp mapping to speed up creation of room4 
-room_mapping <- ED_bed_moves %>% filter(ED_row ==1) %>% group_by(room3) %>% summarise(tot = n()) %>% 
+room_mapping <- ED_bed_moves_raw %>% filter(ED_row ==1) %>% group_by(room3) %>% summarise(tot = n()) %>% 
   mutate(room4 = group_room_names(room3)) %>% select(-tot)
 
 # Create room4 (see wiki for more information)
@@ -321,15 +319,22 @@ print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinc
 # therefore
 
 long_ED_csn <-  ED_bed_moves_raw %>% ungroup() %>% 
-  filter(ED_row == 1, OTF_row !=1, room3 != "TAF", # exclude TAF in this as peopel have long durations there
-         duration_row > 48)
+  filter(ED_row == 1 & OTF_row !=1 & room3 != "TAF" & # exclude TAF in this as peopel have long durations there
+         duration_row > 48) 
+
+long_ED_csn_24 <-  ED_bed_moves_raw %>% ungroup() %>% 
+  filter(ED_row == 1 & OTF_row !=1 & room3 != "TAF" & # exclude TAF in this as peopel have long durations there
+           duration_row > 24) 
 
 long_ED_csn = long_ED_csn %>% left_join(ED_csn_summ_raw %>% select(csn, max_emerg_class)) %>% 
   select(csn, room3, admission, discharge, max_emerg_class, duration_row)
 
-# # only 5 have as max_emerg_class as late as the discharge from this location
-# long_ED_csn %>% filter(discharge <= max_emerg_class)
+long_ED_csn_24 = long_ED_csn_24 %>% left_join(ED_csn_summ_raw %>% select(csn, max_emerg_class)) %>% 
+  select(csn, room3, admission, discharge, max_emerg_class, duration_row)
 
+# # only 5 have as max_emerg_class as late as the discharge from this location
+long_ED_csn %>% filter(discharge <= max_emerg_class)
+long_ED_csn_24 %>% filter(discharge <= max_emerg_class)
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   anti_join(long_ED_csn %>% filter(discharge <= max_emerg_class) %>% select(csn))
@@ -384,4 +389,15 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",file_label,toda
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
+# save OTF arrival csn
+outFile = paste0("EDcrowding/flow-mapping/data-raw/OTF_arrival_csn_",file_label,today(),".rda")
+save(OTF_arrival_csn, file = outFile)
 
+outFile = paste0("EDcrowding/flow-mapping/data-raw/elsewhere_to_ED_csn_",file_label,today(),".rda")
+save(elsewhere_to_ED_csn, file = outFile)
+
+outFile = paste0("EDcrowding/flow-mapping/data-raw/long_ED_csn_",file_label,today(),".rda")
+save(long_ED_csn, file = outFile)
+
+outFile = paste0("EDcrowding/flow-mapping/data-raw/long_ED_csn_24_",file_label,today(),".rda")
+save(long_ED_csn_24, file = outFile)
