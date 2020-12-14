@@ -35,6 +35,13 @@ split_location <- function(hl7_location, n) {
 }
 split_location <- Vectorize(split_location)
 
+get_node <- function(department, room) {
+  if (department != "ED") {
+    room <- department
+  }
+  return(room)
+}
+get_node <- Vectorize(get_node)
 
 # for a single encounter, this function generates an edge list of 
 # moves between locations, with a timestamp
@@ -57,13 +64,6 @@ get_edgelist <- function(sites) {
       
       to_node <- as.character(sites$location[j+1])
       
-      # new code to remove unwanted rows flipping between Arrived, Waiting and back to Arrived, added 24/11
-      if(to_node == "Arrived" && j > 1) {
-        to_node <- from_node
-      }
-      
-      # in any of the following cases, ignore the to node and move to next row
-      if (!(to_node %in% c("OTF", "DIAGNOSTICS", "WAITING ROOM")) && !is.na(to_node)) {
         if (from_node != to_node) {
           
           edgelist <- edgelist %>% add_row(tibble_row(
@@ -74,29 +74,14 @@ get_edgelist <- function(sites) {
           ))
         }
         from_node <- to_node
-      }
     }
     else {
-      # if (!(to_node %in% c("OTF", "DIAGNOSTICS", "WAITING ROOM")) && !is.na(to_node)) {
-      # 
-      #   edgelist <- edgelist %>% add_row(tibble_row(
-      #     csn = sites$csn[j],
-      #     from = to_node,
-      #     to = "Discharged",
-      #     dttm = sites$discharge_dttm[j]
-      #   ))
-      # }
-      # else {
-
-        # added new code here - need to check it works
-
         edgelist <- edgelist %>% add_row(tibble_row(
           csn = sites$csn[j],
           from = from_node,
-          to = sites$patient_class[j],
+          to = if_else(is.na(discharge[j]), "Still in hospital", sites$patient_class[j]),
           dttm = sites$discharge[j]
         ))
-#      }
     }
   }
   return(edgelist)
@@ -119,7 +104,6 @@ get_care_site_flows <- function(locations) {
     filter(num_loc_changes > 1)
   
   # then create edge list for all changes in location
-  
   edgedf <- tribble(
     ~csn,
     ~from,
@@ -143,6 +127,15 @@ get_care_site_flows <- function(locations) {
       edgedf <- edgedf %>% add_row(edgelist)
     }
   }
+  
+  edgedf <- edgedf %>% left_join(
+    # get earliest location that was not ED  
+    locations %>% left_join(
+      edgedf %>% select(csn, dttm), by = c("csn", "discharge" = "dttm")
+    ) %>% 
+      filter(department != "ED") %>%  group_by(csn) %>% summarise(earliest_not_ED = min(admission))
+  ) 
+  
   return(edgedf)
 }
 
@@ -151,25 +144,39 @@ get_care_site_flows <- function(locations) {
 
 # Load data
 # =========
+# 
+# load("~/EDcrowding/flow-mapping/data-raw/missing_ED_2020-12-08.rda")
+# 
+# ED_bed_moves <- missing_ED_bed_moves %>% 
+#   mutate(location = split_location(location_string, 1))
 
-load("~/EDcrowding/flow-mapping/data-raw/missing_ED_2020-12-08.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-12-08.rda")
 
-ED_bed_moves <- missing_ED_bed_moves %>% 
-  mutate(location = split_location(location_string, 1))
-
-#load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-12-08.rda")
-load("~/EDcrowding/flow-mapping/data-raw/csn_summ_2020-12-08.rda")
-
-ED_bed_moves <- ED_bed_moves %>% left_join(csn_summ %>% select(csn, patient_class))
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-12-08.rda")
+# load("~/EDcrowding/flow-mapping/data-raw/csn_summ_2020-12-08.rda")
 
 
-# Create edge list
-# ================
+# Create and save edge list for given list of dates --------------------------------------
 
-# create edge list which contains one row per bed move per patient with a time stamp
-# note this is currently using room6, which is the grouped version of room and
-# that it subsumes OTF into the previous node 
-edgedf <- get_care_site_flows(ED_bed_moves)
+
+for (date_ in c("2020-10-15", "2020-07-15", "2020-04-15", "2020-01-15")) {
+  
+  locations <- ED_csn_summ %>% filter(date(presentation_time) == date_) %>% select(csn, patient_class) %>% 
+    left_join(ED_bed_moves) %>% mutate(location = get_node(department, room4))
+  
+  edgedf <- get_care_site_flows(locations)
+  
+  name_ <- paste0("edgedf_", gsub("-", "", date_))
+  assign(name_, edgedf)
+  
+  outFile = paste0("EDcrowding/flow-mapping/data-raw/",name_, ".rda")
+  save(name_, file = outFile)
+}
+
+
+
+# Save edgelist -----------------------------------------------------------
+
 
 # save edge list for future use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/missing_ED_edgelist_",today(),".rda")
@@ -177,6 +184,9 @@ save(edgedf, file = outFile)
 rm(outFile)
 
 # OR load edge list if already saved
+
+
+# Save adjacancy matrix ---------------------------------------------------
 
 
 
@@ -189,9 +199,6 @@ edgedf <- edgedf %>% mutate(edge = paste0(from, to)) %>% filter(edge != "Waiting
   select(-edge) %>% 
   # adding distinct will get rid of duplicate Arrived - Waiting rows
   distinct()
-#
-# Process data
-# ============
 
 # for adjacency matrix
 adj_matrix <- edgedf %>%
@@ -203,15 +210,32 @@ adj_matrix <- edgedf %>%
   replace(is.na(.), 0)
 
 outFile <- paste0("EDcrowding/data-prep-for-ML/data-output/adjacency-matrix-April19-to-Feb20",today(),".csv")
-write.csv2(adj_matrix, file = outFile, row.names = TRUE)
+
+
+# Save for network mapping ------------------------------------------------
+
+
+for (date_ in c("2020-10-15", "2020-07-15", "2020-04-15", "2020-01-15")) {
+  
+  name_ <- paste0("edgedf_", gsub("-", "", date_))
+  edgedf <- get(name_)
+  
+  edgelist_summ = edgedf %>% filter(is.na(earliest_not_ED) | earliest_not_ED >= dttm) %>%  
+    mutate(to = case_when(to == "EMERGENCY" ~ "EMERGENCY_class",
+                          to == "INPATIENT" ~ "INPATIENT_class",
+                          TRUE ~ to)) %>% 
+    group_by(from, to) %>%
+    summarise(weight = n()) 
+  
+  file_ <- paste0("edgelist_summ_",gsub("-", "", date_) )
+  
+  outFile <- paste0("EDcrowding/flow-mapping/data-output/",file_,".csv")
+  write_delim(edgelist_summ, path = outFile, delim = ',')
+  
+}
 
 # for simple matrix input to network mapping (more details in get-edge-stat)
-edgelist_summ = edgedf %>%
-  mutate(to = case_when(to == "EMERGENCY" ~ "EMERGENCY_class",
-                        to == "INPATIENT" ~ "INPATIENT_class",
-                        TRUE ~ to)) %>% 
-  group_by(from, to) %>%
-  summarise(weight = n()) 
+
 
 outFile <- paste0("EDcrowding/flow-mapping/data-output/missing_ED_edgelist_summ_",today(),".csv")
 write_delim(edgelist_summ, path = outFile, delim = ',')
