@@ -46,7 +46,7 @@ for index, row in edgelist_sum[edgelist_sum['weight'] > 1].iterrows():
 #s.add_node('RAT')
 
 #G.draw("flow-mapping/media/Jan-Feb-all-wtgt3.png", prog='dot')
-G.draw("flow-mapping/media/missing_ED.png", prog='dot')
+G.draw("flow-mapping/media/missing_ED_all.png", prog='dot')
 
 
 # to interrogate graph
@@ -59,3 +59,6 @@ G.draw("flow-mapping/media/missing_ED.png", prog='dot')
 # G.degree()
 # G.degree('DIAGNOSTICS')
 # G.remove_edge('ED', 5)
+
+
+filename = '/Users/zellaking/Downloads/edgelist_summ_20200115.csv'
