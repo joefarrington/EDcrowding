@@ -363,7 +363,7 @@ edgedf_cdu <- edgedf_cdu %>% left_join(
 
 edgedf_edu <- get_care_site_flows(edu_bed_moves)
 
-## NB edgelist nto working for edu - need to check this
+## NB edgelist not working for edu - need to check this
 
 edgedf_edu %>% select(csn) %>% n_distinct()
 edu_bed_moves %>% select(csn) %>% n_distinct() # 18 had only one location
@@ -374,9 +374,8 @@ edgedf_edu <- edgedf_edu %>% left_join(
   select(-earliest)
 
 
-# Looking at destinations after each --------------------------------------
+# Looking at destinations after SAA --------------------------------------
 
-# SAA - look at destinations
 
 edgedf_saa %>% filter(from == "SAA") %>% group_by(to) %>% summarise(tot = n()) %>% arrange(desc(tot))
 edgedf_saa %>% filter(from == "SAA") %>% select(csn) %>% n_distinct()
@@ -394,7 +393,9 @@ edgedf_saa <- edgedf_saa %>% left_join(
 
 # next location after admission 
 
-saa_summ <- bm_summ %>% filter(in_SAA) %>% left_join(
+saa_summ <- bm_summ %>% filter(in_SAA) %>%   
+  mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))%>% 
+  left_join(
   edgedf_saa %>% filter(first_not_ED) %>% left_join(saa_bed_moves %>% select(csn, admission, department), 
                                                     by = c("csn", "dttm" = "admission")) %>% 
     select(csn, dttm, department) %>% 
@@ -402,20 +403,24 @@ saa_summ <- bm_summ %>% filter(in_SAA) %>% left_join(
 ) %>% mutate(time_to_admit = difftime(dttm_left_ED, presentation_time, units = "hours"))
 
 # one patient has two ED visis - is a huge outlier
-saa_summ %>% filter(!is.na(time_to_admit), time_to_admit < 60) %>% ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
-  scale_x_continuous(breaks =  seq(0,60,2), limits = c(0,60)) +
+saa_summ %>% filter(!is.na(time_to_admit), time_to_admit < 30) %>% ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks =  seq(0,30,1), limits = c(0,30)) +
   labs(title = "Time from presentation at ED to admission for SAA patients were later admitted to a ward", 
-       x = "Elapsed time (hours)")
+       x = "Elapsed time (hours)") +
+  geom_vline(xintercept = quantile(saa_summ$time_to_admit, .5, na.rm = TRUE), 
+             linetype = "dotted", color = "red", size = 1)
 
 saa_summ %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise(count = n()) %>% 
   ggplot(aes(x = moved_to, y = count)) + geom_bar(stat = "identity") +
   labs(title = "Next destination for SAA patients were later admitted", 
        x = "First location after ED")
 
-# SDEC - look at destinations
+# Looking at destinations after SDEC --------------------------------------
+
 
 edgedf_sdec %>% filter(from == "SDEC") %>% group_by(to) %>% summarise(tot = n()) %>% arrange(desc(tot))
 edgedf_sdec %>% filter(from == "SDEC") %>% select(csn) %>% n_distinct()
+edgedf_sdec %>% select(csn) %>% n_distinct()
 
 edgedf_sdec <- edgedf_sdec %>% left_join(
   # get earliest location after this location that was not ED - 
@@ -429,20 +434,46 @@ edgedf_sdec <- edgedf_sdec %>% left_join(
                                       min_not_ED == dttm ~ TRUE,
                                       TRUE ~ FALSE)) %>% select(-min_not_ED)
 
+
+
 # next location after admission 
 
-sdec_summ <- bm_summ %>% filter(in_SDEC) %>% left_join(
+# for a short time T01ECU had 'null' as department
+
+sdec_bed_moves <- sdec_bed_moves %>% 
+  mutate(department = case_when(department == "null" & grepl("T01ECU", location_string) ~ "T01ECU",
+                                TRUE ~ department))
+
+sdec_bed_moves %>% select(csn) %>% n_distinct()
+
+sdec_summ <- bm_summ %>% filter(in_SDEC)  %>%
+  mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))%>% 
+  left_join(
   edgedf_sdec %>% filter(first_not_ED) %>% left_join(sdec_bed_moves %>% select(csn, admission, department), 
                                                     by = c("csn", "dttm" = "admission")) %>% 
-    select(csn, dttm, department) %>% 
+    select(csn, dttm, department) %>% distinct() %>% 
     rename(dttm_left_ED = dttm , moved_to = department)
 ) %>% mutate(time_to_admit = difftime(dttm_left_ED, presentation_time))
 
+sdec_summ %>% select(csn) %>% n_distinct()
 
-sdec_summ %>% filter(!is.na(time_to_admit), time_to_admit < 60) %>% ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
-  scale_x_continuous(breaks =  seq(0,60,2), limits = c(0,60)) +
+# NB two patients went back to ED from T01 !! These are not handled here
+
+
+sdec_summ %>% filter(!is.na(time_to_admit), time_to_admit < 30) %>% ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks =  seq(0,30,1), limits = c(0,30)) +
   labs(title = "Time from presentation at ED to admission for SDEC patients who were later admitted to a ward", 
-       x = "Elapsed time (hours)")
+       x = "Elapsed time (hours)") +
+  geom_vline(xintercept = quantile(sdec_summ$time_to_admit, .5, na.rm = TRUE), 
+             linetype = "dotted", color = "red", size = 1)
+
+sdec_summ %>% filter(!is.na(time_to_admit)) %>% select(csn) %>% n_distinct() 
+
+# only 556 have a time to admit - why? 
+# looks like some of the others have not yet been discharged
+# and 20 never had an emergency class
+sdec_summ %>% left_join(patient_class) %>% filter(is.na(max_emerg_class))
+
 
 sdec_summ %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise(count = n()) %>% 
   ggplot(aes(x = moved_to, y = count)) + geom_bar(stat = "identity") +
@@ -453,7 +484,59 @@ sdec_summ %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise
 # the recent ones have null look like they haven't been discharged yet ?? 
 s = sdec_summ %>% filter(moved_to == "ED") %>% select(csn) %>% left_join(sdec_bed_moves)
 
-# CDU
+# handling patients who are still in hospital (therefore dttm for last row is NA) 
+# in such cases first_not_ED has not been set because discharge - used for leftjoin to dttm above - was NA) 
+# edgedf_sdec <- edgedf_sdec %>% group_by(csn) %>% mutate(last_dttm = lag(dttm))
+
+no_first_not_ED <- edgedf_sdec %>% group_by(csn) %>% summarise(n = sum(first_not_ED)) %>% 
+  filter(is.na(n)) %>% select(-n) %>% left_join(bm_summ %>% select(csn, patient_class)) %>% 
+  filter(patient_class == "INPATIENT_class") %>% select(-patient_class)
+
+# 65 inpatients have no first_not_ED set
+
+# create a new first not ED to include these
+edgedf_sdec <- edgedf_sdec %>%  
+  left_join(no_first_not_ED %>% mutate(no_first_not_ED = TRUE)) %>% 
+  mutate(first_not_ED2 = case_when(is.na(dttm) & no_first_not_ED ~ TRUE,
+                                   TRUE ~ first_not_ED))
+# this one has 620 rows (618 distinct csns) as opposed to the 556 shown in the original chart
+
+# now recalculate time to admit
+
+sdec_summ_x <- bm_summ %>% filter(in_SDEC)  %>%
+  mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))%>% 
+  left_join(
+    edgedf_sdec %>% 
+      # where there is dttm, use the previous dttm (the time they moved to the admitting department)
+      group_by(csn) %>% mutate(dttm = case_when(is.na(dttm) ~ lag(dttm), 
+                                                TRUE ~ dttm)) %>% 
+      filter(first_not_ED2) %>% left_join(sdec_bed_moves %>% select(csn, admission, department), 
+                                                       by = c("csn", "dttm" = "admission")) %>% 
+      select(csn, dttm, department) %>% distinct() %>% 
+      rename(dttm_left_ED = dttm , moved_to = department)
+  ) %>% mutate(time_to_admit = difftime(dttm_left_ED, presentation_time))
+
+
+
+# and redraw charts
+
+sdec_summ_x %>% filter(!is.na(time_to_admit), time_to_admit < 30) %>% ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks =  seq(0,30,1), limits = c(0,30)) +
+  labs(title = "Time from presentation at ED to admission for SDEC patients who were later admitted to a ward", 
+       x = "Elapsed time (hours)") +
+  geom_vline(xintercept = quantile(sdec_summ$time_to_admit, .5, na.rm = TRUE), 
+             linetype = "dotted", color = "red", size = 1)
+
+sdec_summ_x %>% filter(!is.na(time_to_admit)) %>% select(csn) %>% n_distinct() 
+
+sdec_summ_x %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = moved_to, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Next destination for SDEC patients who were later admitted", 
+       x = "First location after ED")
+
+
+# Looking at destinations after CDU --------------------------------------
+
 
 edgedf_cdu %>% filter(from == "UCHT00CDU") %>% group_by(to) %>% summarise(tot = n()) %>% arrange(desc(tot))
 edgedf_cdu %>% filter(from == "UCHT00CDU") %>% select(csn) %>% n_distinct()
@@ -469,16 +552,73 @@ edgedf_cdu <- edgedf_cdu %>% left_join(
                                        min_not_ED == dttm ~ TRUE,
                                        TRUE ~ FALSE)) %>% select(-min_not_ED)
 
-# next location after admission 
+# create an extra column for the first not ED or CDU
+edgedf_cdu <- edgedf_cdu %>% left_join(
+  cdu_bed_moves %>% left_join(
+    edgedf_cdu %>% select(csn, dttm, before), by = c("csn", "discharge" = "dttm")
+  ) %>% 
+    filter(!before, department != "UCHT00CDU", department != "ED") %>%  group_by(csn) %>% summarise(min_not_ED_or_CDU = min(admission)) 
+)  %>%  mutate(first_not_ED_or_CDU = case_when(is.na(min_not_ED_or_CDU) ~ NA,
+                                               min_not_ED_or_CDU == dttm ~ TRUE,
+                                        TRUE ~ FALSE)) %>% select(-min_not_ED_or_CDU)
+
+
+
+# next location after admission - looking at first location which is not ED
+# note that this double counts two csns because they return to ED so have two distinct values of dttm_left_ed
 
 cdu_summ <- bm_summ %>% filter(in_CDU) %>% left_join(
-  edgedf_cdu %>% filter(first_not_ED) %>% left_join(cdu_bed_moves %>% select(csn, admission, department), 
+  edgedf_cdu %>% filter(first_not_ED) %>% left_join(cdu_bed_moves %>% select(csn, admission, department) %>% distinct(), 
                                                     by = c("csn", "dttm" = "admission")) %>% 
-    select(csn, dttm, department) %>% 
-    rename(dttm_left_ED = dttm , moved_to = department)
-) %>% mutate(time_to_admit = difftime(dttm_left_ED, presentation_time))
+    select(csn, dttm, department) %>% distinct() %>% 
+    rename(dttm_left_ED = dttm , moved_to = department) %>% distinct()
+)  %>% mutate(time_to_admit = difftime(dttm_left_ED, presentation_time))
+
+cdu_summ %>% filter(is.na(dttm_left_ED)) # 1552
+cdu_summ %>% filter(!is.na(dttm_left_ED)) %>% group_by(moved_to) %>% summarise(n())
+
+# next location after admission - - looking at first location which is not ED
+
+cdu_summ_2 <- bm_summ %>% filter(in_CDU) %>%
+  mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time)) %>% 
+  left_join(
+    edgedf_cdu %>% filter(first_not_ED_or_CDU) %>% left_join(cdu_bed_moves %>% select(csn, admission, department) %>% distinct(), 
+                                                    by = c("csn", "dttm" = "admission")) %>% 
+    select(csn, dttm, department) %>% distinct() %>% 
+    rename(dttm_left_ED_and_CDU = dttm , moved_to = department)
+) %>% mutate(time_to_admit = difftime(dttm_left_ED_and_CDU, presentation_time))
+
+cdu_summ_2 %>% filter(is.na(dttm_left_ED_and_CDU)) # 1540
+cdu_summ_2 %>% filter(!is.na(dttm_left_ED_and_CDU)) %>% group_by(moved_to) %>% summarise(n())
 
 
+cdu_summ_2 %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = moved_to, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Next destination for CDU patients were later admitted", 
+       x = "First location after ED and CDU")
+
+
+cdu_summ_2 %>% filter(!is.na(time_to_admit)) %>% group_by(moved_to) %>% summarise(count = n()) %>% 
+  ggplot(aes(x = moved_to, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Next destination for CDU patients were later admitted", 
+       x = "First location after ED and CDH")
+
+cdu_summ_2 %>% filter(!is.na(time_to_admit), time_to_admit < 30) %>% 
+  ggplot(aes(x = time_to_admit)) + geom_histogram(binwidth = 1) +
+  scale_x_continuous(breaks =  seq(0,30,1), limits = c(0,30)) +
+  labs(title = "Time from presentation at ED to admission for CDU patients who were later admitted to a ward", 
+       x = "Elapsed time (hours)") +
+  geom_vline(xintercept = quantile(cdu_summ_2$time_to_admit, .5, na.rm = TRUE), 
+               linetype = "dotted", color = "red", size = 1)
+
+# Looking at when the class was changed for inpatients
+cdu_bed_moves %>% left_join(patient_class) %>% 
+  filter(discharge > max_emerg_class, patient_class == "INPATIENT_class") %>% 
+  group_by(csn) %>% filter(discharge == min(discharge, na.rm = TRUE)) %>% 
+  group_by(department)  %>% summarise(count = n()) %>% 
+  ggplot(aes(x = department, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Location of CDU patient at the moment when patient class changed from emergency to inpatient", 
+       x = "Location")
 
 # Save data so far --------------------------------------------------------
 
@@ -513,292 +653,163 @@ save(edgedf_sdec, file = outFile)
 outFile = paste0("EDcrowding/flow-mapping/data-raw/bm_summ_",today(),".rda")
 save(bm_summ, file = outFile)
 
-# Explore AEDU ------------------------------------------------------------
-### NOTE THAT THIS IS OLD CODE _ BUT KEEPING IT HERE
-# this returns 4.5K rows; looks like next admission is not always instantaneous and can be before discharge from ED
-ED_to_AEDU <- bed_moves %>% filter(department == "UCH EMERGENCY DEPT", next_department == "UCH T00 AMBULATORY ECU") %>% 
-  filter(csn != next_csn) %>% 
-  select(mrn, csn, next_csn, discharge) %>% rename(ED_discharge = discharge)
-
-ED_to_AEDU <- ED_to_AEDU %>% 
-  # note this is a one_many join as it will pick up all rows for the next csn
-  left_join(bed_moves_raw_all %>% select(-next_csn) %>%  rename(next_csn = csn))
-
-ED_to_AEDU <- ED_to_AEDU %>% 
-  mutate(time_ED_to_AEDU = difftime(admission, ED_discharge,units = "hours"),
-         duration_row = difftime(discharge, admission,units = "hours")) %>% select(mrn, csn, next_csn, ED_discharge, admission, time_ED_to_AEDU, everything())
 
 
-save(ED_to_AEDU, file = paste0('EDcrowding/flow-mapping/data-raw/ED_to_AEDU_',today(),'.rda'))
+# Missing ED bed moves ----------------------------------------------------
+# this has been copied from exploring-consquences-of-filters so that it can use the same edge list creation scripts
 
 
-# note there are a lot of negative times (ie arrived in AEDU before leaving ED) because OTF rows for the old csn are left hanging
-# but in each case the admission dttms are correct so we can ignore this
+load("~/EDcrowding/flow-mapping/data-raw/missing_ED_2020-12-08.rda")
+load("~/EDcrowding/flow-mapping/data-raw/csn_summ_2020-12-08.rda")
+load("~/EDcrowding/flow-mapping/data-raw/patient_class_2020-12-08.rda")
 
-save_chart("Boxplot with time from ED discharge to arrival in AEDU (hours)",
-  ED_to_AEDU %>% filter(department == "UCH T00 AMBULATORY ECU") %>%
-    ggplot(aes(x = as.numeric(time_ED_to_AEDU))) + geom_boxplot() +
-    theme_classic() +
-    labs(x = "Time from ED discharge to arrival in AEDU (hours)", 
-         title = "All patients with next destination after ED being AEDU (with a new csn)",
-         subtitle = "Negative times are due to OTF rows not being updated with the correct ED discharge times")
+
+# patient class history
+
+# patient class change information - get history
+
+sqlQuery <- "select encounter as csn, patient_class, valid_from, valid_until from star_test.hospital_visit_audit"
+
+sqlQuery <- gsub('\n','',sqlQuery)
+all_patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+
+
+# missing ED csns
+
+missing_ED = missing_ED_bed_moves %>% select(csn) %>% distinct()
+missing_ED <- missing_ED %>% inner_join(csn_summ) # any extras are more recent than csn_summ so expet csn num to reduce
+
+missing_ED %>% select(csn) %>% n_distinct()
+
+all_patient_class_ =  all_patient_class %>% inner_join(missing_ED_bed_moves %>% select(csn) %>% distinct()) %>% 
+  filter(patient_class %in% c("EMERGENCY")) %>% 
+  group_by(csn) %>% summarise(earliest_emerg_class = min(valid_from))
+
+missing_ED <- missing_ED %>% 
+  left_join(
+    all_patient_class_ 
+  )
+
+missing_ED <- missing_ED %>% 
+  left_join(patient_class %>% select(csn, max_emerg_class))
+
+# some cans seems to have different mrns ??  so need to exclude mrn in this join
+
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% select(-hospital_visit_id) %>% 
+  mutate(department = split_location(location_string, 1),
+         room = split_location(location_string, 2))
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% inner_join(missing_ED)
+missing_ED_bed_moves %>% select(csn) %>% n_distinct()
+
+missing_ED_bed_moves <- missing_ED_bed_moves  %>% 
+  select(-arrival_method, -discharge_destination, -discharge_disposition, -discharge_time) 
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% 
+  mutate(in_ED_class = if_else(admission < max_emerg_class, TRUE, FALSE))
+
+missing_ED_bed_moves %>% filter(in_ED_class) %>% 
+  group_by(department) %>% summarise(n())
+
+# find first row
+
+arrival_row = missing_ED_bed_moves %>% group_by(csn) %>% summarise(min_admission = min(admission))
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% 
+  left_join(arrival_row)
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% 
+  mutate(arrival_row = if_else(admission == min_admission, TRUE, FALSE))
+
+missing_ED_bed_moves %>% filter(arrival_row) %>% 
+  group_by(department) %>% summarise(tot = n()) %>% arrange(desc(tot))
+
+m =missing_ED_bed_moves %>% filter(arrival_row) %>% 
+  mutate(min_admission_before_admission_time = if_else(min_admission < admission_time, TRUE, FALSE),
+         min_admission_at_admission_time = if_else(min_admission == admission_time, TRUE, FALSE), 
+         min_admission_before_pres_time = if_else(min_admission < presentation_time, TRUE, FALSE), 
+         has_earliest_emerg_class_before_admission_time = if_else(earliest_emerg_class < admission_time, TRUE, FALSE), 
+         has_max_emerg_class_before_admission_time = if_else(max_emerg_class < admission_time, TRUE, FALSE), 
+         has_earliest_emerg_class_before_min_admission = if_else(earliest_emerg_class < min_admission, TRUE, FALSE), 
+         admission_time_to_earliest_emerg_classs = difftime(earliest_emerg_class , admission_time, units = "mins"),
+         admission_time_to_max_emerg_class = difftime(max_emerg_class, admission_time, units = "mins"),
+         min_admission_to_earliest_emerg_class = difftime(earliest_emerg_class, min_admission, units = "mins"),
+         min_admission_to_max_emerg_class = difftime(max_emerg_class, min_admission, units = "mins"))
+
+m %>% group_by(in_ED_class) %>% summarise(n())
+m %>% group_by(min_admission_before_admission_time) %>% summarise(n())
+m %>% group_by(min_admission_at_admission_time) %>% summarise(n())
+
+m %>% group_by(min_admission_before_pres_time) %>% summarise(n())
+m %>% group_by(has_earliest_emerg_class_before_admission_time) %>% summarise(n())
+m %>% group_by(has_max_emerg_class_before_admission_time) %>% summarise(n())
+m %>% group_by(has_earliest_emerg_class_before_min_admission) %>% summarise(n())
+
+# to create table in my google sheet
+m1 =m %>% group_by(department, patient_class) %>% summarise(tot = n()) %>% 
+  pivot_wider(names_from = patient_class, values_from = tot, values_fill = 0) %>% arrange(desc(INPATIENT))
+
+# get a sense of the order of each timestamp
+
+m_long = m %>% select(csn, min_admission, admission_time, earliest_emerg_class, max_emerg_class) %>% 
+  pivot_longer(min_admission:max_emerg_class, names_to = "timestamp", values_to = "time") %>% 
+  arrange(csn, time)
+
+
+# to see how many went to different locations
+missing_ED_bed_moves %>% select(csn, department) %>% distinct() %>% 
+  group_by(csn) %>% summarise(tot = n()) %>% filter(tot >1)
+
+missing_ED_bed_moves <- missing_ED_bed_moves %>% 
+  mutate(location = department)
+
+
+
+edgedf_missing <- get_care_site_flows(missing_ED_bed_moves)
+
+# to see what their arrival department was (does not seem quite the same as m1)
+edgedf_missing %>% group_by(csn) %>% summarise(dttm = min(dttm)) %>% left_join(edgedf_missing) %>% group_by(from) %>% summarise(n())
+
+
+# Looking at when the class was changed
+missing_ED_bed_moves %>% filter(discharge > max_emerg_class, patient_class == "INPATIENT") %>% 
+  group_by(csn) %>% filter(discharge == min(discharge, na.rm = TRUE)) %>% 
+  group_by(department)  %>% summarise(count = n()) %>% 
+  ggplot(aes(x = department, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Location of patient at the moment when patient class changed from emergency to inpatient", 
+       x = "Location")
   
-)
 
-save_chart("Histogram with time from ED discharge to arrival in AEDU (hours) ",
-  ED_to_AEDU %>% filter(department == "UCH T00 AMBULATORY ECU", time_ED_to_AEDU >= 0, time_ED_to_AEDU < 24) %>%
-    ggplot(aes(x = as.numeric(time_ED_to_AEDU))) + geom_histogram(binwidth = 1) +
-    theme_classic() +
-    labs(x = "Time from ED discharge (hours)", 
-         title = "All patients with next destination after ED being AEDU (with a new csn), arriving less than 24 hours after ED discharge",
-         subtitle =  "Based on this 3 hours might be a reasonable cutoff to assume patient went straight to AEDU"
-    )
-)
+# Looking at when the class was changed (detail)
+missing_ED_bed_moves %>% filter(discharge > max_emerg_class, patient_class == "INPATIENT") %>% 
+  group_by(csn) %>% filter(discharge == min(discharge, na.rm = TRUE)) %>% 
+  group_by(department)  %>% summarise(count = n()) %>% filter(grepl("^T", department)) %>% 
+  ggplot(aes(x = department, y = count)) + geom_bar(stat = "identity") +
+  labs(title = "Location of patient at the moment when patient class changed from emergency to inpatient", 
+       subtitle = "Tower locations only",
+       x = "Location")
 
-# how many patients went within 3 hours? 
-ED_to_AEDU %>% filter(department == "UCH T00 AMBULATORY ECU", time_ED_to_AEDU < 3)
 
+edgelist_summ = edgedf_missing  %>%  
+  mutate(to = case_when(to == "EMERGENCY" ~ "EMERGENCY_discharge",
+                        to == "INPATIENT" ~ "INPATIENT_discharge",
+                        TRUE ~ to)) %>% 
+  group_by(from, to) %>%
+  summarise(weight = n())
 
-# Exploring admissions from AEDU -------------------------------------------
 
+setwd("/data/zelking1/EDcrowding")
 
-all_AEDU = bed_moves_raw_all %>% filter(department == "UCH T00 AMBULATORY ECU") %>% 
-  arrange(mrn, admission) %>% 
-  mutate(time_to_next_admission = difftime(next_admission, discharge ,units = "days"),
-         duration_row = difftime(discharge, admission, units = "days"))
 
+outFile <- paste0("missing_ED_edgelist_summ_2020-12-14.csv")
+write_delim(edgelist_summ, path = outFile, delim = ',')
 
-save_chart("Boxplot with time to next UCLH admission after discharge from AEDU (days) ",
-           all_AEDU  %>%
-             ggplot(aes(x = as.numeric(time_to_next_admission))) + geom_boxplot() +
-             theme_classic() +
-             labs(x = "Time from AEDU discharge to next admission (days)", 
-                  title = "All patients with an later uCLH visit after time in AEDU",
-                  subtitle = "1793 of 12015 patients had no further visit"
-             )
-)
+outFile = paste0("edgedf_missing_ED_2020-12-rda")
 
-save_chart("Boxplot showing duration in AEDU (days) ",
-           all_AEDU  %>%
-             ggplot(aes(x = as.numeric(duration_row))) + geom_boxplot() +
-             theme_classic() +
-             labs(x = "Time between admission and discharge from AEDU (days)", 
-                  title = "All patients visiting AEDU (total = 12,015)",
-                  subtitle = "Some records are marked with admission times after discharge; hence negative times"
-             )
-)
+save(edgedf_missing, file = outFile)
 
-all_AEDU %>% filter(time_to_next_admission <1) %>% group_by(next_department) %>% summarise(tot = n()) %>% arrange(desc(tot))
+outFile = "missing_ED_bed_moves_2020-12-14.rda"
 
-
-# Get list of csns that changed -------------------------------------------
-
-# this bit looks for a match on discharge of one row exactly matching admission on the next
-# note - 6 of these are in ED_to_AEDU 
-
-csn_changed <- bed_moves_raw_all %>% filter(discharge == next_admission, csn != next_csn) %>% select(admission, discharge, department, next_department, csn, next_csn, next_admission)
-
-# only keep the ones that involve ED
-csn_changed <- csn_changed %>% 
-  filter(department == "UCH EMERGENCY DEPT" | next_department == "UCH EMERGENCY DEPT") 
-
-# don't need to worry about the 6 that go to AEDU, as these are covered elsewhere
-csn_changed <- csn_changed %>% 
-  filter(next_department !=  "UCH T00 AMBULATORY ECU")
-
-
-# save the rest
-
-save(csn_changed, file = paste0('EDcrowding/flow-mapping/data-raw/csn_changed_',today(),'.rda'))
-
-
-# Explore CDU -------------------------------------------------------------
-
-all_CDU = bed_moves_raw_all %>% filter(department == "UCH T00 CLIN DECISION") %>% 
-  arrange(mrn, admission) %>% 
-  mutate(time_to_next_admission = difftime(next_admission, discharge ,units = "days"),
-         duration_row = difftime(discharge, admission, units = "days"))
-
-# note that many repeat rows due to going to more than one CDU location
-
-all_CDU %>% filter(!is.na(next_department)) %>% group_by(next_department) %>%
-  summarise(tot = n()) %>% arrange(desc(tot))
-
-save(all_CDU, file = paste0('EDcrowding/flow-mapping/data-raw/all_CDU_',today(),'.rda'))
-
-all_CDU %>% ggplot(aes(x = duration_row)) + geom_boxplot()
-
-all_CDU %>% filter(time_to_next_admission < 1, next_department != "UCH T00 CLIN DECISION") %>% mutate(next_department = case_when(is.na(next_department) ~ "No further move",
-                                               TRUE ~ next_department)) %>% 
-  group_by(next_department) %>% summarise(tot = n()) %>% 
-  filter(tot > 10) %>% 
-  ggplot(aes(x = next_department, y = tot)) + geom_bar(stat = "identity") + coord_flip() +
-  theme_classic() +
-  labs(x = "Destination after CDU, where move takes place within 24 hours",
-       title = "Destination after CDU showing all destinations receiving more than 10 patients"
-  )
-
-# group by csn to get total CDU time
-all_CDU %>% group_by(csn) %>% summarise(tot_CDU_time = sum(duration_row)) %>% 
-  ggplot(aes(x = tot_CDU_time)) + geom_boxplot() +
-  theme_classic() +
-  labs(x = "Total time spent in CDU (days)",
-       title = "Total time spent in CDU for 2,498 visits")
-
-#  how long do they spend in ED before moving to CDU? (Note there are 105 NA values here)
-all_CDU %>% select(csn) %>% distinct() %>% 
-  left_join(ED_csn_summ, by = c("csn" = "csn_old")) %>% select(csn, ED_duration_final) %>% distinct() %>% 
-  ggplot(aes(x = ED_duration_final)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  labs(x = "Total time spent in ED (hours)",
-       title = "Total time spent in ED (excluding CDU) spent by people who then move to CDU (hours)")  
-
-# just visits less than 1 day
-all_CDU %>% group_by(csn) %>% summarise(tot_CDU_time = sum(duration_row)) %>% 
-  filter(tot_CDU_time < 1) %>% 
-  ggplot(aes(x = tot_CDU_time*24)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  labs(x = "Total time spent in CDU (hours)",
-       title = "Total time spent in CDU for visits with total duration less than one day")  +
-  scale_x_continuous(breaks = seq(0, 30, 5), limits = c(-1,30))
-
-
-# adding in ED time
-all_CDU %>% group_by(csn) %>% 
-  mutate(duration_row = difftime(discharge, admission, units = "hours")) %>% 
-  summarise(tot_CDU_time = sum(duration_row)) %>% 
-  filter(tot_CDU_time < 24) %>% left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-  mutate(tot_ED_CDU_time = tot_CDU_time + ED_duration_final)  %>% 
-  ggplot(aes(x = tot_ED_CDU_time)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  labs(x = "Total time spent in ED and CDU (hours)",
-       title = "Total time spent in ED and CDU for visits with total CDU duration less than one day") +
-  scale_x_continuous(breaks = seq(0, 30, 5), limits = c(-1,30))
-
-CDU_to_ED <- all_CDU %>% filter(next_department == "UCH EMERGENCY DEPT")
-
-CDU_to_ED %>% mutate(same_csn = csn == next_csn) %>% 
-  filter(time_to_next_admission < 1) %>% ggplot(aes(x = as.numeric(time_to_next_admission)*24, y = same_csn)) + geom_boxplot() +
-theme_classic() +
-labs(x = "Time to next ED admission (hours)",
-     title = "Time from CDU discharge to next ED admission (hours)"
-     )
-
-
-CDU_to_ED %>% mutate(same_csn = csn == next_csn) %>% filter(time_to_next_admission < 1, !same_csn)
-
-CDU_to_ED %>% 
- filter(time_to_next_admission < 1) %>% 
- ggplot(aes(x = as.numeric(time_to_next_admission)*24)) + geom_boxplot() +
- theme_classic() +
- labs(x = "Time from CDU discharge to next ED admission (hours)",
-      title = "Time from CDU discharge to next ED admission (hours)",
-      
-      subtitle = "Only where time less than 24 hours"
- )
-
-# Looking at CDU when it's included within ED
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_CDUinED_2020-11-16.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_CDUinED_2020-11-16.rda")
-
-ED_csn_summ %>%
-  ggplot(aes(x = ED_duration_final, y = adm, fill = adm, col = adm)) + geom_boxplot(alpha = .8) +
-  labs(x = "Total time spent in ED (hours)",
-       y = "Admitted", 
-       title = "Boxplot of total time in ED when CDU is included")  +
-  theme(legend.position = "None") +
-  scale_x_continuous(breaks = c(seq(0,50,2)))
-
-# same chart with it's excluded
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
-
-ED_csn_summ %>%
-  ggplot(aes(x = ED_duration_final, y = adm, fill = adm, col = adm)) + geom_boxplot(alpha = .8) +
-  labs(x = "Total time spent in ED (hours)",
-       y = "Admitted", 
-       title = "Boxplot of total time in ED when CDU is excluded")  +
-  theme(legend.position = "None") +
-  scale_x_continuous(breaks = c(seq(0,50,2)))
-
-
-# Looking at SAA ----------------------------------------------------------
-
-# how long do people spend in total? 
-
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-11-04.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-11-04.rda")
-
-ED_bed_moves %>% filter(room4 == "SAA") %>% select(csn) %>% distinct() %>% 
-  left_join(ED_csn_summ %>%  select(csn, adm, ED_duration_final)) %>% 
-  ggplot(aes(x = ED_duration_final)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  labs(x = "Total time spent in ED (hours)",
-       title = "Total time spent in ED spent by people who spent some time in SAA (hours)")  
-
-
-# how long do people spend in SAA? 
-
-ED_bed_moves %>% filter(room4 == "SAA")  %>% select(csn, admission, discharge) %>% 
-  mutate(duration = difftime(discharge, admission, units = "hours")) %>% 
-  group_by(csn) %>% summarise(tot_duration = sum(duration)) %>% 
-  ggplot(aes(x = tot_duration)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  labs(x = "Total time spent in SAA (hours)",
-       title = "Total time spent in SAA")  
-
-# does it differ by whether admitted
-
-ED_bed_moves %>% filter(room4 == "SAA") %>% select(csn) %>% distinct() %>% 
-  left_join(ED_csn_summ %>%  select(csn, adm, ED_duration_final)) %>% 
-  ggplot(aes(x = ED_duration_final, fill = adm)) + geom_histogram(binwidth = 1) +
-  theme_classic() +
-  facet_wrap(~adm) +
-  labs(x = "Total time spent in ED (hours)",
-       fill = "Admitted", 
-       title = "Total time in ED for those who visited SAA, comparing admitted and discharged patients")  
-
-# Looking at quick readmissions to ED -------------------------------------
-
-quick_readmission =ED_csn_summ %>% select(csn_old, ED_discharge_dttm, adm, num_ED_rows) %>% 
-  left_join(bed_moves_raw_all, by = c("csn_old" = "csn", "ED_discharge_dttm" = "discharge")) %>% 
-  filter(!adm, csn_old != next_csn, num_ED_rows > 1) %>% mutate(time_to_next_admission = difftime(next_admission, ED_discharge_dttm, units = "hours")) %>% 
-  filter(time_to_next_admission < 24, next_department == "UCH EMERGENCY DEPT")
-
-quick_readmission %>% ggplot(aes(x = time_to_next_admission)) + geom_histogram(binwidth = 1)  +
-  theme_classic() +
-  labs(title = "Histogram of instances I'm treating as discharges that re-appear in the ED department within 24 hours",
-       x = "Time from ED discharge to next ED admission (hours)"
-  )
-
-# these people have negative time to next admission 
-# two rows created at about the same time when the person was admitted
-b = bed_moves_raw_all %>% filter(mrn == "41200132")  %>% mutate(time_to_next_admission = difftime(next_admission, discharge, units = "hours"))
-b = bed_moves_raw_all %>% filter(mrn == "21065106")  %>% mutate(time_to_next_admission = difftime(next_admission, discharge, units = "hours"))
-
-# seems to have a couple of blank rows but could be due to merging around the time of early Sept
-b = bed_moves_raw_all %>% filter(mrn == "40965281") %>% mutate(time_to_next_admission = difftime(next_admission, discharge, units = "hours"))
-
-# this person has an extra null row between admissions
-b = bed_moves_raw_all %>% filter(mrn == "21250548") %>% mutate(time_to_next_admission = difftime(next_admission, discharge, units = "hours"))
-
-# 44 people have csn change
-q0 = quick_readmission %>% filter(time_to_next_admission == 0, csn_old != next_csn) 
-q0 = quick_readmission %>% filter(time_to_next_admission == 0, csn_old != next_csn, !csn_old %in% csn_changed$csn) # goes to zero when this added
-# 208 were discharged, but immediately back again 
-# some seem due to have next admission row with discharge dttm being null - will ignore these
-
-
-b0 = quick_readmission %>% filter(time_to_next_admission == 0, csn_old != next_csn) %>% select(mrn) %>% 
-  left_join(bed_moves_raw_all) %>% mutate(time_to_next_admission = difftime(next_admission, discharge, units = "hours")) %>% 
-  arrange(mrn, admission) # 208 rows
-
-
-q1 = quick_readmission %>% filter(time_to_next_admission > 0, time_to_next_admission < 1)
-
-
-
-b1 = quick_readmission %>% filter(time_to_next_admission > 0, time_to_next_admission < 1) %>% select(mrn) %>% 
-  left_join(bed_moves_raw_all) # 208 rows
-
-
+save(missing_ED_bed_moves, file = outFile)
