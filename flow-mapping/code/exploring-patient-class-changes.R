@@ -83,8 +83,9 @@ csn_summ %>% filter(min_inpatient_class < min_emerg_class) # 120
 csn_summ <- csn_summ %>% 
   mutate(inpatient_before_ED = case_when(min_inpatient_class < min_emerg_class ~ TRUE))
 b = all_bed_moves %>% inner_join(csn_summ %>% filter(inpatient_before_ED))
-# however, some of these are initially inpatients for tiny lengths of time
-# and not in in patient location - may need to include them 
+# some of these were clearly inpatients before and could be included and flagged as such
+# but note, some of these are initially inpatients for tiny lengths of time
+# and not in inpatient location - may need to include a duration filter
 
 
 csn_summ %>% filter(min_inpatient_class < max_emerg_class) # 351
@@ -99,7 +100,9 @@ csn_summ %>%
     all_patient_class %>% filter(!is.na(patient_class)) %>% 
       filter(!patient_class %in% c("EMERGENCY", "INPATIENT")) %>% select(csn) %>% distinct() %>% 
       mutate(has_other_class = TRUE)
-  ) %>% filter(has_other_class, patient_class %in% c("EMERGENCY")) # only 1 patient
+  ) %>% filter(has_other_class, patient_class %in% c("EMERGENCY")) # only 1 patient has another class and ended up in ED
+
+
 
 
 

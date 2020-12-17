@@ -19,6 +19,11 @@ library(lubridate)
 
 # Create functions --------------------------------------------------------
 
+rpt <- function(dataframe) {
+  print(dataframe %>% select(csn) %>% n_distinct())
+}
+
+
 split_location <- function(hl7_location, n) {
   s <- unlist(strsplit(hl7_location, "\\^"))
   return(s[n])
@@ -35,7 +40,7 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
                       dbname = "uds")
 
 
-# Get data ---------------------------------------------------------
+# Get  data ---------------------------------------------------------
 
 # hopital visit summary
 
@@ -47,6 +52,19 @@ sqlQuery <- "select m.mrn, hv.encounter as csn, hv.patient_class, hv.presentatio
 "
 sqlQuery <- gsub('\n','',sqlQuery)
 csn_summ <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+rpt(csn_summ) #3,387,833
+
+
+# patient class history
+
+sqlQuery <- "select encounter as csn, patient_class, valid_from, valid_until from star_test.hospital_visit_audit"
+sqlQuery <- gsub('\n','',sqlQuery)
+all_patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+all_patient_class <- all_patient_class %>% arrange(csn, valid_from)
+rpt(all_patient_class) #2,275,160 csns have class history
+
 
 # demographics
 
@@ -94,18 +112,63 @@ patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 # Find visits involving ED ------------------------------------------------------
 
-csn_summ %>% select(csn) %>% n_distinct() # total csns all classees
+rpt(csn_summ)
+# total csns all classees
 
 
 # identify csns which had patient class emergency at some point
 ED_csn_summ_raw <- csn_summ %>% left_join(patient_class) %>% filter(!is.na(max_emerg_class)) %>% 
   mutate(hospital_visit_id = as.character(hospital_visit_id))
 
+rpt(ED_csn_summ_raw)
+
+# remove csns with odd timestamps
+ED_csn_summ_raw <-  ED_csn_summ_raw %>% 
+  left_join(
+    all_patient_class %>% filter(patient_class == "EMERGENCY") %>% group_by(csn) %>% 
+      summarise(max_E = max(valid_until),
+                min_E = min(valid_from))
+  )  %>% 
+  left_join(
+    all_patient_class %>% filter(patient_class == "INPATIENT") %>% group_by(csn) %>% 
+      summarise(max_I = max(valid_until),
+                min_I = min(valid_from))
+  )
+
+
+rpt(ED_csn_summ_raw)
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  # 3 csns from today/yesterday have different emerg class dttms on hv and hv audit so delete them
+  filter(max_emerg_class == max_E) %>% 
+  select(-max_emerg_class)
+
+rpt(ED_csn_summ_raw)
+
+ED_csn_summ_raw %>% filter(max_E < min_E) # 41 
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  filter(max_E >= min_E) 
+
+rpt(ED_csn_summ_raw)
+
+ED_csn_summ_raw %>% filter(max_I < min_I) # 7
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  mutate(delete = case_when(max_I < min_I & patient_class == "INPATIENT" ~ TRUE,
+                            TRUE ~ FALSE))  %>% 
+  filter(!delete) %>%  select(-delete)
+
+rpt(ED_csn_summ_raw)
+
+# create bed moves
+
 ED_bed_moves_raw <- ED_csn_summ_raw %>% select(csn) %>% left_join(bed_moves) %>% 
   mutate(hospital_visit_id = as.character(hospital_visit_id))
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw)
+rpt(ED_bed_moves_raw)
+
+
 
 # find csns with NA in admission row - these are all outpatients with no bed move info
 NA_in_admission_csn <- ED_bed_moves_raw %>% filter(is.na(admission)) %>% select(csn)
@@ -113,8 +176,8 @@ NA_in_admission_csn <- ED_bed_moves_raw %>% filter(is.na(admission)) %>% select(
 ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(NA_in_admission_csn)
 ED_bed_moves_raw <- ED_bed_moves_raw  %>% anti_join(NA_in_admission_csn)
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw) # has admission time
+rpt(ED_bed_moves_raw) # has admission time
 
 
 # add room and dept information to ED
@@ -140,8 +203,8 @@ missing_ED_bed_moves <- missing_ED %>% inner_join(bed_moves)
 ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(missing_ED)
 ED_bed_moves_raw <- ED_bed_moves_raw  %>%  inner_join(ED_csn_summ_raw %>% select(csn))
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw) # has location info
+rpt(ED_bed_moves_raw) # has location info
 
 
 # select csns that began before the beginning of epic
@@ -151,8 +214,8 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-03-31")
 ED_bed_moves_raw <- ED_bed_moves_raw %>%  inner_join(ED_csn_summ_raw %>% select(csn))
 
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw) # since beginning of epic
+rpt(ED_bed_moves_raw) # since beginning of epic
 
 # add demographic information  --------------------------------------------
 
@@ -163,7 +226,7 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
   mutate(age = case_when(date_of_birth <= "1915-01-01" ~ NA_integer_,
                          TRUE ~ as.integer(as.period(interval(start = date_of_birth, end = admission_time))$year)))
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw)
 
 # delete under 18s
 
@@ -171,8 +234,8 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
   filter(age >= 18)
 ED_bed_moves_raw <- ED_bed_moves_raw %>% inner_join(ED_csn_summ_raw %>% select(csn))
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw)
+rpt(ED_bed_moves_raw)
 
 
 # Deal with missing admission presentation and discharge times -------------------------
@@ -193,12 +256,12 @@ missing_adm_time <- ED_csn_summ_raw %>% filter(is.na(admission_time)) %>% select
 #   mutate(admission_time = case_when(is.na(admission_time) ~ admission_time_,
 #                                     TRUE ~ admission_time)) %>% select(-admission_time_)
 # 
-# ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-# ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+# rpt(ED_csn_summ_raw)
+# rpt(ED_bed_moves_raw)
 
 
 # deal with missing presentation time
-ED_csn_summ_raw %>% filter(is.na(presentation_time)) %>% select(csn) %>% n_distinct() # 213 missing
+ED_csn_summ_raw %>% filter(is.na(presentation_time)) %>% select(csn) %>% n_distinct() # 200 missing
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))
@@ -280,8 +343,8 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
 # ) %>% filter(is.na(delete)) %>% select(-delete)
 # 
 
-ED_csn_summ_raw %>% select(csn) %>% n_distinct()
-ED_bed_moves_raw %>% select(csn) %>% n_distinct()
+rpt(ED_csn_summ_raw)
+rpt(ED_bed_moves_raw)
 
 
 
