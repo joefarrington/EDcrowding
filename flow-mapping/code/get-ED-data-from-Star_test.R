@@ -5,7 +5,7 @@
 # - deal with missing admission time
 # - deal with missing discharge time
 # - deal with outlier ages
-# - delete patients who died in ED or on the day of being in ED as these were not clinically admitted or discharged
+
 
 
 # Load libraries

@@ -214,7 +214,8 @@ ED_bed_moves_raw %>% filter(is.na(discharge)) %>% arrange(admission) # 326 - dat
 ED_bed_moves_raw %>% filter(is.na(discharge), ED_row == 1) %>% arrange(admission) # only 27, and all with earliest date today
 
 # find cases where there is a mismatch of admission and discharge times
-
+# some of these have gaps between the Waiting row and beginning of next row; 
+# others have row overlaps
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   group_by(csn) %>% 
@@ -225,7 +226,7 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 
 lead_row_mismatch_csn <- ED_bed_moves_raw %>% 
   filter(discharge != next_admission) %>% select(csn) %>% distinct()
-rpt(lead_row_mismatch_csn)
+rpt(lead_row_mismatch_csn) # Mismatch timestamps in moves between locations
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   anti_join(lead_row_mismatch_csn  %>% select(csn))
