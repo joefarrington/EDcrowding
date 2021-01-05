@@ -22,8 +22,8 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_all_2020-12-17.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-12-17.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_2021-01-05.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-05.rda")
 
 
 
@@ -42,7 +42,8 @@ rpt(moves)
 # update with next row's discharge time when locations are repeated
 moves[csn == lead_csn & location == lead_location, discharge := lead_discharge]
 moves[csn == lead_csn & location == lead_location, drop_row := TRUE]
-rpt(moves) #173289
+# NB there is an error here; csn 1017530862 moved three times within T01 and now has dttm mismatch
+rpt(moves) 
 
 # remove rows where location is repeated
 moves <- moves[is.na(drop_row)]
@@ -64,17 +65,22 @@ moves[, "num_ED_exit" := sum(ED_exit, na.rm = TRUE), by = csn]
 # identify if ED exit is less than 15 min - only handles cases where there is more than one ED exit 
 # do this by checking duration of next row
 moves[, ED_exit_short := if_else(num_ED_exit > 1 & ED_exit & csn == lead_csn & shift(row_duration, 1, NA, "lead") < 15, TRUE, FALSE)]
-
-e =moves[num_ED_exit>1]
+# Create new ED_exit_short variable as the original only relates to visits with more than one ED exit
+moves[, ED_exit_short2 := if_else(ED_exit & csn == lead_csn & 
+                                    shift(row_duration, 1, NA, "lead") < 15 &
+                                    lead_department == "ED", TRUE, FALSE)]
 
 # identify exits to relevant locations 
 moves[, "to_EAU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "EAU", 1, 0)]
 moves[, "to_CDU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "UCHT00CDU", 1, 0)]
 moves[, "to_EDU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "T01ECU", 1, 0)]
+moves[, "to_T01" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "T01", 1, 0)]
 
 moves[, "num_to_EAU" := sum(to_EAU, na.rm = TRUE), by = csn]
 moves[, "num_to_CDU" := sum(to_CDU, na.rm = TRUE), by = csn]
 moves[, "num_to_EDU" := sum(to_EDU, na.rm = TRUE), by = csn]
+moves[, "num_to_T01" := sum(to_T01, na.rm = TRUE), by = csn]
+
 
 # identify rows containing final location
 #moves[, .SD[which.max(discharge)], by = csn]

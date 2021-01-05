@@ -24,12 +24,14 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_all_2020-12-17.rda")
 load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-04.rda")
 rpt(moves)
 
-class_e <- data.table(ED_csn_summ %>% filter(patient_class == "EMERGENCY"))
+moves <- moves[order(csn, admission)]
+
+class_e <- data.table(ED_csn_summ %>% filter(patient_class == "EMERGENCY") %>% select(csn))
 rpt(class_e) # number with patient class of emergency
 setkey(class_e, csn)
 
 
-class_i <- data.table(ED_csn_summ %>% filter(patient_class == "INPATIENT"))
+class_i <- data.table(ED_csn_summ %>% filter(patient_class == "INPATIENT") %>% select(csn))
 rpt(class_i) # number with patient class of inpatient
 setkey(class_i, csn)
 
@@ -37,16 +39,24 @@ setkey(class_i, csn)
 # Checking moves to locations outside ED -----------------------------------------
 
 class_e_outside_ED = merge(moves[moves[num_ED_exit > 0, unique(csn)], nomatch = 0], class_e)
-rpt(class_e_outside_ED) # only class emergency with moves outside - 17
-
-### START here - problem with ED_exit_short 
-
-moves[, ED_exit_short2 := if_else(ED_exit & csn == lead_csn & shift(row_duration, 1, NA, "lead") < 15, TRUE, FALSE)]
+rpt(class_e_outside_ED) #
 
 class_e_outside_ED_short = merge(moves[moves[ED_exit & ED_exit_short2, unique(csn)], nomatch = 0], class_e)
+rpt(class_e_outside_ED_short)
+
+class_e_no_ED_exit = merge(moves[moves[num_ED_exit == 0, unique(csn)], nomatch = 0], class_e)
+rpt(class_e_no_ED_exit) 
+
 
 class_i_outside_ED = merge(moves[moves[num_ED_exit > 0, unique(csn)], nomatch = 0], class_i)
 rpt(class_i_outside_ED) # 
+
+class_i_outside_ED_short = merge(moves[moves[ED_exit & ED_exit_short2, unique(csn)], nomatch = 0], class_i)
+rpt(class_i_outside_ED_short)
+
+class_i_no_ED_exit = merge(moves[moves[num_ED_exit == 0, unique(csn)], nomatch = 0], class_i)
+rpt(class_i_no_ED_exit) 
+
 
 
 # Patient class of emergency - OTF analysis ------------- --------
@@ -63,21 +73,40 @@ rpt(class_e_ends_in_OTF[num_ED_exit >0]) # none
 rpt(class_e_ends_in_OTF[num_ED_exit ==0])
 
 # check class_e that does not end in OTF
-class_e_via_OTF = merge(moves[moves[location == "OTF POOL" & final_location != "OTF POOL", unique(csn)], nomatch = 0], class_e)
+class_e_via_OTF = merge(moves[moves[location == "OTF POOL" & final_location != "OTF POOL" , unique(csn)], nomatch = 0], class_e)
 rpt(class_e_via_OTF)
 
 
 rpt(class_e_via_OTF[num_ED_exit >0]) # 12 of the via OTFs did exit ED
+rpt(class_e_via_OTF[num_ED_exit >0 & final_dept == "ED"]) # of whom three returned
 rpt(class_e_via_OTF[num_ED_exit ==0]) # 177 of the via OTFs didn't leave ED
 
 # CHECK count never marked as OTF - NB this uses an anti-join
 class_e_never_OTF = merge(moves[!moves[location == "OTF POOL" , unique(csn)]], class_e)
 rpt(class_e_never_OTF)
 
+# Comparing e class who never left ED with number with OTF in final row
+sum(class_e_no_ED_exit[,unique(csn)] %in% class_e_ends_in_OTF[,unique(csn)]) # ends in OTF
+sum(!class_e_no_ED_exit[,unique(csn)] %in% class_e_ends_in_OTF[,unique(csn)])
+
+class_e_no_ED_exit_no_OTF_end = merge(moves[moves[final_location != "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_e)
+rpt(class_e_no_ED_exit_no_OTF_end)
+
+# of which some may have been maked as OTF at some point
+class_e_no_ED_exit_via_OTF = merge(moves[moves[final_location != "OTF POOL" & location == "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_e)
+rpt(class_e_no_ED_exit_via_OTF)
+
+# or never market as OTF 
+class_e_no_ED_exit_never_OTF = merge(class_e_no_ED_exit[class_e_never_OTF[num_ED_exit == 0, unique(csn)]], class_e)
+rpt(class_e_no_ED_exit_never_OTF)
+
+class_i_no_ED_exit_OTF_end = merge(moves[moves[final_location == "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_i)
+rpt(class_i_no_ED_exit_OTF_end)
+
 
 # Patient class of inpatient - OTF analysis ------------- --------
 
-# only has patient class of emergency and ends in OTF 
+# has class inpatient and ends in OTF 
 class_i_ends_in_OTF = merge(moves[final_location == "OTF POOL"], class_i)
 rpt(class_i_ends_in_OTF)
 
@@ -92,12 +121,31 @@ rpt(class_i_via_OTF)
 
 
 rpt(class_i_via_OTF[num_ED_exit >0]) # 
+rpt(class_i_via_OTF[num_ED_exit >0 & final_dept == "ED"]) # of whom 30 returned
 rpt(class_i_via_OTF[num_ED_exit ==0]) # 
 
 # CHECK count never marked as OTF - NB this uses an anti-join
 class_i_never_OTF = merge(moves[!moves[location == "OTF POOL" , unique(csn)]], class_i)
 rpt(class_i_never_OTF)
 
+
+# Comparing inpatients who never left ED with number with OTF in final row
+sum(class_i_no_ED_exit[,unique(csn)] %in% class_i_ends_in_OTF[,unique(csn)]) # ends in OTF
+sum(!class_i_no_ED_exit[,unique(csn)] %in% class_i_ends_in_OTF[,unique(csn)])
+
+class_i_no_ED_exit_no_OTF_end = merge(moves[moves[final_location != "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_i)
+rpt(class_i_no_ED_exit_no_OTF_end)
+
+# of which some may have been maked as OTF at some point
+class_i_no_ED_exit_via_OTF = merge(moves[moves[final_location != "OTF POOL" & location == "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_i)
+rpt(class_i_no_ED_exit_via_OTF)
+
+# or never market as OTF 
+class_i_no_ED_exit_never_OTF = merge(class_i_no_ED_exit[class_i_never_OTF[num_ED_exit == 0, unique(csn)]], class_i)
+rpt(class_i_no_ED_exit_never_OTF)
+
+class_i_no_ED_exit_OTF_end = merge(moves[moves[final_location == "OTF POOL" & num_ED_exit == 0, unique(csn)]], class_i)
+rpt(class_i_no_ED_exit_OTF_end)
 
 
 
@@ -116,27 +164,142 @@ moves[csn == "1024617258"]
 
 
 
-# With patient class of inpatient - OTF as final location ------------------------
+# Via ED locations --------------------------------------------------------
+
+# SAA
+
+rpt(merge(moves[moves[location == "SAA" , unique(csn)]], class_e))
+rpt(merge(moves[!moves[location == "SAA" , unique(csn)]], class_e))
+
+class_e_SAA_to_ED = merge(moves[moves[location == "SAA"  & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_SAA_to_ED)
+
+class_e_SAA_admitted = merge(moves[moves[location == "SAA"  & final_dept != "ED", unique(csn)]], class_e)
+rpt(class_e_SAA_admitted)
+
+rpt(merge(moves[moves[location == "SAA" , unique(csn)]], class_i))
+rpt(merge(moves[!moves[location == "SAA" , unique(csn)]], class_i))
+
+class_i_SAA_to_ED = merge(moves[moves[location == "SAA"  & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_SAA_to_ED)
+
+class_i_SAA_admitted = merge(moves[moves[location == "SAA"  & final_dept != "ED", unique(csn)]], class_i)
+rpt(class_i_SAA_admitted)
+
+# SDEC
+
+rpt(merge(moves[moves[location == "SDEC" , unique(csn)]], class_e))
+rpt(merge(moves[!moves[location == "SDEC" , unique(csn)]], class_e))
+
+class_e_SDEC_to_ED = merge(moves[moves[location == "SDEC"  & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_SDEC_to_ED)
+
+class_e_SDEC_admitted = merge(moves[moves[location == "SDEC"  & final_dept != "ED", unique(csn)]], class_e)
+rpt(class_e_SDEC_admitted)
+
+rpt(merge(moves[moves[location == "SDEC" , unique(csn)]], class_i))
+rpt(merge(moves[!moves[location == "SDEC" , unique(csn)]], class_i))
+
+class_i_SDEC_to_ED = merge(moves[moves[location == "SDEC"  & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_SDEC_to_ED)
+
+class_i_SDEC_admitted = merge(moves[moves[location == "SDEC"  & final_dept != "ED", unique(csn)]], class_i)
+rpt(class_i_SDEC_admitted)
+
+# Via observation units ------------------------
+
+# CDU
+
+class_e_to_CDU = merge(moves[moves[num_to_CDU > 0, unique(csn)]], class_e)
+rpt(class_e_to_CDU)
+rpt(merge(moves[moves[num_to_CDU == 0, unique(csn)]], class_e))
+
+class_e_to_CDU_to_ED = merge(moves[moves[num_to_CDU > 0 & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_to_CDU_to_ED)
+
+class_i_to_CDU = merge(moves[moves[num_to_CDU > 0, unique(csn)]], class_i)
+rpt(class_i_to_CDU)
+rpt(merge(moves[moves[num_to_CDU == 0, unique(csn)]], class_i))
+
+class_i_to_CDU_to_ED = merge(moves[moves[num_to_CDU > 0 & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_to_CDU_to_ED)
+
+class_i_to_CDU_to_discharge =  merge(moves[moves[num_to_CDU > 0 & final_dept == "UCHT00CDU", unique(csn)]], class_i)
+rpt(class_i_to_CDU_to_discharge)
+
+class_i_to_CDU_admitted = merge(moves[moves[num_to_CDU > 0 & final_dept != "ED" & final_dept != "UCHT00CDU", unique(csn)]], class_i)
+rpt(class_i_to_CDU_admitted)
+
+
+# EDU
+class_e_to_EDU = merge(moves[moves[num_to_EDU > 0, unique(csn)]], class_e)
+rpt(class_e_to_EDU)
+rpt(merge(moves[moves[num_to_EDU == 0, unique(csn)]], class_e))
+
+class_e_to_EDU_to_ED = merge(moves[moves[num_to_EDU > 0 & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_to_EDU_to_ED)
+
+class_i_to_EDU = merge(moves[moves[num_to_EDU > 0, unique(csn)]], class_i)
+rpt(class_i_to_EDU)
+rpt(merge(moves[moves[num_to_EDU == 0, unique(csn)]], class_i))
+
+class_i_to_EDU_to_ED = merge(moves[moves[num_to_EDU > 0 & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_to_EDU_to_ED)
+
+class_i_to_EDU_to_discharge =  merge(moves[moves[num_to_EDU > 0 & final_dept == "T01ECU", unique(csn)]], class_i)
+rpt(class_i_to_EDU_to_discharge)
+
+class_i_to_EDU_admitted = merge(moves[moves[num_to_EDU > 0 & final_dept != "ED" & final_dept != "T01ECU", unique(csn)]], class_i)
+rpt(class_i_to_EDU_admitted)
+
+# EAU
+class_e_to_EAU = merge(moves[moves[num_to_EAU > 0, unique(csn)]], class_e)
+rpt(class_e_to_EAU)
+rpt(merge(moves[moves[num_to_EAU == 0, unique(csn)]], class_e))
+
+class_e_to_EAU_to_ED = merge(moves[moves[num_to_EAU > 0 & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_to_EAU_to_ED)
+
+class_e_to_EAU_to_discharge =  merge(moves[moves[num_to_EAU > 0 & final_dept == "EAU", unique(csn)]], class_e)
+rpt(class_e_to_EAU_to_discharge)
+
+class_e_to_EAU_admitted = merge(moves[moves[num_to_EAU > 0 & final_dept != "ED" & final_dept != "EAU", unique(csn)]], class_e)
+rpt(class_e_to_EAU_admitted)
+
+class_i_to_EAU = merge(moves[moves[num_to_EAU > 0, unique(csn)]], class_i)
+rpt(class_i_to_EAU)
+rpt(merge(moves[moves[num_to_EAU == 0, unique(csn)]], class_i))
+
+class_i_to_EAU_to_ED = merge(moves[moves[num_to_EAU > 0 & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_to_EAU_to_ED)
+
+class_i_to_EAU_to_discharge =  merge(moves[moves[num_to_EAU > 0 & final_dept == "T01ECU", unique(csn)]], class_i)
+rpt(class_i_to_EAU_to_discharge)
+
+class_i_to_EAU_admitted = merge(moves[moves[num_to_EAU > 0 & final_dept != "ED" & final_dept != "T01ECU", unique(csn)]], class_i)
+rpt(class_i_to_EAU_admitted)
+
+# T01
+class_e_to_T01 = merge(moves[moves[num_to_T01 > 0, unique(csn)]], class_e)
+rpt(class_e_to_T01)
+rpt(merge(moves[moves[num_to_T01 == 0, unique(csn)]], class_e))
+
+class_e_to_T01_to_ED = merge(moves[moves[num_to_T01 > 0 & final_dept == "ED", unique(csn)]], class_e)
+rpt(class_e_to_T01_to_ED)
+
+class_i_to_T01 = merge(moves[moves[num_to_T01 > 0, unique(csn)]], class_i)
+rpt(class_i_to_T01)
+rpt(merge(moves[moves[num_to_T01 == 0, unique(csn)]], class_i))
+
+class_i_to_T01_to_ED = merge(moves[moves[num_to_T01 > 0 & final_dept == "ED", unique(csn)]], class_i)
+rpt(class_i_to_T01_to_ED)
+
+class_i_to_T01_to_discharge =  merge(moves[moves[num_to_T01 > 0 & final_dept == "T01", unique(csn)]], class_i)
+rpt(class_i_to_T01_to_discharge)
+
+class_i_to_T01_admitted = merge(moves[moves[num_to_T01 > 0 & final_dept != "ED" & final_dept != "T01", unique(csn)]], class_i)
+rpt(class_i_to_T01_admitted)
 
 
 
-#  has patient class of inptatient but ends in OTF 
-class_i_ends_in_OTF = merge(moves[final_location == "OTF POOL"], class_i)
-rpt(class_i_ends_in_OTF)
 
-# some of these do go to another location 
-rpt(class_i_ends_in_OTF[num_ED_exit > 0]) #8 
-# of which some go to CDU then back to ED
-rpt(class_i_ends_in_OTF[num_ED_exit > 0 & num_to_CDU > 0]) #4
-
-# but most do not leave ED - these need to be marked as dicharged
-rpt(class_i_ends_in_OTF[num_ED_exit == 0])
-
-# With patient class of inpatient - went via OTF to somewhere else------------------------
-
-# marked as OTF and went to another location
-class_i_via_OTF = merge(moves[moves[location == "OTF POOL" & final_location != "OTF POOL", unique(csn)], nomatch = 0], class_i)
-rpt(class_i_via_OTF)
-
-rpt(class_i_via_OTF[num_ED_exit >0])
-rpt(class_i_via_OTF[num_ED_exit ==0]) # 17 didn't leave ED

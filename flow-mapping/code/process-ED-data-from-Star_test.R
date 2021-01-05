@@ -139,6 +139,8 @@ load(inFile)
 inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_",file_label,"2020-12-17.rda")
 load(inFile)
 
+rpt(ED_bed_moves_raw)
+rpt(ED_csn_summ_raw)
 
 # Basic checks
 # ============
@@ -205,6 +207,7 @@ ED_bed_moves_raw %>% filter(is.na(discharge)) # 854
 
 # update this to be equal to new discharge time where available
 
+
 ED_bed_moves_raw = ED_bed_moves_raw %>% left_join(ED_csn_summ_raw %>% select(csn, discharge_time, new_discharge_time)) %>% 
   mutate(discharge = case_when(is.na(discharge) & !is.na(discharge_time) ~ discharge_time,
                                is.na(discharge) & !is.na(new_discharge_time) ~ new_discharge_time,
@@ -212,6 +215,31 @@ ED_bed_moves_raw = ED_bed_moves_raw %>% left_join(ED_csn_summ_raw %>% select(csn
 
 ED_bed_moves_raw %>% filter(is.na(discharge)) %>% arrange(admission) # 326 - dating back to April 2019
 ED_bed_moves_raw %>% filter(is.na(discharge), ED_row == 1) %>% arrange(admission) # only 27, and all with earliest date today
+
+
+# NB - the above will create some rows with admission > discharge; most are less than one minute
+rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") <0)) # 257
+rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -1)) #31
+rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -10)) #26
+rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -100)) #19 
+
+# remove csns where admission is later than discharge by more than 1 minute
+admission_later_csns <- ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -1) %>% select(csn) %>% distinct() # none to remove
+print(paste0("Admission later csns: ", nrow(admission_later_csns)))
+
+ED_csn_summ_raw = ED_csn_summ_raw %>% 
+  anti_join(admission_later_csns)
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  anti_join(admission_later_csns)
+
+rm(admission_later_csns)
+
+
+print("After removing bed move data is later than last discharge on ED_csn_summ")
+print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
+print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
+
 
 # find cases where there is a mismatch of admission and discharge times
 # some of these have gaps between the Waiting row and beginning of next row; 
@@ -247,48 +275,6 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   left_join(ED_csn_summ_raw %>% select(csn, presentation_time)) %>%
   select(mrn, csn, presentation_time, everything())
 
-# 
-# # identify arrival rows (first row for each encounter)
-# 
-# # now using presentation time to identify arrival row - which has no saved seconds
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-#   mutate(arrival_row = ifelse(floor_date(admission, "minute") == floor_date(presentation_time), TRUE, FALSE))
-# 
-# # identify csns where arrival row not picked up this way. This could be because
-# # 1. patient came to ED from somewhere else thus has presentation time much earlier than arrival in ED 
-# # 2. csn was reused later eg see csn 1020805305 who came to ED 10 days after presentation at Virtual clinic or  csn 1023337830 (from oncology)
-# # 3. arrival time and presentation time are not within same minute
-# # note - some peopley may end up with mulitple arrival rows if they go within 1 min of presentation time to another location
-# 
-# no_arrival_row = ED_csn_summ_raw %>% anti_join(ED_bed_moves_raw %>% filter(arrival_row)  %>% select(csn, arrival_row))
-# 
-# # get earliest time of arrival to ED
-# no_arrival_row <- no_arrival_row %>% 
-#   left_join(ED_bed_moves_raw %>% filter(ED_row == 1) %>% 
-#               group_by(csn) %>% summarise(first_ED_arrival = min(admission)))
-# 
-# # set this to be the arrival row in ED
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>% 
-#   left_join(
-#     no_arrival_row  %>% select(csn, first_ED_arrival)
-#   ) %>% 
-#   mutate(arrival_row = case_when(first_ED_arrival == admission ~ TRUE,
-#                                  TRUE ~ arrival_row))
-# 
-# rm(no_arrival_row)
-# 
-# # check every visit has an arrival row 
-# ED_bed_moves_raw %>% filter(arrival_row) %>% select(csn) %>% n_distinct()
-# 
-# # delete rows in bed_moves where the movement is prior to the first ED arrival
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-#    mutate(first_ED_arrival = if_else(is.na(first_ED_arrival), presentation_time, first_ED_arrival)) %>% 
-#    filter(admission >= first_ED_arrival)
-# 
-# print("After deleting ED rows where movement is prior to first ED arrival")
-# print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
-# print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
-
 
 # calc row durations
 ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>% 
@@ -300,28 +286,6 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>% ungroup() %>%
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(OTF_row = case_when(room == "UCHED OTF POOL" ~ 1,
                             TRUE ~ 0)) 
-
-# # a few csns have OTF in the arrival row 
-# 
-# print(Sys.time() - timer)
-# print("Remove OTF arrival row csns")
-# timer <- Sys.time()
-# 
-# 
-# OTF_arrival_csn <- ED_bed_moves_raw %>% 
-#   filter(OTF_row ==1, arrival_row) %>% select(csn) %>% distinct()
-# 
-# ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-#   anti_join(OTF_arrival_csn)
-# 
-# ED_csn_summ_raw <- ED_csn_summ_raw  %>% 
-#   anti_join(OTF_arrival_csn)
-# 
-# 
-# print("After removing OTF_arrival_csn")
-# print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
-# print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
-# 
 
 
 # Simplify room names -----------------------------------------------------
@@ -417,10 +381,6 @@ print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinc
 
 # calculate whether admitted
 ED_csn_summ <- ED_csn_summ_raw %>%  
-  mutate(adm = if_else(patient_class == "INPATIENT", TRUE, FALSE))
-
-
-ED_csn_summ <- ED_csn_summ %>%  
   mutate(epoch = case_when(presentation_time < '2020-03-31' ~ "Pre_Covid",
                            presentation_time < '2020-05-31' ~ 'Surge1',
                            TRUE ~ 'Post_Surge1')) %>% 
@@ -443,25 +403,14 @@ print("Saving data")
 # save ED_bed_moves for later use
 
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",file_label,today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_",today(),".rda")
 save(ED_bed_moves, file = outFile)
 rm(outFile)
 
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",file_label,today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_",today(),".rda")
 save(ED_csn_summ, file = outFile)
 rm(outFile)
 
-# # save OTF arrival csn
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/OTF_arrival_csn_",file_label,today(),".rda")
-# save(OTF_arrival_csn, file = outFile)
-# 
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/elsewhere_to_ED_csn_",file_label,today(),".rda")
-# save(elsewhere_to_ED_csn, file = outFile)
-# 
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/long_ED_csn_",file_label,today(),".rda")
-# save(long_ED_csn, file = outFile)
-# 
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/long_ED_csn_24_",file_label,today(),".rda")
-# save(long_ED_csn_24, file = outFile)
+
