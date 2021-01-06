@@ -21,25 +21,55 @@ Retrieves all data from both schemas, in order to do exploratory processing of o
 
 ### 1. Retrieve data
 
-get-ED-data-from-Flow-DB-step.R 
-get-ED-data-from-Star-DB-step.R 
+get-ED-data-from-Star_test.R
 
 These two files retrieve and process data from the relevant schema.  
 
 output
 - ED_bed_moves_raw
+- ED_csn_summ_raw
+- visits
+
+plus other files saved from the SQL extracts
+
+- csn_summ - all csns over time
+- bed_moves - all bed moves over time
+- patient_class - latest patient class
+- all_patient_class - patient class audit table
 
 ### 1a. Process data
 
-process-ED-data-from-Flow.R
-process-ED-data-from-Star.R
+process-ED-data-from-Star_test.R
 
-These are identical with some tiny differences due to the nature of data retrieved from Star. The flow version produces a historical dataset. The star version processes the recent data and, at the end, merges it with the historical dataset. 
+Does some further processes to clean and group room names
+
+input
+- ED_bed_moves_raw
+- ED_csn_summ_raw
 
 output
 - ED_bed_moves
 - ED_csn_summ
-- excluded_csns - a list of csns that need to be excluded from later processing
+
+
+### 1b. Create edge list
+
+create-edge-list-using-data.table.R
+
+Does further processing on the bed moves data to (a) identify exits from ED to various locations of interest and (b) create a simplified edge list (ie rows with from and to nodes) that will be used for  network maps
+
+input
+- ED_bed_moves
+- ED_csn_summ
+
+output
+- moves
+- edgedf
+
+### 1c. Calc admission class
+
+Does some analysis of which class patients might be in based on their latest patient class, whether they went to ED or not, where they went after ED (if anywhere). Final section gives them a class. 
+
 
 ### 2. Get data on vital signs
 

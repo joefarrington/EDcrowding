@@ -132,11 +132,10 @@ get_covid_pathway <- Vectorize(get_covid_pathway)
 # # Load bed_move data
 # # ==================
 
-file_label <- "all_" # note - updated the file names of the flow datasets at the end of this file (if dates have changed)
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",file_label,"2020-12-17.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-01-06.rda")
 load(inFile)
 
-inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_",file_label,"2020-12-17.rda")
+inFile <- paste0("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-01-06.rda")
 load(inFile)
 
 rpt(ED_bed_moves_raw)
@@ -144,6 +143,9 @@ rpt(ED_csn_summ_raw)
 
 # Basic checks
 # ============
+
+
+# Admission and discharge are identical -----------------------------------
 
 
 # remove rows where admission == discharge; 
@@ -165,15 +167,14 @@ print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()
 print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
 
 # remove other rows where admission == discharge; 
-# find rows - there are many
 csn_to_keep = ED_bed_moves_raw %>% filter(admission != discharge) %>% select(csn) %>% distinct()
 other_adm_equal_dis = ED_csn_summ_raw %>% anti_join(csn_to_keep)
 
 ED_csn_summ_raw = ED_csn_summ_raw %>% 
-  anti_join(other_adm_equal_dis)
+  inner_join(csn_to_keep)
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  anti_join(other_adm_equal_dis)
+  inner_join(csn_to_keep)
 
 rm(other_adm_equal_dis, csn_to_keep)
 
@@ -188,9 +189,18 @@ print("After removing other_adm_equal_dis")
 print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
 print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
 
+
+# Admission later than discharge ------------------------------------------
+
+
+
 # remove csns where admission is later than discharge
 admission_later_csns <- ED_bed_moves_raw %>% filter(admission > discharge) %>% select(csn) %>% distinct() # none to remove
 print(paste0("Admission later csns: ", nrow(admission_later_csns)))
+
+
+
+# next location is later than discharge from current location by more than 1 minute-------------------------------------------------
 
 
 
@@ -223,8 +233,9 @@ rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") <
 rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -10)) #26
 rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -100)) #19 
 
-# remove csns where admission is later than discharge by more than 1 minute
-admission_later_csns <- ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -1) %>% select(csn) %>% distinct() # none to remove
+# remove csns where admission to next location is later than discharge from current location by more than 1 minute
+admission_later_csns <- ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") < -1) %>% 
+  select(csn) %>% distinct() # none to remove
 print(paste0("Admission later csns: ", nrow(admission_later_csns)))
 
 ED_csn_summ_raw = ED_csn_summ_raw %>% 
@@ -236,14 +247,13 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 rm(admission_later_csns)
 
 
-print("After removing bed move data is later than last discharge on ED_csn_summ")
+print("After removing where admission to next location is later than discharge from current location by more than 1 minute")
 print(paste0("ED_csn_sum_raw: ",ED_csn_summ_raw %>% select(csn) %>% n_distinct()))
 print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
 
 
-# find cases where there is a mismatch of admission and discharge times
-# some of these have gaps between the Waiting row and beginning of next row; 
-# others have row overlaps
+# find cases where there is still a mismatch of admission and discharge times
+
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   group_by(csn) %>% 

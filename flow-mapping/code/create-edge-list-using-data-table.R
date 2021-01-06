@@ -10,7 +10,7 @@ library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(data.table)
-library(table.express)
+
 
 
 # Create functions --------------------------------------------------------
@@ -22,8 +22,8 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_2021-01-05.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-05.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_2021-01-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-06.rda")
 
 
 
@@ -81,6 +81,17 @@ moves[, "num_to_CDU" := sum(to_CDU, na.rm = TRUE), by = csn]
 moves[, "num_to_EDU" := sum(to_EDU, na.rm = TRUE), by = csn]
 moves[, "num_to_T01" := sum(to_T01, na.rm = TRUE), by = csn]
 
+# group exits via relevant locations
+moves[, "via_obs" := case_when(ED_exit & !ED_exit_short & department =="ED" & lead_department == "UCHT00CDU" ~ 1, 
+                               location == "SAA" ~ 1, 
+                               location == "SDEC" ~ 1, 
+                               TRUE ~ 0)]
+moves[, "via_day_path" := case_when(ED_exit & !ED_exit_short & department =="ED" & lead_department == "EAU" ~ 1, 
+                                    ED_exit & !ED_exit_short & department =="ED" & lead_department == "T01ECU" ~ 1, 
+                               TRUE ~ 0)]
+
+moves[, "num_via_obs" := sum(via_obs, na.rm = TRUE), by = csn]
+moves[, "num_via_day_path" := sum(via_day_path, na.rm = TRUE), by = csn]
 
 # identify rows containing final location
 #moves[, .SD[which.max(discharge)], by = csn]

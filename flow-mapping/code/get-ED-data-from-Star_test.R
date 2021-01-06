@@ -62,7 +62,7 @@ sqlQuery <- "select encounter as csn, patient_class, valid_from, valid_until fro
 sqlQuery <- gsub('\n','',sqlQuery)
 all_patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
-all_patient_class <- all_patient_class %>% arrange(csn, valid_from)
+#all_patient_class <- all_patient_class %>% arrange(csn, valid_from)
 rpt(all_patient_class) #2,275,160 csns have class history
 
 
@@ -100,7 +100,8 @@ bed_moves <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 # patient class change information 
 
-sqlQuery <- "select encounter as csn, hospital_visit_id, max(valid_until) as max_emerg_class from star_test.hospital_visit_audit
+sqlQuery <- "select encounter as csn, hospital_visit_id, max(valid_until) as max_emerg_class 
+from star_test.hospital_visit_audit
   where patient_class = 'EMERGENCY'
   group by encounter, hospital_visit_id"
 
@@ -117,48 +118,80 @@ rpt(csn_summ)
 
 
 # identify csns which had patient class emergency at some point
-ED_csn_summ_raw <- csn_summ %>% left_join(patient_class) %>% filter(!is.na(max_emerg_class)) %>% 
+
+# WAS PREVIOUSLY FILTERING TO EXCLUDE PATIENTS WITHOUT A max_emerge_class
+# REALISED THIS EXCLUDED ~2K PATIENTS WHO VISITED ED; THESE DON'T HAVE A HOSPITAL VISIT ID EITHER
+
+# CHANGED THE FOLLOWING TO INCLUDE PATIENTS WHO VISITED ED LOCATIONS AT SOME POINT
+
+csn_summ <- csn_summ %>% left_join(patient_class) 
+rpt(csn_summ %>% filter(!is.na(max_emerg_class))) # has emergency class with 'valid until'
+
+bed_moves <- bed_moves %>% mutate(department = split_location(location_string, 1))
+
+visited_ED_csn <- bed_moves %>% filter(department == "ED") %>% select(csn) %>% distinct() %>% 
+  mutate(visited_ED = TRUE)
+
+csn_summ <- csn_summ %>% left_join(visited_ED_csn) 
+rpt(csn_summ %>% filter(visited_ED)) # visited ED at some point
+
+# some of those who visited ED have missing admission times; can infer these from bed moves
+missing_admission_time <- visited_ED_csn %>% 
+  left_join(csn_summ %>% select(csn, admission_time)) %>% filter(is.na(admission_time))
+
+missing_admission_time <- missing_admission_time %>% select(csn) %>% 
+  left_join(bed_moves) %>% group_by(csn) %>% summarise(new_admission_time = min(admission, na.rm = TRUE))
+
+csn_summ <- csn_summ %>% left_join(missing_admission_time) %>% 
+  mutate(admission_time = case_when(is.na(admission_time) & !is.na(new_admission_time) ~ new_admission_time,
+                                    TRUE ~ admission_time))
+
+# those with no emergency class AND no ED visits are the ones to remove
+rpt(csn_summ %>% filter(is.na(max_emerg_class) & is.na(visited_ED)))
+
+ED_csn_summ_raw <- csn_summ %>% 
+  anti_join(csn_summ %>% filter(is.na(max_emerg_class) & is.na(visited_ED)) %>% select(csn)) %>% 
   mutate(hospital_visit_id = as.character(hospital_visit_id))
 
 rpt(ED_csn_summ_raw)
 
-# remove csns with odd timestamps
-ED_csn_summ_raw <-  ED_csn_summ_raw %>% 
+# add max and min I and E timestamps
+ED_csn_summ_raw <-  ED_csn_summ_raw %>%
   left_join(
-    all_patient_class %>% filter(patient_class == "EMERGENCY") %>% group_by(csn) %>% 
+    all_patient_class %>% filter(patient_class == "EMERGENCY") %>% group_by(csn) %>%
       summarise(max_E = max(valid_until),
                 min_E = min(valid_from))
-  )  %>% 
+  )  %>%
   left_join(
-    all_patient_class %>% filter(patient_class == "INPATIENT") %>% group_by(csn) %>% 
+    all_patient_class %>% filter(patient_class == "INPATIENT") %>% group_by(csn) %>%
       summarise(max_I = max(valid_until),
                 min_I = min(valid_from))
   )
 
-
-rpt(ED_csn_summ_raw)
-
-ED_csn_summ_raw <- ED_csn_summ_raw %>% 
-  # 3 csns from today/yesterday have different emerg class dttms on hv and hv audit so delete them
-  filter(max_emerg_class == max_E) %>% 
-  select(-max_emerg_class)
-
-rpt(ED_csn_summ_raw)
-
-ED_csn_summ_raw %>% filter(max_E < min_E) # 41 
-ED_csn_summ_raw <- ED_csn_summ_raw %>% 
-  filter(max_E >= min_E) 
-
-rpt(ED_csn_summ_raw)
-
-ED_csn_summ_raw %>% filter(max_I < min_I) # 7
-
-ED_csn_summ_raw <- ED_csn_summ_raw %>% 
-  mutate(delete = case_when(max_I < min_I & patient_class == "INPATIENT" ~ TRUE,
-                            TRUE ~ FALSE))  %>% 
-  filter(!delete) %>%  select(-delete)
-
-rpt(ED_csn_summ_raw)
+# 
+# rpt(ED_csn_summ_raw)
+# 
+# ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+#   # 3 csns from today/yesterday have different emerg class dttms on hv and hv audit so delete them
+#   filter(max_emerg_class == max_E) %>% 
+#   select(-max_emerg_class)
+# 
+# rpt(ED_csn_summ_raw)
+# 
+# ED_csn_summ_raw %>% filter(max_E < min_E) # 41 
+# ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+#   filter(max_E >= min_E) 
+# 
+# rpt(ED_csn_summ_raw)
+# 
+# ED_csn_summ_raw %>% filter(max_I < min_I) # 7
+# 
+# ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+#   mutate(delete = case_when(max_I < min_I & patient_class == "INPATIENT" ~ TRUE,
+#                             TRUE ~ FALSE))  %>% 
+#   filter(!delete) %>%  select(-delete)
+# 
+# rpt(ED_csn_summ_raw)
 
 # create bed moves
 
@@ -180,11 +213,10 @@ rpt(ED_csn_summ_raw) # has admission time
 rpt(ED_bed_moves_raw) # has admission time
 
 
-# add room and dept information to ED
+# add room information to ED
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
-  mutate(department = split_location(location_string, 1),
-         room = split_location(location_string, 2))
+  mutate(room = split_location(location_string, 2))
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(ED_row = case_when(department == "ED" | department == "UCHT00CDU" ~ 1,
@@ -400,7 +432,7 @@ rm(outFile)
 
 # save ED_bed_moves for later use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_all_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",today(),".rda")
 save(ED_bed_moves_raw, file = outFile)
 rm(outFile)
 
@@ -412,7 +444,7 @@ rm(outFile)
 
 # save ED_csn_summ for future use
 
-outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_all_",today(),".rda")
+outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_",today(),".rda")
 save(ED_csn_summ_raw, file = outFile)
 rm(outFile)
 
@@ -426,11 +458,16 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/patient_class_",today(),".rda
 save(patient_class, file = outFile)
 rm(outFile)
 
+# save all_patient_class for later use
+outFile = paste0("EDcrowding/flow-mapping/data-raw/all_patient_class_",today(),".rda")
+save(all_patient_class, file = outFile)
+rm(outFile)
+
 # save visits for later use
 outFile = paste0("EDcrowding/flow-mapping/data-raw/visits_all_",today(),".rda")
 save(visits, file = outFile)
 
 
-# save missing bed moves data
-outFile = paste0("EDcrowding/flow-mapping/data-raw/missing_ED_",today(),".rda")
-save(missing_ED_bed_moves, file = outFile)
+# # save missing bed moves data
+# outFile = paste0("EDcrowding/flow-mapping/data-raw/missing_ED_",today(),".rda")
+# save(missing_ED_bed_moves, file = outFile)
