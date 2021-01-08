@@ -218,6 +218,10 @@ rpt(ED_bed_moves_raw) # has admission time
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(room = split_location(location_string, 2))
 
+# *** Add a condition here to update department when it's null (TO1ECU in December)
+# ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+#   mutate(department = case_when(department == "null" & grepl))
+
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(ED_row = case_when(department == "ED" | department == "UCHT00CDU" ~ 1,
                                         TRUE ~ 0))
