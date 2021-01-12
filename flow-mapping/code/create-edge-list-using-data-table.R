@@ -37,6 +37,8 @@ moves <- data.table(ED_bed_moves %>%
 moves[department == "null", department := "T01ECU"]
 moves[location == "null", location := "T01ECU"]
 
+setkey(moves, csn)
+
 # add lead csn, admission and location - see https://rdrr.io/cran/data.table/man/shift.html
 cols = c("csn","admission","discharge", "department", "location")
 leadcols = paste("lead", cols, sep="_")
@@ -63,7 +65,7 @@ moves[csn == lag_csn & admission != lag_discharge, admission := lag_discharge]
 # delete cols not needed
 
 set(moves, NULL , c("drop_row", "amend_row", "lag_csn", "lag_location", "lag_department",
-                    "lag_admission", "lag_discharge", "lead_admission", "lead_discharge"), NULL)
+                    "lag_admission", "lag_discharge",  "lead_discharge"), NULL)
 rpt(moves)
 
 # update lead location where csns change
@@ -112,11 +114,45 @@ moves[, "visited_obs" := sum(obs, na.rm = TRUE) > 0, by = csn]
 moves[, "visited_same_day" := sum(same_day, na.rm = TRUE) > 0, by = csn]
 moves[, "visited_acute" := sum(acute, na.rm = TRUE) >0, by = csn]
 
-# identify whether visit limited to observation or same day locations
+# identify whether visit limited to observation or same day locations (referred to as inside)
 moves[, "ED" := if_else(department == "ED", 1, 0)]
 moves[, "ED_obs_same_day" := ED + obs + same_day]
 moves[, "outside" := ED_obs_same_day == 0]
 moves[, "visited_outside":= sum(ED_obs_same_day == 0, na.rm = TRUE) > 0, by = csn]
+moves[, "inside_exit" := if_else(!outside & shift(outside, 1, NA, "lead"), TRUE, FALSE)]
+
+
+# get last inside rows
+moves[(!outside), last_inside := if_else(discharge == max(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
+moves[ED == 1, last_ED := if_else(discharge == max(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
+
+last_inside = unique(moves[(last_inside), list(csn, discharge)])
+setnames(last_inside, "discharge", "last_inside_discharge")
+
+last_ED = unique(moves[(last_ED), list(csn, discharge)])
+setnames(last_ED, "discharge", "last_ED_discharge")
+
+moves = moves[last_inside]
+moves = moves[last_ED]
+rm(last_ED, last_inside)
+
+
+# get first outside rows (note these may not be the same as last inside rows in the case of multiple ED exits)
+moves[ED_exit == 1, first_ED_exit := if_else(discharge == min(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
+moves[inside_exit == 1 & shift(outside, 1, NA, "lead"), first_inside_exit := if_else(discharge == min(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
+
+first_outside_ED = unique(moves[(first_ED_exit), list(csn, lead_admission)])
+setnames(first_outside_ED, "lead_admission", "first_outside_ED_admission")
+moves = merge(moves, first_outside_ED, all.x = TRUE)
+
+first_outside_proper = unique(moves[(first_inside_exit), list(csn, lead_admission)])
+setnames(first_outside_proper, "lead_admission", "first_outside_proper_admission")
+moves = merge(moves, first_outside_proper, all.x = TRUE)
+
+# identify first location
+moves[, "first_admission" := min(admission), by = csn]
+moves[, "first_location" := location[which(admission == first_admission)], by = csn]
+moves[, "first_dept" := department[which(admission == first_admission)], by = csn]
 
 
 # # identify rows containing final location
@@ -124,19 +160,28 @@ moves[, "visited_outside":= sum(ED_obs_same_day == 0, na.rm = TRUE) > 0, by = cs
 moves[, "final_admission" := max(admission), by = csn]
 moves[, "final_location" := location[which(admission == final_admission)], by = csn]
 moves[, "final_dept" := department[which(admission == final_admission)], by = csn]
-# 
-# # identify rows containing first location
-# moves[, "min_admission" := min(admission), by = csn]
-# moves[, "first_location" := location[which(admission == min_admission)], by = csn]
-# moves[, "first_dept" := department[which(admission == min_admission)], by = csn]
 
-# # get final ED time
-# moves[, "max_dept" := max(discharge), by=list(csn, department)]
+
+# Assign final classification ---------------------------------------------
+
+direct_adm <- moves[(!visited_same_day) & !visited_obs & visited_outside, unique(csn)]
+indirect_adm <- moves[(visited_same_day & !visited_obs & visited_outside) |
+                        ((!visited_same_day) & visited_obs & visited_outside) |
+                        (visited_same_day & visited_obs & visited_outside), unique(csn)]
+indirect_dis <- moves[((!visited_same_day) & visited_obs & !visited_outside) |
+                        (visited_same_day & !visited_obs & !visited_outside) |
+                        (visited_same_day & visited_obs & !visited_outside), unique(csn)]
+direct_dis <- moves[(!visited_same_day) & !visited_obs & !visited_outside, unique(csn)]
+
+ED_csn_summ <- ED_csn_summ %>% 
+  mutate(adm = case_when(csn %in% direct_adm ~ "direct_adm",
+                         csn %in% indirect_adm ~ "indirect_adm",
+                         csn %in% indirect_dis ~ "indirect_dis",
+                         csn %in% direct_dis ~ "direct_dis"))
+
 
 
 # For edge list processing --------
-
-
 
 # create final edge list
 edgedf <- moves[,.(csn, from = location, to = lead_location, 
@@ -149,7 +194,6 @@ edgedf <- moves[,.(csn, from = location, to = lead_location,
 
 # Save data ---------------------------------------------------------------
 
-setkey(moves, csn)
 outFile = paste0("EDcrowding/flow-mapping/data-raw/moves_",today(),".rda")
 save(moves, file = outFile)
 rm(outFile)
@@ -157,3 +201,5 @@ rm(outFile)
 outFile = paste0("EDcrowding/flow-mapping/data-raw/edgedf_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
+
+
