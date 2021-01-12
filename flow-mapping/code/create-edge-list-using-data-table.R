@@ -27,13 +27,15 @@ load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-06.rda")
 
 
 moves <- data.table(ED_bed_moves %>% 
-                       mutate(location = case_when(department == "ED"~ room4, 
+                       mutate(location = case_when(department == "ED" & room4 == "TRIAGE" ~ "Waiting",
+                                                   department == "ED" ~ room4, 
                                                    TRUE ~ department)) %>% 
                                 select(csn, admission, discharge, department, location, covid_pathway)) 
 
 # need to add a condition here if more null departments appear - for now just check
 #ED_bed_moves %>% filter(department == "null") %>% group_by(department) %>% summarise(n())
 moves[department == "null", department := "T01ECU"]
+moves[location == "null", location := "T01ECU"]
 
 # add lead csn, admission and location - see https://rdrr.io/cran/data.table/man/shift.html
 cols = c("csn","admission","discharge", "department", "location")
@@ -46,7 +48,6 @@ lagcols = paste("lag", cols, sep="_")
 #moves[csn == lead_csn & location == lead_location, discharge := lead_discharge]
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 moves[csn == lead_csn & location == lead_location, drop_row := TRUE]
-# NB there is an error here; csn 1017530862 moved three times within T01 and now has dttm mismatch
 rpt(moves) 
 rpt(moves[(drop_row)])
 
@@ -114,19 +115,20 @@ moves[, "visited_acute" := sum(acute, na.rm = TRUE) >0, by = csn]
 # identify whether visit limited to observation or same day locations
 moves[, "ED" := if_else(department == "ED", 1, 0)]
 moves[, "ED_obs_same_day" := ED + obs + same_day]
-moves[, "outside":= sum(ED_obs_same_day == 0, na.rm = TRUE) > 0, by = csn]
+moves[, "outside" := ED_obs_same_day == 0]
+moves[, "visited_outside":= sum(ED_obs_same_day == 0, na.rm = TRUE) > 0, by = csn]
 
 
-# identify rows containing final location
-#moves[, .SD[which.max(discharge)], by = csn]
+# # identify rows containing final location
+# #moves[, .SD[which.max(discharge)], by = csn]
 moves[, "final_admission" := max(admission), by = csn]
 moves[, "final_location" := location[which(admission == final_admission)], by = csn]
 moves[, "final_dept" := department[which(admission == final_admission)], by = csn]
-
-# identify rows containing first location
-moves[, "min_admission" := min(admission), by = csn]
-moves[, "first_location" := location[which(admission == min_admission)], by = csn]
-moves[, "first_dept" := department[which(admission == min_admission)], by = csn]
+# 
+# # identify rows containing first location
+# moves[, "min_admission" := min(admission), by = csn]
+# moves[, "first_location" := location[which(admission == min_admission)], by = csn]
+# moves[, "first_dept" := department[which(admission == min_admission)], by = csn]
 
 # # get final ED time
 # moves[, "max_dept" := max(discharge), by=list(csn, department)]
@@ -137,7 +139,7 @@ moves[, "first_dept" := department[which(admission == min_admission)], by = csn]
 
 
 # create final edge list
-edgedf <- moves_[,.(csn, from = location, to = lead_location, 
+edgedf <- moves[,.(csn, from = location, to = lead_location, 
                      from_dept = department, to_dept = lead_department, dttm = discharge)]
 
 
