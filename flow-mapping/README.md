@@ -65,10 +65,11 @@ input
 output
 - moves
 - edgedf
+- ED_csn_summ - updated with admission class
 
-### 1c. Calc admission class
+### 1c. Calc admission class - no longer needed
 
-Does some analysis of which class patients might be in based on their latest patient class, whether they went to ED or not, where they went after ED (if anywhere). Final section gives them a class. 
+Did some analysis of which class patients might be in based on their latest patient class, whether they went to ED or not, where they went after ED (if anywhere). Final section gives them a class - code now copied to the file which creates the edge list
 
 
 ### 2. Get data on vital signs
