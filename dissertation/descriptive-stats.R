@@ -11,6 +11,10 @@ library(summarytools)
 library(mStats) # ctable, tabodds, mhor
 
 
+# Load data ---------------------------------------------------------------
+
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_all_2020-11-27.rda")
+
 # Table 1 Barrak and Cohen - means, range and CI --------------------------
 
 # age

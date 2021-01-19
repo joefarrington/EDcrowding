@@ -36,13 +36,31 @@ paed_location <- ED_bed_moves %>% filter(room3 %in% c("PAEDS TRIAGE", "PAEDS")) 
   select(csn) %>% distinct() %>% mutate(paed = TRUE)
 
 
-# Comparing this with old ED_csn_summ
+# Comparing this with old ED_csn_summ and doing left join - will miss any csns not in refactored star
 compare <- ED_csn_summ_new %>% 
   select(mrn,csn, patient_class, admission_time) %>%  
   left_join(ED_csn_summ %>% rename(csn_new = csn) %>% select(csn_old, csn_new, adm), by = c("csn" = "csn_old")) %>% distinct() 
 
+
+# Comparing this with old ED_csn_summ and doing outer join to get all csns
+compare0 <- ED_csn_summ_new %>% 
+  select(mrn,csn, patient_class, admission_time) %>%  
+  full_join(ED_csn_summ %>% rename(csn_new = csn) %>% select(csn_old, csn_new, adm), by = c("csn" = "csn_old")) %>% distinct() 
+
+# NOTE - this reconcilation is incomplete 
+
+# to see multiple csns that were created by the previous splitting process
+compare %>% group_by(csn) %>% summarise(tot = n()) %>% filter(tot > 1) %>% arrange(desc(tot))
+
+# to find number of distinct csns in new dataset
+compare0 %>% select(csn_new) %>% n_distinct()
+
+
 ED_csn_summ_new %>% select(csn) %>% n_distinct()
 compare %>% select(csn) %>% n_distinct()
+
+# used in previous analyses:
+
 
 compare2 = compare %>% 
   left_join(ED_csn_summ_CDU %>% rename(csn_new2 = csn)%>% select(csn_old, csn_new2, adm_CDU), by = c("csn" = "csn_old")) %>% distinct()
@@ -56,13 +74,13 @@ compare3 <- compare3 %>%
 
 # look at cases missed last time
 
-compare3 %>% filter(is.na(adm)) %>% select(csn) %>% n_distinct() #3233 missed
-compare3 %>% filter(is.na(adm), paed) %>% select(csn) %>% n_distinct() # of which 1946 were adults in paeds
+compare3 %>% filter(!is.na(adm)) %>% select(csn) %>% n_distinct() #3075 missed
+compare3 %>% filter(is.na(adm), paed) %>% select(csn) %>% n_distinct() # of which 1951 were adults in paeds
 
 compare3 %>% filter(is.na(adm), is.na(paed)) %>% group_by(patient_class) %>% summarise(n()) #37% were admitted
 
 missing_cases = compare3 %>% filter(is.na(adm), is.na(paed)) %>% distinct()
-missing_cases %>% select(csn) %>% n_distinct() # 1135
+missing_cases %>% select(csn) %>% n_distinct() # 1124
 
 
 
@@ -72,11 +90,6 @@ missing_cases = missing_cases %>% left_join(bed_moves_all %>% select(csn) %>% di
 missing_cases %>% filter(admission_time < '2020-09-01', is.na(in_flow)) %>% select(csn) %>% n_distinct()
 # 13 were not picked up in flow
 
-missing_cases %>% filter(admission_time < '2020-09-01', in_star) %>% select(csn) %>% n_distinct()
-# 747 were elimiated from flow for some reason
-load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_CDUinED_2020-11-16.rda")
-missing_cases %>% filter(admission_time < '2020-09-01', in_flow) %>% select(csn) %>% left_join(excluded_csns)
-
 # were they in all bed moves from star
 load("~/EDcrowding/flow-mapping/data-raw/bed_moves_raw_all_star_from_Sep_2020-11-09.rda")
 bed_moves_all_star <- bed_moves_all_star %>% filter(admission < '2020-10-31')
@@ -84,10 +97,33 @@ missing_cases = missing_cases %>% left_join(bed_moves_all_star %>% select(csn) %
 missing_cases %>% filter(admission_time >= '2020-09-01', is.na(in_star)) 
 # 7 were not picked up in Star
 
+
+missing_cases %>% filter(admission_time < '2020-09-01', in_flow) %>% select(csn) %>% n_distinct()
+# 751 were elimiated from flow for some reason
+
+
+
+
 missing_cases %>% filter(admission_time >= '2020-09-01', in_star) %>% select(csn) %>% n_distinct()
-# 368 were eliminated from star for some reason
+# 353 were eliminated from star for some reason
+
+
+# To create table ---------------------------------------------------------
+
+
+# To create table in Google sheet
+
+missing_cases %>% filter(is.na(in_flow_or_star)) %>% select(csn) %>% n_distinct()
+
 load("~/EDcrowding/flow-mapping/data-raw/Excluded_csns_all_CDUinED_2020-11-16.rda")
-missing_cases %>% filter(admission_time >= '2020-09-01', in_star) %>% select(csn) %>% left_join(excluded_csns)
+
+missing_cases %>% filter(admission_time < '2020-09-01', in_flow) %>% select(csn) %>% left_join(excluded_csns) %>% 
+  group_by(reason) %>% summarise(n( ))
+
+missing_cases %>% filter(admission_time >= '2020-09-01', in_star) %>% select(csn) %>% left_join(excluded_csns)  %>% 
+  group_by(reason) %>% summarise(n( ))
+
+
 
 # were they in flow or star - note that this dataset is somewhat filtered to exclude certain rows
 load("~/EDcrowding/flow-mapping/data-raw/bed_moves_raw_all_flow_and_star_2020-11-10.rda")
