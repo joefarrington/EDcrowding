@@ -136,6 +136,12 @@ moves = moves[last_inside]
 moves = moves[last_ED]
 rm(last_ED, last_inside)
 
+# get first ED rows
+moves[ED == 1, first_ED := if_else(admission == min(admission, na.rm = TRUE), TRUE, FALSE), by = csn]
+first_ED_ = unique(moves[(first_ED), list(csn, admission)])
+setnames(first_ED_, "admission", "first_ED_admission")
+moves = moves[first_ED_]
+rm(first_ED_)
 
 # get first outside rows (note these may not be the same as last inside rows in the case of multiple ED exits)
 moves[ED_exit == 1, first_ED_exit := if_else(discharge == min(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]

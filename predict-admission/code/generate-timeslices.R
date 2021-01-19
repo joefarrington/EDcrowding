@@ -1,17 +1,23 @@
 # About this file
 # ==============
 
-# 
+# Generates timeslices for ML
 
 
-# load libraries
-# ==============
+
+# Load libraries ----------------------------------------------------------
 
 library(dplyr)
 library(tidyverse)
 library(lubridate)
+library(data.table)
 
 
+# Create functions --------------------------------------------------------
+
+rpt <- function(dataframe) {
+  print(dataframe %>% select(csn) %>% n_distinct())
+}
 
 
 
@@ -19,106 +25,78 @@ library(lubridate)
 # ================================
  
 
-create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real, cutoff) {
+create_timeslice <- function (bed_moves, csn_summ, fs_real, lab_real, cutoff) {
   
-  # bed moves
-  # =========
+  # locations
   
   print("Processing bed moves")
   
   # select only rows where the admission began before the cutoff time(includes rows where discharge is later)
-  bed_moves_cutoff <- bed_moves %>% ungroup() %>% 
-    left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final/60 >= cutoff/60, 
-           admission <= cutoff) %>% 
-    select(csn, admission, discharge, room4, duration_row, covid_pathway, presentation_time)
+  loc_cutoff <- loc[discharge_e <= cutoff]
   
   # count number of rows
-  bed_moves_cutoff <- bed_moves_cutoff  %>%
-    group_by(csn, presentation_time) %>% 
-    mutate(num_ED_rows = n())
-    
+  loc_cutoff[, num_loc := .N, by = csn]
   
-  # update discharge time of rows that exceed cutoff time
-  bed_moves_cutoff <- bed_moves_cutoff  %>% ungroup() %>% 
-    mutate(discharge = case_when(discharge > cutoff  ~ cutoff,
-                                 TRUE ~ discharge)) %>% ungroup()
-
-  # collate to csn level
-  bed_moves_cutoff_csn <- bed_moves_cutoff  %>%
-    mutate(loc_duration = discharge - admission) %>%
-    group_by(csn, room4, num_ED_rows) %>%
-    summarise(loc_duration = sum(as.numeric(loc_duration))) %>%
-    pivot_wider(names_from = room4, names_prefix = "mins_", values_from = loc_duration, values_fill = 0)
-  
-  # add indicator of location visited
-  bed_moves_cutoff_csn <-   bed_moves_cutoff_csn %>% 
-    left_join(
-      bed_moves_cutoff  %>%
-        ungroup() %>% select(csn, room4) %>% 
-        group_by(csn, room4) %>% 
-        mutate(visited = n()) %>%
-        pivot_wider(names_from = room4, names_prefix = "visited_", values_from = visited, values_fn = sum, values_fill = 0)
-    )
+  # add indicator of location visited at csn level
+  loc_cutoff_csn <- loc_cutoff[(!outside), .N, by = .(csn, location)] %>% 
+    pivot_wider(names_from = location, values_from = N, values_fill = 0)
 
   
   
   # flowsheet data
-  # ==============
   
   print("Processing flowsheet numbers")
   
   
-  # remove outliers
-  flowsheet_real <- flowsheet_real %>% 
-    mutate(result_as_real = case_when(result_as_real >115 & meas == "temp" ~ NA_real_,
-                                      TRUE ~ result_as_real))
-  
-  
-  flowsheet_real <- flowsheet_real %>% 
-    filter(!is.na(result_as_real))
+  # # remove outliers
+  # fs_real <- fs_real %>% 
+  #   mutate(result_as_real = case_when(result_as_real >115 & meas == "temp" ~ NA_real_,
+  #                                     TRUE ~ result_as_real))
+  # 
+  # 
+  # fs_real <- fs_real %>% 
+  #   filter(!is.na(result_as_real))
   
   # select for cutoff
-  flowsheet_cutoff <- flowsheet_real %>% ungroup() %>% 
-    filter(elapsed_mins < cutoff) %>% 
-    left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= cutoff/60)  %>% select(-ED_duration_final, -fk_bed_moves, -flowsheet_datetime)
+  fs_cutoff <- fs_real[elapsed_mins < cutoff]
   
-  # add number of results for csn
-  flowsheet_cutoff_csn <- flowsheet_cutoff %>% ungroup() %>% 
-    group_by(mrn, csn) %>% 
-    summarise(num_fs_results = n()) %>% 
-    mutate(has_fs_results = 1)
+  # add number of flowsheet measurements up to cutoff
+  fs_cutoff[, num_fs := .N, by = csn]
+  
+  # add indicator of fs meas at csn level
+  fs_cutoff_csn2 <-fs_cutoff[, .N, by = .(csn, meas)] %>% pivot_wider(names_from = meas, values_from = N, values_fill = 0)
+  merge(unique(fs_cutoff_csn2, fs_cutoff[, .(csn, num_fs)]))
+  fs_cutoff_csn[, has_fs := if_else(num_fs >0, 1, 0)]
   
   # add number of types of results for csn
-  flowsheet_cutoff_csn <- flowsheet_cutoff_csn %>% 
+  fs_cutoff_csn <- fs_cutoff_csn %>% 
     left_join(
-      flowsheet_cutoff %>% 
+      fs_cutoff %>% 
         group_by(mrn, csn) %>% 
         summarise(num_fs_types = n_distinct(meas)) 
     )
   
   # add number of flowsheet events
-  flowsheet_cutoff_csn <- flowsheet_cutoff_csn %>% 
+  fs_cutoff_csn <- fs_cutoff_csn %>% 
     left_join(
-      flowsheet_cutoff %>% 
+      fs_cutoff %>% 
         group_by(mrn, csn) %>% 
         summarise(num_fs_events = n_distinct(elapsed_mins)) 
     )
   
   # add number of each measurement 
-  flowsheet_cutoff_csn <- flowsheet_cutoff_csn %>% 
+  fs_cutoff_csn <- fs_cutoff_csn %>% 
     left_join(
-      flowsheet_cutoff %>% 
+      fs_cutoff %>% 
         group_by(mrn, csn, meas) %>% 
         summarise(num_meas = n()) %>% 
         pivot_wider(names_from = meas, names_prefix = "fs_num_", values_from = num_meas, values_fill = 0)    
     )
   
   # add o2 sat categories to show when O2 sat dropped below 90 or 94
-    flowsheet_cutoff_csn <- flowsheet_cutoff_csn %>% 
+    fs_cutoff_csn <- fs_cutoff_csn %>% 
     left_join(
-      flowsheet_cutoff  %>% filter(meas == "o2_sat") %>% 
+      fs_cutoff  %>% filter(meas == "o2_sat") %>% 
         select(csn, meas, result_as_real) %>% distinct() %>% 
         mutate(o2_sat_lt90 = case_when(result_as_real < 90 ~ 1, 
                                        TRUE ~ 0),
@@ -133,9 +111,9 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
     
     # add news categories
   
-    flowsheet_cutoff_csn <- flowsheet_cutoff_csn %>% 
+    fs_cutoff_csn <- fs_cutoff_csn %>% 
       left_join(
-        flowsheet_cutoff  %>% filter(meas == "news") %>% 
+        fs_cutoff  %>% filter(meas == "news") %>% 
           select(csn, meas, result_as_real) %>% distinct() %>% 
           mutate(news_medium = case_when(result_as_real < 7 & result_as_real > 4 ~ 1, 
                                          TRUE ~ 0),
@@ -153,24 +131,24 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   
   # flowsheet values
   # add min score for each measurement
-  flowsheet_cutoff_csn_val <- flowsheet_cutoff %>% 
+  fs_cutoff_csn_val <- fs_cutoff %>% 
     group_by(mrn, csn, meas) %>% 
     summarise(min_meas = min(result_as_real, na.rm = TRUE))  %>% 
     pivot_wider(names_from = meas, names_prefix = "fs_min_", values_from = min_meas)    
   
   # add max score for each measurement
-  flowsheet_cutoff_csn_val <- flowsheet_cutoff_csn_val %>% 
+  fs_cutoff_csn_val <- fs_cutoff_csn_val %>% 
     left_join(
-      flowsheet_cutoff %>% 
+      fs_cutoff %>% 
         group_by(mrn, csn, meas) %>% 
         summarise(max_meas = max(result_as_real, na.rm = TRUE))  %>% 
         pivot_wider(names_from = meas, names_prefix = "fs_max_", values_from = max_meas)    
     )
   
   # add latest score for each measurement
-  flowsheet_cutoff_csn_val <- flowsheet_cutoff_csn_val %>% 
+  fs_cutoff_csn_val <- fs_cutoff_csn_val %>% 
     left_join(
-      flowsheet_cutoff %>% 
+      fs_cutoff %>% 
         group_by(mrn, csn, meas) %>% 
         filter(elapsed_mins == max(elapsed_mins)) %>% 
         summarise(latest_meas = max(result_as_real, na.rm = TRUE))  %>%  # using max allows for possibility of two measurements in same minute
@@ -263,8 +241,8 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
   
   matrix_cutoff <- csn_summ %>%
     filter(ED_duration_final/60 >= cutoff/60) %>% distinct() %>% 
-    left_join(bed_moves_cutoff_csn) %>% 
-    left_join(flowsheet_cutoff_csn) %>% 
+    left_join(loc_cutoff_csn) %>% 
+    left_join(fs_cutoff_csn) %>% 
     left_join(lab_cutoff_csn)
   
   # need to fill in the NA values as zeroes for people without any flowsheet measurements
@@ -274,7 +252,7 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
     mutate_at(vars(colnames(matrix_cutoff)[25:ncol(matrix_cutoff)]), replace_na, 0)
   
   matrix_cutoff <- matrix_cutoff %>% 
-    left_join(flowsheet_cutoff_csn_val) %>% 
+    left_join(fs_cutoff_csn_val) %>% 
     left_join(lab_cutoff_csn_val) 
   
   return(matrix_cutoff)
@@ -286,59 +264,58 @@ create_design_matrix <- function (bed_moves, csn_summ, flowsheet_real, lab_real,
 # load data
 # =========
 
-load("~/EDcrowding/predict-admission/data-raw/ED_csn_summ_final_csns_2020-12-07.rda")
-load("~/EDcrowding/predict-admission/data-raw/final_csns_2020-12-07.rda")
-load("~/EDcrowding/predict-admission/data-raw/ED_bed_moves_final_csns_2020-12-07.rda")
+load("~/EDcrowding/predict-admission/data-raw/ED_csn_summ_final_csns_2020-01-19.rda")
+load("~/EDcrowding/predict-admission/data-raw/ED_bed_moves_final_csns_2020-01-19.rda")
 
 # flowsheet data
-load("~/EDcrowding/predict-admission/data-raw/flowsheet_real_2020-11-05.rda")
-flowsheet_real <- flowsheet_real %>% inner_join(final_csns)
+load("~/EDcrowding/predict-admission/data-raw/fs_real_2020-01-19.rda")
 
 # lab data
 load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
-lab_real <- lab_real %>% inner_join(final_csns)
 
-# all prior bed moves data to get prior visit info
-load("~/EDcrowding/flow-mapping/data-raw/visits_all_2020-12-02.rda")
+# prior visit info
+load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-06.rda")
 
 
-# prepare csn level data
-# =====================
+
+# Prepare csn level data --------------------------------------------------
+
 
 # attach admission relevant variables
 
-csn_summ <- ED_csn_summ %>% 
-  select(csn, age, sex, presentation_time, adm, epoch, ED_duration_final) %>% 
-  mutate(hour_of_arrival = hour(presentation_time),
+summ <- data.table(ED_csn_summ %>% 
+  select(csn, age, sex, presentation_time, adm, epoch, last_ED_discharge, min_I, first_ED_admission) %>% 
+  mutate(hour = hour(presentation_time),
          month = month(presentation_time), 
          quarter = factor((month %/% 3)+1),
          year = year(presentation_time), 
-         day_of_week = factor(weekdays(presentation_time, abbreviate = TRUE)),
-         weekend = if_else(day_of_week %in% c("Sun", "Sat"), 1,0),
+         day = factor(weekdays(presentation_time, abbreviate = TRUE)),
+         weekend = if_else(day %in% c("Sun", "Sat"), 1,0),
          night = ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1),
-         time_of_day = factor((hour_of_arrival %/% 4)+1),
-         gt70 = factor(age >= 70))
+         time = factor((hour %/% 4)+1),
+         gt70 = factor(age >= 70),
+         inpatient = if_else(min_I < first_ED_admission, 1, 0)))
 
-
-csn_summ %>% select(csn) %>% n_distinct() #152429
+rpt(summ)
 
 ### add prior visits
 
-csn_summ <- csn_summ %>% ungroup() %>% 
-  left_join(visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED))
+summ <- merge(summ, visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED))
 
 
-# select only ED rows
+# Prepare location data --------------------------------------------------
 
-bed_moves <- bed_moves %>% filter(!room4 %in% c("CDU", "OTF POOL")) %>% 
-  mutate(room4 = case_when(room4 %in% c("Waiting", "TRIAGE") ~ "Waiting",
-                           TRUE ~ room4))
+loc <- moves[, .(csn, admission, discharge, location, first_ED_admission, last_inside_discharge, visited_CDU, outside)]
+loc <- merge(loc, summ[,.(csn, presentation_time)])
+loc[, admission_e := as.numeric(difftime(admission, presentation_time, units = "mins"))]
+loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "mins"))]
 
-bed_moves %>% select(csn) %>% n_distinct() #152429
+# remove rows after the patient leaves ED or other inside location (where inside includes CDU and possibly others)
+loc <- loc[discharge <= last_inside_discharge]
+rpt(loc)
 
-
-#matrix_60 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 60)
-matrix_120 <- create_design_matrix(bed_moves, csn_summ, flowsheet_real, lab_real, 120)
+#matrix_60 <- create_timeslice(bed_moves, csn_summ, fs_real, lab_real, 60)
+matrix_120 <- create_timeslice(loc, summ, fs_real, 120)
 
 # useful function to explore data 
 #skimr::skim(matrix_60)
