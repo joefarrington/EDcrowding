@@ -126,7 +126,7 @@ dev.off()
 
 # Checking on EAU dropping out of use -------------------------------------
 
-moves[visited_T09 := sum(department %in% c("T09C", "T09N", "T09S"), na.rm = TRUE) > 0, by = csn]
+moves[, visited_T09 := sum(department %in% c("T09C", "T09N", "T09S"), na.rm = TRUE) > 0, by = csn]
 
 # Save summary as data table -------------------------------------------------
 
