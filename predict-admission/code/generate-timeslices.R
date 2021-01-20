@@ -25,235 +25,123 @@ rpt <- function(dataframe) {
 # ================================
  
 
-create_timeslice <- function (bed_moves, csn_summ, fs_real, lab_real, cutoff) {
+create_timeslice <- function (bed_moves, csn_summ, fs_real, cutoff, nextcutoff) {
   
-  # locations
+  # locations - note this section will not include patients who have no location data up to cutoff + margin
   
   print("Processing bed moves")
   
-  # select only rows where the admission began before the cutoff time(includes rows where discharge is later)
-  loc_cutoff <- loc[discharge_e <= cutoff]
+  # select only patients with duration longer than cutoff 
+  loc_cutoff <- loc[duration > cutoff]
   
-  # count number of rows
-  loc_cutoff[, num_loc := .N, by = csn]
+  # select locations that began before the cutoff (up to midpoint before next cutoff)
+  loc_cutoff <- loc_cutoff[admission_e < cutoff + (nextcutoff - cutoff)/2]
+  
+  # count number of location rows up to ED - note will include any pre- ED locations
+  loc_count <- loc_cutoff[, .N, by = csn]
+  setnames(loc_count, "N", "num_loc")
   
   # add indicator of location visited at csn level
-  loc_cutoff_csn <- loc_cutoff[(!outside), .N, by = .(csn, location)] %>% 
-    pivot_wider(names_from = location, values_from = N, values_fill = 0)
+  loc_cutoff_csn <- merge(loc_count, data.table(
+    loc_cutoff[(!outside), .N, by = .(csn, location)] %>% 
+    pivot_wider(names_from = location, names_prefix = "num_", values_from = N, values_fill = 0)
+  ), all.x = TRUE)
+  
+  # rename CDU
+  setnames(loc_cutoff_csn, "num_UCHT00CDU", "num_CDU")
 
   
   
-  # flowsheet data
+  # flowsheet data - this will create counts of all flowsheet data prior to cutoff + margin
   
   print("Processing flowsheet numbers")
   
-  
-  # # remove outliers
-  # fs_real <- fs_real %>% 
-  #   mutate(result_as_real = case_when(result_as_real >115 & meas == "temp" ~ NA_real_,
-  #                                     TRUE ~ result_as_real))
-  # 
-  # 
-  # fs_real <- fs_real %>% 
-  #   filter(!is.na(result_as_real))
-  
   # select for cutoff
-  fs_cutoff <- fs_real[elapsed_mins < cutoff]
+  fs_cutoff <- fs_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
   
   # add number of flowsheet measurements up to cutoff
   fs_cutoff[, num_fs := .N, by = csn]
   
-  # add indicator of fs meas at csn level
-  fs_cutoff_csn2 <-fs_cutoff[, .N, by = .(csn, meas)] %>% pivot_wider(names_from = meas, values_from = N, values_fill = 0)
-  merge(unique(fs_cutoff_csn2, fs_cutoff[, .(csn, num_fs)]))
-  fs_cutoff_csn[, has_fs := if_else(num_fs >0, 1, 0)]
+  # generate counts of fs meas by csn
+  fs_cutoff_csn <- fs_cutoff[, .N, by = .(csn, meas)] %>% 
+    pivot_wider(names_from = meas, names_prefix = "num_", values_from = N, values_fill = 0)
+  fs_cutoff_csn <- data.table(merge(fs_cutoff_csn, unique(fs_cutoff[, .(csn, num_fs)])))
   
-  # add number of types of results for csn
-  fs_cutoff_csn <- fs_cutoff_csn %>% 
-    left_join(
-      fs_cutoff %>% 
-        group_by(mrn, csn) %>% 
-        summarise(num_fs_types = n_distinct(meas)) 
-    )
+  # add number of types of results by csn
+  fs_cutoff_csn <- merge(fs_cutoff_csn, fs_cutoff[, .(fs_types = uniqueN(meas)), by = csn])
   
-  # add number of flowsheet events
-  fs_cutoff_csn <- fs_cutoff_csn %>% 
-    left_join(
-      fs_cutoff %>% 
-        group_by(mrn, csn) %>% 
-        summarise(num_fs_events = n_distinct(elapsed_mins)) 
-    )
+  # blood pressure has two measurements, so delete one
+  fs_cutoff_csn[, fs_types := fs_types -1]
+  fs_cutoff_csn[, num_fs := num_fs - num_bp_dia]
+  fs_cutoff_csn[, has_fs := if_else(num_fs > 0, 1, 0)]
   
-  # add number of each measurement 
-  fs_cutoff_csn <- fs_cutoff_csn %>% 
-    left_join(
-      fs_cutoff %>% 
-        group_by(mrn, csn, meas) %>% 
-        summarise(num_meas = n()) %>% 
-        pivot_wider(names_from = meas, names_prefix = "fs_num_", values_from = num_meas, values_fill = 0)    
-    )
+  # add number of flowsheet events per csn
+  fs_cutoff_csn <- merge(fs_cutoff_csn, fs_cutoff[, .(fs_events = uniqueN(elapsed_mins)), by = csn])
   
-  # add o2 sat categories to show when O2 sat dropped below 90 or 94
-    fs_cutoff_csn <- fs_cutoff_csn %>% 
-    left_join(
-      fs_cutoff  %>% filter(meas == "o2_sat") %>% 
-        select(csn, meas, result_as_real) %>% distinct() %>% 
-        mutate(o2_sat_lt90 = case_when(result_as_real < 90 ~ 1, 
-                                       TRUE ~ 0),
-               o2_sat_lt94 = case_when(result_as_real < 95 ~ 1, 
-                                       TRUE ~ 0)) %>% 
-        select(-result_as_real, -meas) %>% 
-        group_by(csn) %>% distinct() %>% 
-        mutate(fs_o2_sat_lt90 = sum(o2_sat_lt90) > 0,
-               fs_o2_sat_lt94 = sum(o2_sat_lt94) > 0) %>% 
-        select(-starts_with("o2_sat")) %>% distinct()
-    )
+  # add count of times when O2 sat dropped below 90 or 95
+
+  sat_lt90 <- fs_cutoff[meas == "o2_sat" & value_as_real < 90, .N, by = .(csn)] 
+  setnames(sat_lt90, "N", "num_o2sat_lt90")
+  sat_lt95 <- fs_cutoff[meas == "o2_sat" & value_as_real < 95, .N, by = .(csn)] 
+  setnames(sat_lt95, "N", "num_o2sat_lt95")
+  
+  fs_cutoff_csn <- merge(fs_cutoff_csn, sat_lt90, all.x = TRUE, by = "csn")
+  fs_cutoff_csn <- merge(fs_cutoff_csn, sat_lt95, all.x = TRUE, by = "csn")
     
-    # add news categories
+  # add count of times when news score was medium or high
   
-    fs_cutoff_csn <- fs_cutoff_csn %>% 
-      left_join(
-        fs_cutoff  %>% filter(meas == "news") %>% 
-          select(csn, meas, result_as_real) %>% distinct() %>% 
-          mutate(news_medium = case_when(result_as_real < 7 & result_as_real > 4 ~ 1, 
-                                         TRUE ~ 0),
-                 news_high = case_when(result_as_real >= 7 ~ 1, 
-                                       TRUE ~ 0)) %>% 
-          select(-result_as_real, -meas) %>% 
-          group_by(csn) %>% distinct() %>% 
-          mutate(fs_news_medium = sum(news_medium) > 0,
-                 fs_news_high = sum(news_high) > 0) %>% 
-          select(-starts_with("news_"))  %>% distinct()
-      )
+  news_med <- fs_cutoff[meas == "news" & value_as_real < 7 & value_as_real > 4, .N, by = .(csn)] 
+  setnames(news_med, "N", "num_newsmed")
+  news_high <- fs_cutoff[meas == "news" & value_as_real >= 7, .N, by = .(csn)] 
+  setnames(news_high, "N", "num_newshigh")
+  
+  fs_cutoff_csn <- merge(fs_cutoff_csn, news_med, all.x = TRUE, by = "csn")
+  fs_cutoff_csn <- merge(fs_cutoff_csn, news_high, all.x = TRUE, by = "csn")
   
   print("Processing flowsheet values")
+  # Note - this uses a different table due to handling of NA values later on
 
-  
-  # flowsheet values
-  # add min score for each measurement
-  fs_cutoff_csn_val <- fs_cutoff %>% 
-    group_by(mrn, csn, meas) %>% 
-    summarise(min_meas = min(result_as_real, na.rm = TRUE))  %>% 
-    pivot_wider(names_from = meas, names_prefix = "fs_min_", values_from = min_meas)    
+  # add min for each measurement
+  fs_cutoff_csn_val <- data.table(
+    fs_cutoff[,  min(value_as_real, na.rm = TRUE), by = .(csn, meas)] %>% 
+    pivot_wider(names_from = meas, names_prefix = "fs_min_", values_from = V1)
+  )
   
   # add max score for each measurement
-  fs_cutoff_csn_val <- fs_cutoff_csn_val %>% 
-    left_join(
-      fs_cutoff %>% 
-        group_by(mrn, csn, meas) %>% 
-        summarise(max_meas = max(result_as_real, na.rm = TRUE))  %>% 
-        pivot_wider(names_from = meas, names_prefix = "fs_max_", values_from = max_meas)    
-    )
+  fs_cutoff_csn_val <- merge(fs_cutoff_csn_val, data.table(
+    fs_cutoff[,  max(value_as_real, na.rm = TRUE), by = .(csn, meas)] %>% 
+      pivot_wider(names_from = meas, names_prefix = "fs_max_", values_from = V1)
+  ))
   
   # add latest score for each measurement
-  fs_cutoff_csn_val <- fs_cutoff_csn_val %>% 
-    left_join(
+  fs_cutoff_csn_val <- merge(fs_cutoff_csn_val, data.table(
       fs_cutoff %>% 
-        group_by(mrn, csn, meas) %>% 
+        group_by(csn, meas) %>% 
         filter(elapsed_mins == max(elapsed_mins)) %>% 
-        summarise(latest_meas = max(result_as_real, na.rm = TRUE))  %>%  # using max allows for possibility of two measurements in same minute
+        # using max allows for possibility of two measurements in same minute
+        summarise(latest_meas = max(value_as_real, na.rm = TRUE))  %>%  
         pivot_wider(names_from = meas, names_prefix = "fs_latest_", values_from = latest_meas)    
-    )
-  
-  
-  
-  # lab data
-  # ========
-  
-  print("Processing lab numbers")
-  
-  
-  lab_real <- lab_real %>% 
-    filter(!is.na(result_as_real))
-  
-  # select for cutoff
-  lab_cutoff <- lab_real %>% ungroup() %>% 
-    filter(elapsed_mins < cutoff) %>% 
-    left_join(ED_csn_summ %>% select(csn, ED_duration_final)) %>% 
-    filter(ED_duration_final >= cutoff/60)  %>% 
-    select(-ED_duration_final, -fk_bed_moves, -result_datetime, -mapped_name)
-  
-  # add number of results for csn
-  lab_cutoff_csn <- lab_cutoff %>% ungroup() %>% 
-    group_by(mrn, csn) %>% 
-    summarise(num_lab_results = n()) %>% 
-    mutate(has_lab_results = 1)
-  
-  # add number of types of results for csn
-  lab_cutoff_csn <- lab_cutoff_csn %>% 
-    left_join(
-      lab_cutoff %>% 
-        group_by(mrn, csn) %>% 
-        summarise(num_lab_types = n_distinct(local_code)) 
-    )
-  
-  # add number of lab result events
-  lab_cutoff_csn <- lab_cutoff_csn %>% 
-    left_join(
-      lab_cutoff %>% 
-        group_by(mrn, csn) %>% 
-        summarise(num_lab_events = n_distinct(elapsed_mins)) 
-    )
-  
-  # add number of each lab 
-  lab_cutoff_csn <- lab_cutoff_csn %>% 
-    left_join(
-      lab_cutoff %>% 
-        group_by(mrn, csn, local_code) %>% 
-        summarise(num_lab = n()) %>% 
-        pivot_wider(names_from = local_code, names_prefix = "l_num_", values_from = num_lab, values_fill = 0)    
-    )
-  
-  print("Processing lab values")
-  
-  
-  # lab values
-  # add min score for each lab result  - use separate matrix so that NAs can be retained in this join
-  lab_cutoff_csn_val <- lab_cutoff %>% 
-    group_by(mrn, csn, local_code) %>% 
-    summarise(min_lab = min(result_as_real, na.rm = TRUE))  %>% 
-    pivot_wider(names_from = local_code, names_prefix = "l_min_", values_from = min_lab)    
-  
-  # add max score for each result
-  lab_cutoff_csn_val <- lab_cutoff_csn_val %>% 
-    left_join(
-      lab_cutoff %>% 
-        group_by(mrn, csn, local_code) %>% 
-        summarise(max_lab = max(result_as_real, na.rm = TRUE))  %>% 
-        pivot_wider(names_from = local_code, names_prefix = "l_max_", values_from = max_lab)       
-    )
-  
-  # add latest score for each result
-  lab_cutoff_csn_val <- lab_cutoff_csn_val %>% 
-    left_join(
-      lab_cutoff %>% 
-        group_by(mrn, csn, local_code) %>%  
-        filter(elapsed_mins == max(elapsed_mins)) %>% 
-        summarise(latest_lab = max(result_as_real, na.rm = TRUE))  %>%  # using max allows for possibility of two measurements in same minute
-        pivot_wider(names_from = local_code, names_prefix = "l_latest_", values_from = latest_lab)    
-    )
+    ))
+
   
   ## combine everything
-  # ==================
   
   print("Combining together")
   
-  
-  matrix_cutoff <- csn_summ %>%
-    filter(ED_duration_final/60 >= cutoff/60) %>% distinct() %>% 
-    left_join(loc_cutoff_csn) %>% 
-    left_join(fs_cutoff_csn) %>% 
-    left_join(lab_cutoff_csn)
+  # just use csn from summ to start with - add the other summ fields (which may have genuine NAs) later
+  matrix_cutoff <- merge(summ[duration > cutoff, .(csn, adm)], loc_cutoff_csn, all.x = TRUE) 
+  matrix_cutoff <- merge(matrix_cutoff, fs_cutoff_csn, all.x = TRUE)
   
   # need to fill in the NA values as zeroes for people without any flowsheet measurements
   # do this before adding the valued results as these need to remain as NA
   # ideally this would not be hard-coded - if you change number of locations, this needs to change
-  matrix_cutoff <- matrix_cutoff %>% 
-    mutate_at(vars(colnames(matrix_cutoff)[25:ncol(matrix_cutoff)]), replace_na, 0)
   
-  matrix_cutoff <- matrix_cutoff %>% 
-    left_join(fs_cutoff_csn_val) %>% 
-    left_join(lab_cutoff_csn_val) 
+  # replace all counts with NA as 0
+  matrix_cutoff[is.na(matrix_cutoff)] <- 0
+  
+  # add other info where there may be genuine NAs
+  matrix_cutoff <- merge(matrix_cutoff, summ[duration > cutoff], by = c("csn", "adm")) 
+  matrix_cutoff <- merge(matrix_cutoff, fs_cutoff_csn_val, all.x = TRUE) 
   
   return(matrix_cutoff)
   
@@ -264,14 +152,14 @@ create_timeslice <- function (bed_moves, csn_summ, fs_real, lab_real, cutoff) {
 # load data
 # =========
 
-load("~/EDcrowding/predict-admission/data-raw/ED_csn_summ_final_csns_2020-01-19.rda")
-load("~/EDcrowding/predict-admission/data-raw/ED_bed_moves_final_csns_2020-01-19.rda")
+load("~/EDcrowding/predict-admission/data-raw/ED_csn_summ_final_csns_2021-01-19.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-19.rda")
 
 # flowsheet data
-load("~/EDcrowding/predict-admission/data-raw/fs_real_2020-01-19.rda")
+load("~/EDcrowding/predict-admission/data-raw/fs_real_2021-01-20.rda")
 
 # lab data
-load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
+#load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
 
 # prior visit info
 load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-06.rda")
@@ -284,7 +172,7 @@ load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-06.rda")
 # attach admission relevant variables
 
 summ <- data.table(ED_csn_summ %>% 
-  select(csn, age, sex, presentation_time, adm, epoch, last_ED_discharge, min_I, first_ED_admission) %>% 
+  select(csn, age, sex, presentation_time, adm, epoch, arrival_method, last_inside_discharge, min_I, first_ED_admission) %>% 
   mutate(hour = hour(presentation_time),
          month = month(presentation_time), 
          quarter = factor((month %/% 3)+1),
@@ -294,19 +182,34 @@ summ <- data.table(ED_csn_summ %>%
          night = ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1),
          time = factor((hour %/% 4)+1),
          gt70 = factor(age >= 70),
-         inpatient = if_else(min_I < first_ED_admission, 1, 0)))
+         # was an inpatient, as part of this visit, before ED
+         inpatient = if_else(min_I < first_ED_admission | is.na(min_I), 1, 0),
+         # include a feature to capture time delay between presentation and arrival at ED;
+         beforeED = as.numeric(difftime(first_ED_admission, presentation_time, units = "mins")),
+         # NB - using last inside discharge for duration - need to check this? 
+         duration = as.numeric(difftime(last_inside_discharge, presentation_time, units = "mins"))))
 
 rpt(summ)
 
+
+# simply arrival method
+summ[, arrival_method := if_else(!arrival_method %in% c("Ambulance",
+                                                        "Walk-in",
+                                                        "Public Trans",
+                                                        "Amb no medic"), "Other", arrival_method) ]
 ### add prior visits
 
 summ <- merge(summ, visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED))
 
+# correcting error in visits processing - small number have negative number of days since last visit
+summ[, days_since_last_visit := if_else(days_since_last_visit <0, NA_real_, days_since_last_visit) ]
+
+summ[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
 
 # Prepare location data --------------------------------------------------
 
-loc <- moves[, .(csn, admission, discharge, location, first_ED_admission, last_inside_discharge, visited_CDU, outside)]
-loc <- merge(loc, summ[,.(csn, presentation_time)])
+loc <- moves[, .(csn, admission, discharge, location, visited_CDU, outside)]
+loc <- merge(loc, summ[,.(csn, presentation_time, duration)])
 loc[, admission_e := as.numeric(difftime(admission, presentation_time, units = "mins"))]
 loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "mins"))]
 
@@ -314,11 +217,14 @@ loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "
 loc <- loc[discharge <= last_inside_discharge]
 rpt(loc)
 
+loc[, c("admission", "discharge", "presentation_time") := NULL]
+
+
 #matrix_60 <- create_timeslice(bed_moves, csn_summ, fs_real, lab_real, 60)
-matrix_120 <- create_timeslice(loc, summ, fs_real, 120)
+dm15 <- create_timeslice(loc, summ, fs_real, 15, 30)
 
 # useful function to explore data 
 #skimr::skim(matrix_60)
 
-outFile = paste0("EDcrowding/predict-admission/data-raw/matrix_120_",today(),".rda")
-save(matrix_120, file = outFile)
+outFile = paste0("EDcrowding/predict-admission/data-raw/dm15_",today(),".rda")
+save(dm15, file = outFile)
