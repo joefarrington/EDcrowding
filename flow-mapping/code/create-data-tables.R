@@ -22,21 +22,16 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_2021-01-06.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-01-25.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-01-25.rda")
 
 
-moves <- data.table(ED_bed_moves %>% 
+moves <- data.table(ED_bed_moves_raw %>% 
                        mutate(location = case_when(department == "ED" & room4 == "TRIAGE" ~ "Waiting",
                                                    department == "ED" ~ room4, 
                                                    TRUE ~ department)) %>% 
-                                select(csn, admission, discharge, department, location, covid_pathway)) 
-
-# need to add a condition here if more null departments appear - for now just check
-#ED_bed_moves %>% filter(department == "null") %>% group_by(department) %>% summarise(n())
-moves[department == "null", department := "T01ECU"]
-moves[location == "null", location := "T01ECU"]
-
+                      select(csn, admission, discharge, department, location) %>% 
+                      arrange(csn, admission))
 setkey(moves, csn)
 
 # add lead csn, admission and location - see https://rdrr.io/cran/data.table/man/shift.html
@@ -44,14 +39,12 @@ cols = c("csn","admission","discharge", "department", "location")
 leadcols = paste("lead", cols, sep="_")
 lagcols = paste("lag", cols, sep="_")
 
-
-
 # update with next row's discharge time when locations are repeated
 #moves[csn == lead_csn & location == lead_location, discharge := lead_discharge]
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 moves[csn == lead_csn & location == lead_location, drop_row := TRUE]
 rpt(moves) 
-rpt(moves[(drop_row)])
+rpt(moves[(drop_row)]) # this is number of csns where a row will be dropped
 
 
 # remove rows where location is repeated
@@ -126,21 +119,21 @@ moves[, "inside_exit" := if_else(!outside & shift(outside, 1, NA, "lead"), TRUE,
 moves[(!outside), last_inside := if_else(discharge == max(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
 moves[ED == 1, last_ED := if_else(discharge == max(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
 
-last_inside = unique(moves[(last_inside), list(csn, discharge)])
-setnames(last_inside, "discharge", "last_inside_discharge")
+last_inside_ = unique(moves[(last_inside), list(csn, discharge)])
+setnames(last_inside_, "discharge", "last_inside_discharge")
 
 last_ED = unique(moves[(last_ED), list(csn, discharge)])
 setnames(last_ED, "discharge", "last_ED_discharge")
 
-moves = moves[last_inside]
-moves = moves[last_ED]
+moves = merge(moves, last_inside, all.x = TRUE)
+moves = merge(moves, last_ED, all.x = TRUE)
 rm(last_ED, last_inside)
 
 # get first ED rows
 moves[ED == 1, first_ED := if_else(admission == min(admission, na.rm = TRUE), TRUE, FALSE), by = csn]
 first_ED_ = unique(moves[(first_ED), list(csn, admission)])
 setnames(first_ED_, "admission", "first_ED_admission")
-moves = moves[first_ED_]
+moves = merge(moves, first_ED_, all.x = TRUE)
 rm(first_ED_)
 
 # get first outside rows (note these may not be the same as last inside rows in the case of multiple ED exits)
@@ -179,13 +172,18 @@ indirect_dis <- moves[((!visited_same_day) & visited_obs & !visited_outside) |
                         (visited_same_day & visited_obs & !visited_outside), unique(csn)]
 direct_dis <- moves[(!visited_same_day) & !visited_obs & !visited_outside, unique(csn)]
 
-ED_csn_summ <- ED_csn_summ %>% 
-  mutate(adm = case_when(csn %in% direct_adm ~ "direct_adm",
-                         csn %in% indirect_adm ~ "indirect_adm",
-                         csn %in% indirect_dis ~ "indirect_dis",
-                         csn %in% direct_dis ~ "direct_dis"))
+summ <- data.table(ED_csn_summ_raw %>% 
+                     mutate(adm = case_when(csn %in% direct_adm ~ "direct_adm",
+                                            csn %in% indirect_adm ~ "indirect_adm",
+                                            csn %in% indirect_dis ~ "indirect_dis",
+                                            csn %in% direct_dis ~ "direct_dis")))
+setkey(summ, csn)
+rpt(summ)
 
+# Add relevant transition time to summay table -------------------------------------------
 
+summ <- merge(summ, (unique(moves[,.(csn, first_ED_admission, first_outside_ED_admission, 
+                                     first_outside_proper_admission, last_ED_discharge, last_inside_discharge)])))
 
 # For edge list processing --------
 
@@ -208,4 +206,7 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/edgedf_",today(),".rda")
 save(edgedf, file = outFile)
 rm(outFile)
 
+outFile = paste0("EDcrowding/flow-mapping/data-raw/summ_",today(),".rda")
+save(summ, file = outFile)
+rm(outFile)
 

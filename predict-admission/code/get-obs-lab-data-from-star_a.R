@@ -54,10 +54,10 @@ vo.visit_observation_type_id
     order by csn, vo.observation_datetime "
 
 sqlQuery <- gsub('\n','',sqlQuery)
-fs_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+obs_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 
-save(fs_raw, file = paste0('EDcrowding/predict-admission/data-raw/fs_raw_',today(),'.rda'))
+save(obs_raw, file = paste0('EDcrowding/predict-admission/data-raw/obs_raw_',today(),'.rda'))
 
 # Get and process lab data ------------------------------------------------
 

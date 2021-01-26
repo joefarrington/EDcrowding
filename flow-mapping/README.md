@@ -9,11 +9,11 @@ Flow schema tables are materialised database tables derived from a one-off extra
 
 ### 1. Retrieve data
 
-get-ED-data-from-Star_test.R
+get-ED-data-from-Star_a.R
 
 These two files retrieve and process data from the relevant schema.  
 
-output
+output (all as tibbles)
 - ED_bed_moves_raw
 - ED_csn_summ_raw
 - visits
@@ -25,35 +25,20 @@ plus other files saved from the SQL extracts
 - patient_class - latest patient class
 - all_patient_class - patient class audit table
 
-### 1a. Process data
+### 1b. Create data tables
 
-process-ED-data-from-Star_test.R
+create-data.tables.R
 
-Does some further processes to clean and group room names
+Does further processing on the bed moves data to (a) identify exits from ED to various locations of interest and (b) create a simplified edge list (ie rows with from and to nodes) that will be used for  network maps
 
 input
 - ED_bed_moves_raw
 - ED_csn_summ_raw
 
-output
-- ED_bed_moves
-- ED_csn_summ
-
-
-### 1b. Create edge list
-
-create-edge-list-using-data.table.R
-
-Does further processing on the bed moves data to (a) identify exits from ED to various locations of interest and (b) create a simplified edge list (ie rows with from and to nodes) that will be used for  network maps
-
-input
-- ED_bed_moves
-- ED_csn_summ
-
-output
+output (all as data tables)
 - moves
 - edgedf
-- ED_csn_summ - updated with admission class
+- summ - updated version of ED_csn_summ_raw with admission class
 
 
 

@@ -4,32 +4,15 @@ This is a series of files to extract data from Star and predict admissions from 
 
 ## Order to run files in
 
-### 1. get-data-from-star_a.R
-
-Gets flowsheet and lab data for ML
+### 1. get-obs-lab-data-from-star_a.R
 
 Output
-- demog_raw 
-- flowsheet_raw 
+- obs_raw 
 - lab_raw
 
+### 2. clean_obs_data.R
 
-### 2. bed_moves.R
-
-Input (as processed by code in the EDCrowding/flow-mapping folder )
-- ED_bed_moves
-- ED_csn_summ
-
-Output
-- bed_moves
-- ED_csn_summ (updated)
-
-
-
-
-### 3. clean_flowsheet_data.R
-
-Takes flowsheet data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in flowsheets to revised csns that were generated in the process of cleaning/creating ED_bed_movws. Uses foreign and primary keys on bed_moves to do this.
+Takes observation data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in flowsheets to revised csns that were generated in the process of cleaning/creating ED_bed_movws. Uses foreign and primary keys on bed_moves to do this.
 
 Cleans non-numeric fields to make them numeric (e.g. separates blood pressure into systolic and diastolic)
 
@@ -46,7 +29,7 @@ Output
 Note that both of these files exclude any csns that did not have flowsheet measurements
 
 
-### 4. clean_lab_data.R
+### 3. clean_lab_data.R
 
 Takes lab data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in labs to revised csns that were generated in the process of cleaning/creating ED_bed_mvoes. Uses foreign and primary keys on bed_moves to do this.
 
@@ -65,6 +48,18 @@ Output
 
 Note that all of these files exclude any csns that did not have lab measurements
 
+### 4. generate_timeslices.R
+
+Input
+- lab_raw
+- obs_raw
+- moves
+- summ
+
+output- a series of design matrices for ML
+-dm60 
+
+
 ### 5. Various exploring files [now out of date - will need to be updated with new input files]
 
 explore-flowsheet-and-lab-data.R
@@ -78,15 +73,7 @@ Creates a design matrix for input into ML.
 
 Loops through a function to generate a view of the ED department at a given time point (eg 60 min)
 
-Input
-- lab_raw
-- ED_bed_moves
-- ED_csn_summ
-- excluded_csns
 
-
-output-
--matrix_60 [Need to add code for the rest of the time slices]
 
 ### 7. Machine learning scripts
 

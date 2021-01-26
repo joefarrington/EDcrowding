@@ -19,11 +19,10 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_2021-01-12.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-12.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-25.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-25.rda")
 rpt(moves)
 
-summ = data.table(ED_csn_summ)
 ## Having to delete this one row because it has a NA_dttm in last_ED_discharge_time 
 summ [, adm := factor(adm, levels = c("direct_dis", "indirect_dis", "indirect_adm", "direct_adm"))]
 m = unique(moves[, .(csn, last_ED_discharge)])
@@ -35,7 +34,8 @@ summ = summ[m, on = "csn"]
 summ[,ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
 summ[,timeslice := case_when(ED_duration < 15 ~ 0,
                              ED_duration >= 15 & ED_duration < 60 ~ 15,
-                             ED_duration >= 60 & ED_duration < 120 ~ 60,
+                             ED_duration >= 60 & ED_duration < 90 ~ 90,
+                             ED_duration >= 90 & ED_duration < 120 ~ 90,
                              ED_duration >= 120 & ED_duration < 180 ~ 120,
                              ED_duration >= 180 & ED_duration < 240 ~ 180,
                              ED_duration >= 240 & ED_duration < 300 ~ 240,
@@ -362,3 +362,34 @@ chart_data_s2 %>%
        x = "Timeslice",
        title = "Time to admission after sampling moment: mutually exclusive timeslices - admitted patients only") +
   theme(legend.position = "bottom")
+
+
+# Analysis of timeslices versus presentation time -------------------------
+
+# load timeslices first
+
+timeslices <- c(0, 15, 30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 24*60)
+
+chart_data <- dm0[, .N, by = has_loc]
+chart_data[, timeslice := 0]
+
+for (i in seq(2, length(timeslices) -1, 1)) {
+  name_ <- paste0("dm", timeslices[i])
+  dt <- get(name_)
+  cd <- dt[, .N, by = has_loc]
+  cd[, timeslice := timeslices[i]]
+  chart_data <- bind_rows(chart_data, cd)
+}
+  
+chart_data %>% ggplot(aes(x = timeslice, y = N, fill = factor(has_loc, labels = c("No", "Yes")))) + geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = timeslices) +
+  theme(panel.grid.minor = element_blank()) + 
+  labs(y = "Number of visits", 
+       x = "Timeslice (elapsed time from presentation)",
+       title = "Number of visits by timeslice; colour shows whether visit has location in ED (including null location)", 
+       subtitle = "Visits from 1 April 2020 to 25 Jan 2020", 
+       fill = "Has location data") +
+  theme(legend.position = "bottom")
+
+
+
