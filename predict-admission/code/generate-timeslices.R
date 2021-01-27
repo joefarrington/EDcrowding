@@ -146,6 +146,7 @@ create_timeslice <- function (moves, dm, obs_real, cutoff, nextcutoff) {
   # add other info where there may be genuine NAs
   matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff], by = c("csn", "adm")) 
   matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, all.x = TRUE) 
+  matrix_cutoff[, duration := NULL]
   
   return(matrix_cutoff)
   
@@ -156,8 +157,8 @@ create_timeslice <- function (moves, dm, obs_real, cutoff, nextcutoff) {
 # load data
 # =========
 
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-25.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-25.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-27.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-27.rda")
 
 
 # observation data
@@ -167,7 +168,7 @@ load("~/EDcrowding/predict-admission/data-raw/obs_real_2021-01-25.rda")
 #load("~/EDcrowding/predict-admission/data-raw/lab_real_2020-11-05.rda")
 
 # prior visit info
-load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-06.rda")
+load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-25.rda")
 
 
 
@@ -178,39 +179,52 @@ load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-06.rda")
 
 dm <- summ[,.(csn, age, sex, presentation_time, adm, epoch, arrival_method, last_inside_discharge, min_I, first_ED_admission)]
 dm[, hour := hour(presentation_time)]
-dm[, month := month(presentation_time)]
-dm[, quarter := factor((month %/% 3)+1)]
-dm[, year := year(presentation_time)]
-dm[, day :=  factor(weekdays(presentation_time, abbreviate = TRUE))]
-dm[, weekend := if_else(day %in% c("Sun", "Sat"), 1,0)]
-dm[, night := ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1)]
 dm[, tod := factor((hour %/% 4)+1)]
+dm[, hour := factor(hour)] # do this after calculating tod
+dm[, month := month(presentation_time)]
+dm[, quarter := factor(case_when( month <= 3 ~ 1,
+                                   month <= 6 ~ 2, 
+                                   month <= 9 ~ 3, 
+                                   month <= 12 ~ 4))]
+dm[, month := factor(month)] # do this after calculating quarter
+dm[, year := factor(year(presentation_time))]
+dm[, day :=  factor(weekdays(presentation_time, abbreviate = TRUE))]
+dm[, weekend := factor(if_else(day %in% c("Sun", "Sat"), 1,0))]
+dm[, night := factor(ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1))]
 dm[, gt70 := factor(age >= 70)]
+dm[, sex := factor(sex)]
 
 # was an inpatient, as part of this visit, before ED
-dm[, inpatient := if_else(min_I < first_ED_admission | is.na(min_I), 1, 0)]
+dm[, inpatient := if_else(min_I < first_ED_admission, 1, 0)]
+dm[, inpatient := if_else(is.na(inpatient), 0, inpatient)]
+dm[, inpatient := factor(inpatient)]
 
 # include a feature to capture time delay between presentation and arrival at ED;
 dm[, beforeED := as.numeric(difftime(first_ED_admission, presentation_time, units = "mins"))]
+# small number have negative time for before ED
+dm[, beforeED := if_else(beforeED <0, 0, beforeED) ]
 
-# NB - using last inside discharge for duration - need to check this? 
+# NB - using last inside discharge for duration - includes time spent in CDU
 dm[, duration := as.numeric(difftime(last_inside_discharge, presentation_time, units = "mins"))]
 
 rpt(dm)
 
 
 # simplify arrival method
-dm[, arrival_method := if_else(!arrival_method %in% c("Ambulance",
-                                                        "Walk-in",
-                                                        "Public Trans",
-                                                        "Amb no medic"), "Other", arrival_method) ]
+dm[, arrival_method := gsub(" |-", "", arrival_method)]
+dm[, arrival_method := factor(if_else(!arrival_method %in% c("Ambulance",
+                                                        "Walkin",
+                                                        "PublicTrans",
+                                                        "Ambnomedic"), "Other", arrival_method)) ]
 ### add prior visits
 
-dm <- merge(dm, visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED))
+dm <- merge(dm, visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED), all.x = TRUE)
 
 # correcting error in visits processing - small number have negative number of days since last visit
 dm[, days_since_last_visit := if_else(days_since_last_visit <0, NA_real_, days_since_last_visit) ]
 
+# prepare outcome variable
+dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 
 # Prepare location data --------------------------------------------------
 
@@ -246,6 +260,7 @@ dm[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admissio
 timeslices <- c(0, 15, 30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 24*60)
 
 for (i in seq(1, length(timeslices) -1, 1)) {
+  print(paste0("Processing timeslice ", timeslices[i]))
   name_ <- paste0("dm", timeslices[i])
   ts <- create_timeslice(loc, dm, obs_real, timeslices[i], timeslices[i+1])
   assign(name_, ts)

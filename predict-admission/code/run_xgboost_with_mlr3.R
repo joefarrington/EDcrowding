@@ -5,12 +5,16 @@ library(dplyr)
 library(tidyverse)
 library(data.table)
 library(tidymodels)
+library(skimr)
 
 # for mlr3
 library(mlr3)
 library(mlr3learners)
 library(mlr3proba)
 library(mlr3viz)
+library(SHAPforxgboost)
+
+
 library(GGally)
 library(precrec)
 library(paradox)
@@ -26,6 +30,12 @@ parallelStartSocket(cpus = detectCores())
 
 
 # Create function ---------------------------------------------------------
+
+rpt <- function(dataframe) {
+  print(dataframe %>% select(csn) %>% n_distinct())
+}
+
+
 
 # from https://stackoverflow.com/questions/39905820/how-to-one-hot-encode-factor-variables-with-data-table
 one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
@@ -66,29 +76,19 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 # Load data --------------------------------------------------------------
 
 
-load("~/EDcrowding/predict-admission/data-raw/matrix_60_2020-11-23.rda")
-load("~/EDcrowding/predict-admission/data-raw/matrix_120_2020-11-23.rda") 
-
-
-dm_60 <- matrix_60 %>%
-  filter(age >= 18, age < 110, epoch == "Post_Surge1") %>% 
-  mutate(sex = as.factor(sex)) %>% 
-  select(-mrn, -csn_old, -ED_duration_final)
-
-
-dm_120 <- matrix_120 %>%
-  filter(age >= 18, age < 110, epoch == "Post_Surge1") %>% 
-  mutate(sex = as.factor(sex)) %>% 
-  select(-mrn, -csn_old, -ED_duration_final)
+load("~/EDcrowding/predict-admission/data-raw/dm60_2021-01-27.rda")
+load("~/EDcrowding/predict-admission/data-raw/dm120_2021-01-27.rda")
 
 # put final test set on one side
 
 set.seed(123)
-dm_split_60 <- initial_split(dm_60, strata = adm, prop = 4/5)
+dm_split_60 <- initial_split(dm60, strata = adm, prop = 4/5)
 dm_train_val_60 <- training(dm_split_60)
+rpt(dm_train_val_60)
 
-dm_split_120 <- initial_split(dm_120, strata = adm, prop = 4/5)
+dm_split_120 <- initial_split(dm120, strata = adm, prop = 4/5)
 dm_train_val_120 <- training(dm_split_120)
+rpt(dm_train_val_120)
 
 # encode factors
 
@@ -108,7 +108,7 @@ task = TaskClassif$new(id = "dm60", backend = proc_dm60 ,target="adm")
 task$col_roles$name = "csn"
 task$col_roles$feature = setdiff(task$col_roles$feature, "csn")
 task$feature_names # csn should no longer be included
-task$positive = "TRUE"
+task$positive = "1" # tell mlr3 which is the positive class
 
 train_set = sample(task$nrow, 0.8 * task$nrow)
 dm_train = as.data.table(task$data()[train_set])
@@ -343,4 +343,60 @@ instanceF$archive$benchmark_result$data
 # fit the optimised feature set to the data in the task
 task60$select(instanceF$result_feature_set)
 learner$train(task60)
+
+
+
+# Plot of shap values -----------------------------------------------------
+
+# According to: https://www.kaggle.com/c/homesite-quote-conversion/discussion/18669
+# In the R version, only the features used in at least one split make it to the xgb.importance output. If the feature didn't make it to the output, then it must either be utterly useless, have zero variance, or be extremely or perfectly correlated to another feature before it.
+
+learner3$importance() # can get importance this way
+# or this 
+importance = xgboost::xgb.importance(model = learner$model)
+
+# added learner3$importance() to the data table created by xgb.importance; seems like Gain and importance are the sam
+importance[,importance := learner3$importance()]
+
+# removing the column I just created
+importance[, importance := NULL]
+
+# I managed to create mean shap values by exluding the adm label which otherwise causes an error
+shap_values = shap.values(learner$model, task$data()[train_set,2:ncol(task$data()[train_set])])
+
+shap_tibble <- as_tibble(labels(shap_values$mean_shap_score)) %>% rename(Feature = value) %>% 
+  bind_cols(Mean_Shap = shap_values$mean_shap_score)
+
+importance %>% left_join(shap_tibble) %>% 
+  pivot_longer(Gain:Mean_Shap, names_to = "importance_type", values_to = "values") %>% 
+  mutate(Feature = fct_reorder(Feature, values)) %>% 
+  ggplot(aes(x = Feature, y = values, fill = importance_type)) + geom_bar(stat = "identity") +
+  facet_wrap( ~ importance_type) + coord_flip() + theme(legend.position = "none") +
+  labs(title = "Model importances for 60 min timeslice excluding admission characteristics - Post Surge1")
+
+
+# Trying to get shap plots ------------------------------------------------
+
+# lots of warnings on the below
+# shap_long <- shap.prep(shap_contrib = shap_values$shap_score[,labels(learner3$importance())], 
+#                        X_train = task2$data()[train_set,2:367])
+
+# this flagged warnings because all were not same datatype
+# temp = task2$data()[train_set]
+# sapply(temp, class) # useful way to see all their classes
+# 
+# temp[, names(temp) := lapply(.SD, as.numeric)]
+
+# but the best way to do it seemed to be:
+shap_long <- shap.prep(xgb_model = learner$model, X_train = task$data()[train_set,2:ncol(task$data()[train_set])])
+
+# to see only the rows where mean score > 0
+shap_gt0 = labels(shap_values$mean_shap_score[shap_values$mean_shap_score>0])
+shap <- shap_long[shap_gt0]
+
+shap.plot.summary(shap_long, dilute = 100)
+
+
+# this took too long - then I found top_n - yay - but need to switch classes around! task$positive = "M"
+shap.plot.summary.wrap1(model = learner$model, X = task$data()[train_set,2:ncol(task$data()[train_set])], top_n = 10)
 

@@ -7,25 +7,33 @@
 #
 
 
-
-# Load libraries
-# ==============
+# Load libraries ----------------------------------------------------------
 
 library(dplyr)
 library(tidyverse)
 library(lubridate)
+library(data.table)
+
+
+# Create functions --------------------------------------------------------
+
+rpt <- function(dataframe) {
+  print(dataframe %>% select(csn) %>% n_distinct())
+}
 
 
 
 
-# Load data
-# =========
 
-load("~/EDcrowding/data-prep-for-ML/data-raw/ED_bed_moves_clean_extra_all_2020-09-30.rda")
+# Load data ---------------------------------------------------------------
 
 
-# Process data
-# ============
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-27.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-27.rda")
+
+
+# Process data ------------------------------------------------------------
+
 
 # set parameters
 matrix_start_date <- date("2019-05-01")

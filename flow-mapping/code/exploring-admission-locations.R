@@ -18,8 +18,15 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
+
+# To treat EAU as a non-admission load these
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-26.rda")
 load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-26.rda")
+
+# To treat EAU as a admission load these - the EAU charts may not make so much sense in that case
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-27.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-27.rda")
+
 rpt(moves)
 
 
@@ -143,18 +150,13 @@ moves[(visited_EAU), .N, by = date(last_ED_discharge)] %>% ggplot(aes(x = date, 
 
 # Additional columns -------------------------------------------------
 
-# get first proper location to save to summ
-m = moves[admission == first_outside_proper_admission, .(csn, location)] 
-setnames(m, "location", "first_proper_location")
-summ = merge(summ, m, all.x = TRUE)
-
 # get first department (note that this has to be a separate join to pick up all rows)
 m1 = unique(moves[, .(csn, first_dept, num_ED_exit)])
 summ = merge(summ, m1, all.x = TRUE)
 
 # NB some csns have no first proper location because, although they are inpatients, 
 # they originated outside ED and didn't go anywhere after ED
-rpt(summ[is.na(first_proper_location) & adm %in% c("direct_adm", "direct_adm")]) == 
+rpt(summ[is.na(first_outside_proper) & adm %in% c("direct_adm", "direct_adm")]) == 
   rpt(summ[first_dept != "ED" & adm %in% c("direct_adm", "direct_adm") & num_ED_exit == 0])
 
 
@@ -276,7 +278,7 @@ chart_data_times = as_tibble(summ[first_dept == "ED" & time_to_admit_from_ED_pre
   mutate(time_to_admit_from = gsub("time_to_admit_from_ED_pres", "presentation_at_ED", time_to_admit_from))
 
 
-subtitle_text = "First ward excludes CDU, EAU and any location in ED (including SAA and SDEC)"
+subtitle_text = "First ward excludes CDU and any location in ED (including SAA and SDEC)"
 
 # histogram all visits, time to admit from ED presentation
 chart_data_times %>% filter(time_to_admit_from == "presentation_at_ED") %>% 
@@ -310,8 +312,7 @@ chart_data %>% filter(!is.na(time_to_admit_from_first_SAA)) %>%
   geom_histogram(binwidth = 1, col = "white", fill = "#00BFC4") +
   labs(x = "Hours from presentation at ED to arrival at first ward",
        y = "Number of visits",
-       title = "Distribution of time from presentation at ED to admission at first ward for patients who visited SAA",
-       subtitle = subtitle_text)
+       title = "Distribution of time from presentation at ED to admission at first ward for patients who visited SAA")
 
 chart_data %>% filter(!is.na(time_to_admit_from_first_SDEC)) %>% 
   pivot_longer(starts_with("time_to_admit_from"), names_to = "time_to_admit_from") %>% 
@@ -321,8 +322,7 @@ chart_data %>% filter(!is.na(time_to_admit_from_first_SDEC)) %>%
   geom_histogram(binwidth = 1, col = "white", fill = "#00BFC4") +
   labs(x = "Hours from presentation at ED to arrival at first ward",
        y = "Number of visits",
-       title = "Distribution of time from presentation at ED to admission at first ward for patients who visited SDEC",
-       subtitle = subtitle_text)
+       title = "Distribution of time from presentation at ED to admission at first ward for patients who visited SDEC")
 
 chart_data %>% filter(!is.na(time_to_admit_from_first_CDU)) %>% 
   pivot_longer(starts_with("time_to_admit_from"), names_to = "time_to_admit_from") %>% 
@@ -377,15 +377,15 @@ chart_data_times %>% filter(time_to_admit_from == "first_arrival_at_CDU", !is.na
                            value > 0) %>% 
   ggplot(aes(x = value)) + 
   geom_histogram(binwidth = 1, col = "white", fill = "#00BFC4") +
-  labs(x = "Hours from arrival at CDU to arrival at first ward (note - first ward does not include EAU)",
+  labs(x = "Hours from arrival at CDU to arrival at first ward ",
        y = "Number of visits",
        title = "Distribution of time from arrival at CDU to admission at first ward",
        subtitle = subtitle_text) 
 
 # to work out how many patients go to T01 first
 chart_data_EDU = as_tibble(summ[first_dept == "ED" & !is.na(time_to_admit_from_first_EDU)]) %>% 
-  select(csn, adm, starts_with("time_to_admit_from"), first_proper_location)
-rpt(chart_data_EDU %>% filter(first_proper_location == "T01")) # 81
+  select(csn, adm, starts_with("time_to_admit_from"), first_outside_proper)
+rpt(chart_data_EDU %>% filter(first_outside_proper == "T01")) # 81
 
 # to work out how many patients go somewhere else first
 rpt(chart_data_EDU %>% filter(time_to_admit_from_first_EDU < 0)) # 102
@@ -407,8 +407,8 @@ nrow(chart_data_EDU) # 308
 # 
 # # chart of locations prior to EDU
 # chart_data_EDU <- data.table(chart_data_EDU)
-# chart_data_EDU[time_to_admit_from_first_EDU < 0 & !is.na(first_proper_location), .N, by = first_proper_location] %>% 
-#   ggplot(aes(x = first_proper_location, y = N)) + 
+# chart_data_EDU[time_to_admit_from_first_EDU < 0 & !is.na(first_outside_proper), .N, by = first_outside_proper] %>% 
+#   ggplot(aes(x = first_outside_proper, y = N)) + 
 #   geom_bar(stat = "identity") +
 #   labs(x = "First proper location",
 #        y = "Number of visits",
@@ -472,37 +472,45 @@ moves[(department == "EAU" & row_duration < 100*60)] %>% ggplot(aes(x = as.numer
 
 # Draw charts - first proper location -------------------------------------
 
-summ[!is.na(first_EAU) & !is.na(first_proper_location), .N, by = first_proper_location] %>% filter(N > 30) %>% arrange(desc(N)) %>% 
-  ggplot(aes(x = first_proper_location, y = N)) + geom_bar(stat = "identity") +
+summ[!is.na(first_EAU) & !is.na(first_outside_proper), .N, by = first_outside_proper] %>% filter(N > 30) %>% arrange(desc(N)) %>% 
+  ggplot(aes(x = first_outside_proper, y = N)) + geom_bar(stat = "identity") +
   labs(x = "First location other than EAU, ED or CDU",
        title = "First location other than EAU, ED or CDU for patients who are admitted after EAU", 
        y = "count",
        subtitle = "Locations with more than 30 visits only") 
 
-
-summ[!is.na(time_to_admit_from_first_SAA) & !is.na(first_proper_location), .N, by = first_proper_location] %>% filter(N > 5) %>% arrange(desc(N)) %>% 
-  ggplot(aes(x = first_proper_location, y = N)) + geom_bar(stat = "identity") +
-  labs(x = "First location other than EAU, ED or CDU",
-       title = "First location other than EAU, ED or CDU for patients who are admitted after SAA", 
+summ[!is.na(time_to_admit_from_first_CDU) & !is.na(first_outside_proper), .N, by = first_outside_proper] %>% filter(N > 5) %>% arrange(desc(N)) %>% 
+  ggplot(aes(x = first_outside_proper, y = N)) + geom_bar(stat = "identity") +
+  labs(x = "First location other than ED or CDU",
+       title = "First location other than ED or CDU for patients who are admitted after CDU", 
        y = "count",
        subtitle = "Locations with more than 5 visits only") 
 
-# Explore how many SAA also went to EAU
 
-rpt(moves[(visited_SAA)])
-rpt(moves[(visited_EAU & visited_SAA)]) 
-rpt(moves[(visited_EAU & visited_SAA & is.na(first_outside_proper_admission))])
-
-summ[!is.na(first_SDEC) & !is.na(first_proper_location), .N, by = first_proper_location] %>% filter(N > 30) %>% arrange(desc(N)) %>% 
-  ggplot(aes(x = first_proper_location, y = N)) + geom_bar(stat = "identity") +
+summ[!is.na(time_to_admit_from_first_SAA) & !is.na(first_outside_proper), .N, by = first_outside_proper] %>% filter(N > 5) %>% arrange(desc(N)) %>% 
+  ggplot(aes(x = first_outside_proper, y = N)) + geom_bar(stat = "identity") +
   labs(x = "First location other than EAU, ED or CDU",
-       title = "First location other than EAU, ED or CDU for patients who are admitted after SDEC", 
+       # title = "First location other than EAU, ED or CDU for patients who are admitted after SAA", 
+       title = "First location other than ED or CDU for patients who are admitted after SAA", 
        y = "count",
-       subtitle = "Locations with more than 30 visits only") 
+       subtitle = "Locations with more than 5 visits only") 
+
+# # Explore how many SAA also went to EAU
+# 
+# rpt(moves[(visited_SAA)])
+# rpt(moves[(visited_EAU & visited_SAA)]) 
+# rpt(moves[(visited_EAU & visited_SAA & is.na(first_outside_proper_admission))])
+
+summ[!is.na(first_SDEC) & !is.na(first_outside_proper), .N, by = first_outside_proper] %>% filter(N > 15) %>% arrange(desc(N)) %>% 
+  ggplot(aes(x = first_outside_proper, y = N)) + geom_bar(stat = "identity") +
+  labs(x = "First location other than ED or CDU",
+       title = "First location other than ED or CDU for patients who are admitted after SDEC", 
+       y = "count",
+       subtitle = "Locations with more than 15 visits only") 
 
 
-# Explore how many SDEC also went to EAU
-
-rpt(moves[(visited_SDEC)])
-rpt(moves[(visited_EAU & visited_SDEC)]) 
-rpt(moves[(visited_EAU & visited_SDEC & is.na(first_outside_proper_admission))])
+# # Explore how many SDEC also went to EAU
+# 
+# rpt(moves[(visited_SDEC)])
+# rpt(moves[(visited_EAU & visited_SDEC)]) 
+# rpt(moves[(visited_EAU & visited_SDEC & is.na(first_outside_proper_admission))])

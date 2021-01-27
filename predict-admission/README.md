@@ -51,13 +51,12 @@ Note that all of these files exclude any csns that did not have lab measurements
 ### 4. generate_timeslices.R
 
 Input
-- lab_raw
-- obs_raw
+- lab_real
+- obs_real
 - moves
 - summ
 
 output- a series of design matrices for ML
--dm60 
 
 
 ### 5. Various exploring files [now out of date - will need to be updated with new input files]
@@ -66,13 +65,6 @@ explore-flowsheet-and-lab-data.R
 explore-durations.R
 
 These are doing exploratory data analysis to decide which variables to attach to matrix. Produce multiple charts
-
-### 6. create-design-matrix.R
-
-Creates a design matrix for input into ML. 
-
-Loops through a function to generate a view of the ED department at a given time point (eg 60 min)
-
 
 
 ### 7. Machine learning scripts

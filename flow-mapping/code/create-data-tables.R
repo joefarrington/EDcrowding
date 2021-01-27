@@ -92,8 +92,7 @@ moves[, "visited_CDU" := sum(department == "UCHT00CDU", na.rm = TRUE) > 0, by = 
 # group exits via relevant locations
 moves[, "obs" := case_when(department == "UCHT00CDU" ~ 1, 
                                    TRUE ~ 0)]
-moves[, "same_day" := case_when(department %in% c("EAU") ~ 1,
-                           location == "SDEC" ~ 1, 
+moves[, "same_day" := case_when(location == "SDEC" ~ 1, 
                            TRUE ~ 0)]
 # moves[, "acute" := case_when(department == "EAU" ~ 1, 
 #                              department == "T01" ~ 1, 
@@ -136,13 +135,17 @@ rm(first_ED_)
 moves[ED_exit == 1, first_ED_exit := if_else(discharge == min(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
 moves[inside_exit == 1 & shift(outside, 1, NA, "lead"), first_inside_exit := if_else(discharge == min(discharge, na.rm = TRUE), TRUE, FALSE), by = csn]
 
+# add first  non ED location 
 first_outside_ED = unique(moves[(first_ED_exit), list(csn, lead_admission)])
 setnames(first_outside_ED, "lead_admission", "first_outside_ED_admission")
 moves = merge(moves, first_outside_ED, all.x = TRUE)
 
-first_outside_proper = unique(moves[(first_inside_exit), list(csn, lead_admission)])
-setnames(first_outside_proper, "lead_admission", "first_outside_proper_admission")
-moves = merge(moves, first_outside_proper, all.x = TRUE)
+# add first 'proper' location (ie not obs or same day)
+first_outside_proper_ = unique(moves[(first_inside_exit), list(csn, lead_admission, lead_location)])
+setnames(first_outside_proper_, "lead_admission", "first_outside_proper_admission")
+setnames(first_outside_proper_, "lead_location", "first_outside_proper")
+moves = merge(moves, first_outside_proper_, all.x = TRUE)
+rm(first_outside_proper_)
 
 # identify first location
 moves[, "first_admission" := min(admission), by = csn]
@@ -150,11 +153,12 @@ moves[, "first_location" := location[which(admission == first_admission)], by = 
 moves[, "first_dept" := department[which(admission == first_admission)], by = csn]
 
 
-# # identify rows containing final location
-# #moves[, .SD[which.max(discharge)], by = csn]
+# # identify final location
 moves[, "final_admission" := max(admission), by = csn]
 moves[, "final_location" := location[which(admission == final_admission)], by = csn]
 moves[, "final_dept" := department[which(admission == final_admission)], by = csn]
+
+
 
 
 # Assign final classification ---------------------------------------------
@@ -179,7 +183,8 @@ rpt(summ)
 # Add relevant transition time to summay table -------------------------------------------
 
 summ <- merge(summ, (unique(moves[,.(csn, first_ED_admission, first_outside_ED_admission, 
-                                     first_outside_proper_admission, last_ED_discharge, last_inside_discharge)])))
+                                     first_outside_proper_admission, last_ED_discharge, last_inside_discharge, 
+                                     first_outside_proper)])))
 
 # For edge list processing --------
 
