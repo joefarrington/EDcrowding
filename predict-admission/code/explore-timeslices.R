@@ -392,4 +392,7 @@ chart_data %>% ggplot(aes(x = timeslice, y = N, fill = factor(has_loc, labels = 
   theme(legend.position = "bottom")
 
 
-
+summ[presentation_time > '2019-04-20', .N, by = date(presentation_time)] %>% ggplot(aes(x = date, y = N)) + geom_line()  + 
+  labs(y = "Number of visits", 
+       x = "Date",
+       title = "Number of visits by date")

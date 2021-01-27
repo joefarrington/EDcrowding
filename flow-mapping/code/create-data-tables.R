@@ -73,46 +73,42 @@ moves[, "row_duration" := difftime(discharge, admission, units = "mins")]
 moves[, "ED_exit" := if_else(lead_department !="ED" & department == "ED", TRUE, FALSE)]
 moves[, "num_ED_exit" := sum(ED_exit, na.rm = TRUE), by = csn]
 
-# identify if ED exit is less than 15 min - only handles cases where there is more than one ED exit 
-# do this by checking duration of next row
-moves[, ED_exit_short := if_else(num_ED_exit > 1 & ED_exit & csn == lead_csn & shift(row_duration, 1, NA, "lead") < 15, TRUE, FALSE)]
-# Create new ED_exit_short variable as the original only relates to visits with more than one ED exit
-moves[, ED_exit_short2 := if_else(ED_exit & csn == lead_csn & 
+# identify if ED exit is less than 15 min 
+moves[, ED_exit_short := if_else(ED_exit & csn == lead_csn & 
                                     shift(row_duration, 1, NA, "lead") < 15 &
                                     lead_department == "ED", TRUE, FALSE)]
 
 # identify exits to relevant locations 
-moves[, "exit_to_EAU" := if_else(ED_exit & !ED_exit_short2 & department =="ED" & lead_department == "EAU", 1, 0)]
-moves[, "exit_to_CDU" := if_else(ED_exit & !ED_exit_short2 & department =="ED" & lead_department == "UCHT00CDU", 1, 0)]
-moves[, "exit_to_EDU" := if_else(ED_exit & !ED_exit_short2 & department =="ED" & lead_department %in% c("T01ECU", "AECU"), 1, 0)]
-moves[, "exit_to_T01" := if_else(ED_exit & !ED_exit_short2 & department =="ED" & lead_department == "T01", 1, 0)]
+moves[, "exit_to_EAU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "EAU", 1, 0)]
+moves[, "exit_to_CDU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "UCHT00CDU", 1, 0)]
+# moves[, "exit_to_EDU" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department %in% c("T01ECU", "AECU"), 1, 0)]
+# moves[, "exit_to_T01" := if_else(ED_exit & !ED_exit_short & department =="ED" & lead_department == "T01", 1, 0)]
 
 moves[, "visited_EAU" := sum(department == "EAU", na.rm = TRUE) > 0, by = csn]
 moves[, "visited_CDU" := sum(department == "UCHT00CDU", na.rm = TRUE) > 0, by = csn]
-moves[, "visited_EDU" := sum(department  %in% c("T01ECU", "AECU"), na.rm = TRUE) > 0, by = csn]
-moves[, "visited_T01" := sum(department == "T01", na.rm = TRUE) > 0, by = csn]
+# moves[, "visited_EDU" := sum(department  %in% c("T01ECU", "AECU"), na.rm = TRUE) > 0, by = csn]
+# moves[, "visited_T01" := sum(department == "T01", na.rm = TRUE) > 0, by = csn]
 
 # group exits via relevant locations
 moves[, "obs" := case_when(department == "UCHT00CDU" ~ 1, 
-                                   location == "SAA" ~ 1, 
                                    TRUE ~ 0)]
-moves[, "same_day" := case_when(department %in% c("T01ECU", "AECU") ~ 1,
+moves[, "same_day" := case_when(department %in% c("EAU") ~ 1,
                            location == "SDEC" ~ 1, 
                            TRUE ~ 0)]
-moves[, "acute" := case_when(department == "EAU" ~ 1, 
-                             department == "T01" ~ 1, 
-                             TRUE ~ 0)]
+# moves[, "acute" := case_when(department == "EAU" ~ 1, 
+#                              department == "T01" ~ 1, 
+#                              TRUE ~ 0)]
 
 moves[, "visited_obs" := sum(obs, na.rm = TRUE) > 0, by = csn]
 moves[, "visited_same_day" := sum(same_day, na.rm = TRUE) > 0, by = csn]
-moves[, "visited_acute" := sum(acute, na.rm = TRUE) >0, by = csn]
+# moves[, "visited_acute" := sum(acute, na.rm = TRUE) >0, by = csn]
 
 # identify whether visit limited to observation or same day locations (referred to as inside)
 moves[, "ED" := if_else(department == "ED", 1, 0)]
 moves[, "ED_obs_same_day" := ED + obs + same_day]
 moves[, "outside" := ED_obs_same_day == 0]
 moves[, "visited_outside":= sum(ED_obs_same_day == 0, na.rm = TRUE) > 0, by = csn]
-moves[, "inside_exit" := if_else(!outside & shift(outside, 1, NA, "lead"), TRUE, FALSE)]
+moves[, "inside_exit" := if_else(!outside & !is.na(lead_csn) & shift(outside, 1, NA, "lead"), TRUE, FALSE)]
 
 
 # get last inside rows
@@ -122,12 +118,12 @@ moves[ED == 1, last_ED := if_else(discharge == max(discharge, na.rm = TRUE), TRU
 last_inside_ = unique(moves[(last_inside), list(csn, discharge)])
 setnames(last_inside_, "discharge", "last_inside_discharge")
 
-last_ED = unique(moves[(last_ED), list(csn, discharge)])
-setnames(last_ED, "discharge", "last_ED_discharge")
+last_ED_ = unique(moves[(last_ED), list(csn, discharge)])
+setnames(last_ED_, "discharge", "last_ED_discharge")
 
-moves = merge(moves, last_inside, all.x = TRUE)
-moves = merge(moves, last_ED, all.x = TRUE)
-rm(last_ED, last_inside)
+moves = merge(moves, last_inside_, all.x = TRUE)
+moves = merge(moves, last_ED_, all.x = TRUE)
+rm(last_ED_, last_inside_)
 
 # get first ED rows
 moves[ED == 1, first_ED := if_else(admission == min(admission, na.rm = TRUE), TRUE, FALSE), by = csn]
