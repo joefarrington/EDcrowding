@@ -1,7 +1,7 @@
 # About this file
 # ==============
 
-# Generates timeslices for ML
+# Generates timeslices for ML. A subset of cases are held out for final testing
 
 
 
@@ -11,6 +11,7 @@ library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(data.table)
+library(tidymodels)
 
 
 # Create functions --------------------------------------------------------
@@ -19,11 +20,7 @@ rpt <- function(dataframe) {
   print(dataframe %>% select(csn) %>% n_distinct())
 }
 
-
-
 # function to create design matrix
-# ================================
- 
 
 create_timeslice <- function (moves, dm, obs_real, cutoff, nextcutoff) {
   
@@ -172,24 +169,18 @@ load("~/EDcrowding/flow-mapping/data-raw/visits_all_2021-01-25.rda")
 
 
 
-# Prepare csn level data --------------------------------------------------
+# Create admission details--------------------------------------------------
 
-
-# attach admission relevant variables
 
 dm <- summ[,.(csn, age, sex, presentation_time, adm, epoch, arrival_method, last_inside_discharge, min_I, first_ED_admission)]
-dm[, hour := hour(presentation_time)]
-dm[, tod := factor((hour %/% 4)+1)]
-dm[, hour := factor(hour)] # do this after calculating tod
-dm[, month := month(presentation_time)]
-dm[, quarter := factor(case_when( month <= 3 ~ 1,
-                                   month <= 6 ~ 2, 
-                                   month <= 9 ~ 3, 
-                                   month <= 12 ~ 4))]
-dm[, month := factor(month)] # do this after calculating quarter
-dm[, year := factor(year(presentation_time))]
-dm[, day :=  factor(weekdays(presentation_time, abbreviate = TRUE))]
-dm[, weekend := factor(if_else(day %in% c("Sun", "Sat"), 1,0))]
+dm[, tod := factor((hour(presentation_time) %/% 4)+1)]
+dm[, quarter := factor(case_when( month(presentation_time) <= 3 ~ 1,
+                                  month(presentation_time) <= 6 ~ 2, 
+                                  month(presentation_time) <= 9 ~ 3, 
+                                  month(presentation_time) <= 12 ~ 4))]
+#dm[, year := factor(year(presentation_time))]
+dm[, weekend := factor(if_else(weekdays(presentation_time, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0))]
+# the lab closes at 10 pm 
 dm[, night := factor(ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1))]
 dm[, gt70 := factor(age >= 70)]
 dm[, sex := factor(sex)]
@@ -226,18 +217,31 @@ dm[, days_since_last_visit := if_else(days_since_last_visit <0, NA_real_, days_s
 # prepare outcome variable
 dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 
-# Prepare location data --------------------------------------------------
-
-loc <- moves[, .(csn, admission, discharge, location, visited_CDU, outside)]
-loc <- merge(loc, dm[,.(csn, presentation_time,last_inside_discharge, duration)])
-
 # For now, filter out dates where no observation data available
 # for chart of this
 # obs_real[, .N, by = date(observation_datetime)] %>% ggplot(aes(x = date, y = N)) + geom_line()
-
-loc <- loc[date(presentation_time) > '2020-04-01']
 dm <- dm[date(presentation_time) > '2020-04-01']
+# to show implications of this cut off
+summ[, .N, by = list(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = as.character(adm))) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of admissions and discharges by day since beginning of Epic",
+       fill = "Admitted (1 = True)") +
+  theme(legend.position = "bottom")
+       
+# Remove test set for training later --------------------------------------
 
+set.seed(123)
+dm_split <- initial_split(dm, strata = adm, prop = 9/10)
+dm_train <- training(dm_split)
+dm_test <- testing(dm_split)
+
+rpt(dm_train)
+setkey(dm_train, csn)
+
+# Prepare location data --------------------------------------------------
+
+loc <- moves[csn %in% dm_train$csn, .(csn, admission, discharge, location, visited_CDU, outside)]
+loc <- merge(loc, dm_train[,.(csn, presentation_time,last_inside_discharge, duration)])
 loc[, admission_e := as.numeric(difftime(admission, presentation_time, units = "mins"))]
 loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "mins"))]
 
@@ -246,11 +250,7 @@ loc <- loc[discharge <= last_inside_discharge | is.na(last_inside_discharge)]
 rpt(loc)
 
 loc[, c("admission", "discharge", "presentation_time") := NULL]
-dm[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
-
-
-
-# -----------
+dm_train[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
 
 
 
@@ -262,7 +262,7 @@ timeslices <- c(0, 15, 30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 24*60)
 for (i in seq(1, length(timeslices) -1, 1)) {
   print(paste0("Processing timeslice ", timeslices[i]))
   name_ <- paste0("dm", timeslices[i])
-  ts <- create_timeslice(loc, dm, obs_real, timeslices[i], timeslices[i+1])
+  ts <- create_timeslice(loc, dm_train, obs_real, timeslices[i], timeslices[i+1])
   assign(name_, ts)
 }
 
@@ -285,7 +285,7 @@ save(dm240, file = paste0("EDcrowding/predict-admission/data-raw/dm240_",today()
 save(dm300, file = paste0("EDcrowding/predict-admission/data-raw/dm300_",today(),".rda"))
 save(dm360, file = paste0("EDcrowding/predict-admission/data-raw/dm360_",today(),".rda"))
 
-
+save(dm_test, file = paste0("EDcrowding/predict-admission/data-raw/dm_test",today(),".rda"))
 
 
 
