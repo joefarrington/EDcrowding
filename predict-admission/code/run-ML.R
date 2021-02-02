@@ -129,15 +129,12 @@ cols <- c("model", "admitted", "discharged")
 setnames(props, cols )
 props <- props %>% mutate(prop = admitted/discharged)
 
-  mutate(adm2 = if_else(adm == 1, "admitted", "discharged")) %>% mutate(prop = `1`/`0`) %>% select(model, prop)
 # look at class balance as timeslices progress
 adm_summ %>% ggplot(aes(x = model, y = N, fill = adm)) + geom_bar(stat = "identity") + 
   labs(title = "Numbers admitted / not admitted in each timeslice", 
        fill = "Admitted (1 = TRUE)",
        x = "Timeslice") +
-  theme(legend.position = "bottom") +
-  geom_text(aes(label = paste0(freq,"%")),
-            position = position_stack(vjust = 0.5), size = 2)
+  theme(legend.position = "bottom") 
 
 
 # Set up ML ------------------------------------------------------------
@@ -153,17 +150,73 @@ for (ts_ in timeslices) {
   tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
   tsk$positive = "1" # tell mlr3 which is the positive class
   
+  test = sample(tsk$nrow, 0.2 * tsk$nrow)
+  rest = base::setdiff(seq_len(tsk$nrow), test)
+  
+  val = sample(rest, 1/8 * length(rest))
+  train = setdiff(seq_len(tsk$nrow), c(val, test))
+  
   name_ <- paste0("task", ts_)
   assign(name_, tsk)
+  assign(paste0(name_, "_test_ids"), test)
+  assign(paste0(name_, "_val_ids"), val)
+  assign(paste0(name_, "_train_ids"), train)
   
 }
 
 # create learner
 learner = lrn("classif.xgboost", predict_type = "prob")
 
+measures = list(
+  #  msr("classif.auc", id = "auc_train", predict_sets = "train"),
+  msr("classif.acc", id = "acc_test"),
+  msr("classif.auc", id = "auc_test"),
+  msr("classif.auc", id = "mcc_test")
+  
+)
+
+# Train and check validation, no tuning -----------------------------------
+
+pred_no_tune <- data.table()
+scores_no_tune <- data.table()
+
+for (ts_ in timeslices) {
+  name_ <- paste0("task", ts_)
+  tsk = get(name_)
+  tsk_train_ids = get(paste0(name_, "_train_ids"))
+  tsk_val_ids = get(paste0(name_, "_val_ids"))
+  
+  # train learner on training set
+  learner$train(tsk, row_ids = tsk_train_ids)
+  
+  # get predictions on validation set
+  pred = learner$predict(tsk, row_ids = tsk_val_ids)
+  print(name_)
+  print(pred$confusion)
+  
+  # save predictions for training and validation set
+  preds = as.data.table(learner$predict(tsk, row_ids = c(tsk_train_ids, tsk_val_ids)))
+  preds$task = name_
+  # add csns
+  dm = get(paste0("dm", ts_, "p"))
+  csns = data.table(csn = dm$csn, row_id = seq_len(nrow(dm)))
+  preds <- merge(preds, csns, by = "row_id")
+  pred_no_tune <- bind_rows(pred_no_tune, preds)
+  
+  # save scores
+  scores = data.table(score = pred$score(measures))
+  scores$meas = names(pred$score(measures))
+  scores$task <- paste0(name_, "_val")
+  scores_no_tune <- bind_rows(scores_no_tune, scores)
+  
+} 
+
+# for interest, compare predictions over time
+
 
 # Run without tuning ------------------------------------------------------
 
+# NB - haven't separate a test set here
 resamplings = rsmp("cv", folds = 5)
 
 design = benchmark_grid(
@@ -176,14 +229,7 @@ print(design)
 bmr = benchmark(design)
 
 
-measures = list(
-  #  msr("classif.auc", id = "auc_train", predict_sets = "train"),
-  msr("classif.acc", id = "acc_test"),
-  msr("classif.ce", id = "ce_test"),
-  msr("classif.auc", id = "auc_test"),
-  msr("classif.auc", id = "mcc_test")
-  
-)
+
 
 result <- data.table(bmr$aggregate(measures))
 result[, timeslice := gsub("dm", "", task_id)]
@@ -302,6 +348,7 @@ for (ts_ in timeslices) {
   imp$feature <- names(learner$importance())
   imp[, model := name_]
   imp_results <- bind_rows(imp_results, imp)
+
   
   # predict
   pred = as.data.table(learner$predict(tsk))
