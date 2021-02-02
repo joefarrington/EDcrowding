@@ -310,6 +310,13 @@ for (ts_ in timeslices) {
   pred_results <- bind_rows(pred_results, pred)
 }
 
+imp_results[, count := .N, by = feature]
+imp_results[count >2] %>% ggplot(aes(x = gsub("task","", model), y = reorder(feature, desc(feature)), fill = V1)) + geom_tile() + 
+  scale_fill_gradient(low="blue", high="red") + 
+  labs(title = "Feature importances by timeslice",
+       fill = "Importance", 
+       x = "Timeslice",
+       y = "Feature")
 
 save(imp_results, file = paste0("EDcrowding/predict-admission/data-output/imp_results",today(),".rda"))
 save(pred_results, file = paste0("EDcrowding/predict-admission/data-output/pred_results",today(),".rda"))
