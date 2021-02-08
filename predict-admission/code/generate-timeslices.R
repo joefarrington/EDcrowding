@@ -222,6 +222,7 @@ dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 # obs_real[, .N, by = date(observation_datetime)] %>% ggplot(aes(x = date, y = N)) + geom_line()
 dm <- dm[date(presentation_time) > '2020-04-01']
 # to show implications of this cut off
+summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 summ[, .N, by = list(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = as.character(adm))) +
   geom_bar(stat = "identity") +
   labs(title = "Number of admissions and discharges by day since beginning of Epic",
@@ -231,17 +232,24 @@ summ[, .N, by = list(date(presentation_time), adm)] %>% ggplot(aes(x = date, y =
 # Remove test set for training later --------------------------------------
 
 set.seed(123)
-dm_split <- initial_split(dm, strata = adm, prop = 9/10)
-dm_train <- training(dm_split)
+dm_split <- initial_split(dm, strata = adm, prop = 8/10)
+dm_train_val <- training(dm_split)
 dm_test <- testing(dm_split)
 
-rpt(dm_train)
-setkey(dm_train, csn)
+dm_split2 <- initial_split(dm_train_val, strata = adm, prop = 7/8)
+dm_train <- training(dm_split2)
+dm_val <- testing(dm_split2)
+
+setkey(dm, csn)
+
+dm[, in_set := case_when(csn %in% dm_train$csn ~ "train",
+                         csn %in% dm_val$csn ~ "val",
+                         csn %in% dm_test$csn ~ "test")]
 
 # Prepare location data --------------------------------------------------
 
-loc <- moves[csn %in% dm_train$csn, .(csn, admission, discharge, location, visited_CDU, outside)]
-loc <- merge(loc, dm_train[,.(csn, presentation_time,last_inside_discharge, duration)])
+loc <- moves[csn %in% dm$csn, .(csn, admission, discharge, location, visited_CDU, outside)]
+loc <- merge(loc, dm[,.(csn, presentation_time,last_inside_discharge, duration)])
 loc[, admission_e := as.numeric(difftime(admission, presentation_time, units = "mins"))]
 loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "mins"))]
 
@@ -250,9 +258,9 @@ loc <- loc[discharge <= last_inside_discharge | is.na(last_inside_discharge)]
 rpt(loc)
 
 loc[, c("admission", "discharge", "presentation_time") := NULL]
-dm_train[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
+dm[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
 
-
+setkey(loc, csn)
 
 # Create timeslices -------------------------------------------------------
 
@@ -261,8 +269,11 @@ timeslices <- c(0, 15, 30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 24*60)
 
 for (i in seq(1, length(timeslices) -1, 1)) {
   print(paste0("Processing timeslice ", timeslices[i]))
-  name_ <- paste0("dm", timeslices[i])
-  ts <- create_timeslice(loc, dm_train, obs_real, timeslices[i], timeslices[i+1])
+  filenum <- case_when(nchar(as.character(timeslices[i])) == 1 ~ paste0("00", timeslices[i]),
+                       nchar(as.character(timeslices[i])) == 2 ~ paste0("0", timeslices[i]),
+                      TRUE ~ as.character(timeslices[i]))
+  name_ <- paste0("dm", filenum)
+  ts <- create_timeslice(loc, dm, obs_real, timeslices[i], timeslices[i+1])
   assign(name_, ts)
 }
 
@@ -272,11 +283,11 @@ for (i in seq(1, length(timeslices) -1, 1)) {
 skimr::skim(dm15)
 
 
-save(dm0, file = paste0("EDcrowding/predict-admission/data-raw/dm0_",today(),".rda"))
-save(dm15, file = paste0("EDcrowding/predict-admission/data-raw/dm15_",today(),".rda"))
-save(dm30, file = paste0("EDcrowding/predict-admission/data-raw/dm30_",today(),".rda"))
-save(dm60, file = paste0("EDcrowding/predict-admission/data-raw/dm60_",today(),".rda"))
-save(dm90, file = paste0("EDcrowding/predict-admission/data-raw/dm90_",today(),".rda"))
+save(dm000, file = paste0("EDcrowding/predict-admission/data-raw/dm000_",today(),".rda"))
+save(dm015, file = paste0("EDcrowding/predict-admission/data-raw/dm015_",today(),".rda"))
+save(dm030, file = paste0("EDcrowding/predict-admission/data-raw/dm030_",today(),".rda"))
+save(dm060, file = paste0("EDcrowding/predict-admission/data-raw/dm060_",today(),".rda"))
+save(dm090, file = paste0("EDcrowding/predict-admission/data-raw/dm090_",today(),".rda"))
 save(dm120, file = paste0("EDcrowding/predict-admission/data-raw/dm120_",today(),".rda"))
 save(dm150, file = paste0("EDcrowding/predict-admission/data-raw/dm150_",today(),".rda"))
 save(dm180, file = paste0("EDcrowding/predict-admission/data-raw/dm180_",today(),".rda"))
@@ -285,7 +296,9 @@ save(dm240, file = paste0("EDcrowding/predict-admission/data-raw/dm240_",today()
 save(dm300, file = paste0("EDcrowding/predict-admission/data-raw/dm300_",today(),".rda"))
 save(dm360, file = paste0("EDcrowding/predict-admission/data-raw/dm360_",today(),".rda"))
 
-save(dm_test, file = paste0("EDcrowding/predict-admission/data-raw/dm_test",today(),".rda"))
+
+dm[, row_id := seq_len(nrow(dm))]
+save(dm, file = paste0("EDcrowding/predict-admission/data-raw/dm_",today(),".rda"))
 
 
 
