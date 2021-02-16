@@ -62,9 +62,10 @@ set(moves, NULL , c("drop_row", "amend_row", "lag_csn", "lag_location", "lag_dep
 rpt(moves)
 
 # update lead location where csns change
-moves[, lead_csn := if_else(csn != lead_csn, NA_character_, lead_csn)]
 moves[, lead_department := if_else(csn != lead_csn, NA_character_, lead_department)]
 moves[, lead_location := if_else(csn != lead_csn, NA_character_, lead_location)]
+moves[, lead_csn := if_else(csn != lead_csn, NA_character_, lead_csn)]
+
 
 # calc row duration
 moves[, "row_duration" := difftime(discharge, admission, units = "mins")]

@@ -44,15 +44,9 @@ library(mlr3misc)
 
 # Create function ---------------------------------------------------------
 
-
-
 # from https://stackoverflow.com/questions/39905820/how-to-one-hot-encode-factor-variables-with-data-table
 one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
-  # One-Hot-Encode unordered factors in a data.table
-  # If cols = "auto", each unordered factor column in dt will be encoded. (Or specifcy a vector of column names to encode)
-  # If dropCols=TRUE, the original factor columns are dropped
-  # If dropUnusedLevels = TRUE, unused factor levels are dropped
-  
+
   # Automatically get the unordered factor columns
   if(cols[1] == "auto") cols <- colnames(dt)[which(sapply(dt, function(x) is.factor(x) & !is.ordered(x)))]
   
@@ -80,20 +74,213 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
   return(result)
 }
 
+# set up parameters
+train_learner <- function(learner, tsk, tsk_train_ids, 
+                          # initialise params at default values
+                          eval_metric = "logloss",
+                          nrounds = 1,
+                          max_depth = 6, 
+                          min_child_weight = 1, 
+                          gamma = 0,
+                          subsample = 1,
+                          colsample_bytree = 1,
+                          eta = 0.3, 
+                          scale_pos_weight = 1,
+                          alpha = 0,
+                          lambda = 1,
+                          early_stopping_rounds = 10
+                          ) {
+  
+  learner$param_set$values = insert_named(
+    learner$param_set$values,
+    list(
+      "eval_metric" = eval_metric,
+      "nrounds" = nrounds,
+      "max_depth" = max_depth,
+      "min_child_weight" = min_child_weight,
+      "gamma" = gamma, 
+      "subsample" = subsample,
+      "colsample_bytree" = colsample_bytree,
+      "eta" = eta,
+      "scale_pos_weight" = scale_pos_weight,
+      "alpha" = alpha,
+      "lambda" = lambda
+      
+    )
+  )
+  
+  # train learner on training set
+  set.seed(17L)
+  learner$train(tsk, row_ids = tsk_train_ids)
+  
+  return(learner)
+}
+
+tune_learner <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scores, 
+                         # initialise params at default values
+                         eval_metric = "logloss",
+                         nrounds = 1,
+                         max_depth = 6, 
+                         min_child_weight = 1, 
+                         gamma = 0,
+                         subsample = 1,
+                         colsample_bytree = 1,
+                         eta = 0.3, 
+                         scale_pos_weight = 1,
+                         alpha = 0,
+                         lambda = 1,
+                         early_stopping_rounds = 10) {
+  
+  learner$param_set$values = insert_named(
+    learner$param_set$values,
+    list(
+      "eval_metric" = eval_metric,
+      "nrounds" = nrounds,
+      "max_depth" = max_depth,
+      "min_child_weight" = min_child_weight,
+      "gamma" = gamma, 
+      "subsample" = subsample,
+      "colsample_bytree" = colsample_bytree,
+      "eta" = eta,
+      "scale_pos_weight" = scale_pos_weight,
+      "alpha" = alpha,
+      "lambda" = lambda
+      
+    )
+  )
+  
+  set.seed(17L)
+  rr = resample(tsk, learner, rsmp("cv"), store_models = TRUE)
+  
+  score = data.table(tsk_ids = "train",
+                     tsk = name_tsk,
+                     tuning_round = tuning_round,
+                     logloss = rr$aggregate(msr("classif.logloss")),
+                     auc = rr$aggregate(msr("classif.auc")),
+                     acc = rr$aggregate(msr("classif.acc")),
+                     tp = rr$aggregate(msr("classif.tp")),
+                     fp = rr$aggregate(msr("classif.fp")),
+                     fn = rr$aggregate(msr("classif.fn")),
+                     tn = rr$aggregate(msr("classif.tn")),
+                     eval_metric = eval_metric,
+                     nrounds = nrounds,
+                     max_depth = max_depth,
+                     min_child_weight = min_child_weight,
+                     gamma = gamma, 
+                     subsample = subsample,
+                     colsample_bytree = colsample_bytree,
+                     eta = eta,
+                     scale_pos_weight = scale_pos_weight,
+                     alpha = alpha,
+                     lambda = lambda,
+                     dttm = now()
+  )
+  
+  scores <- bind_rows(scores, score)
+}
+
+save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scores, preds,
+                         # initialise params at default values
+                         eval_metric = "logloss",
+                         nrounds = 1,
+                         max_depth = 6, 
+                         min_child_weight = 1, 
+                         gamma = 0,
+                         subsample = 1,
+                         colsample_bytree = 1,
+                         eta = 0.3, 
+                         scale_pos_weight = 1,
+                         alpha = 0,
+                         lambda = 1,
+                         early_stopping_rounds = 10) {
+  
+  learner$param_set$values = insert_named(
+    learner$param_set$values,
+    list(
+      "eval_metric" = eval_metric,
+      "nrounds" = nrounds,
+      "max_depth" = max_depth,
+      "min_child_weight" = min_child_weight,
+      "gamma" = gamma, 
+      "subsample" = subsample,
+      "colsample_bytree" = colsample_bytree,
+      "eta" = eta,
+      "scale_pos_weight" = scale_pos_weight,
+      "alpha" = alpha,
+      "lambda" = lambda
+    )
+  )
+  
+  # train learner on training set
+  set.seed(17L)
+  learner$train(tsk, row_ids = tsk_train_ids)
+  
+  # get predictions
+  pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
+  
+  score = data.table(tsk_ids = "val",
+                     tsk = name_tsk,
+                     tuning_round = tuning_round,
+                     logloss = pred_val$score(msr("classif.logloss")),
+                     auc = pred_val$score(msr("classif.auc")),
+                     acc = pred_val$score(msr("classif.acc")),
+                     tp = pred_val$score(msr("classif.tp")),
+                     fp = pred_val$score(msr("classif.fp")),
+                     fn = pred_val$score(msr("classif.fn")),
+                     tn = pred_val$score(msr("classif.tn")),
+                     eval_metric = eval_metric,
+                     nrounds = nrounds,
+                     max_depth = max_depth,
+                     min_child_weight = min_child_weight,
+                     gamma = gamma, 
+                     subsample = subsample,
+                     colsample_bytree = colsample_bytree,
+                     eta = eta,
+                     scale_pos_weight = scale_pos_weight,
+                     alpha = alpha,
+                     lambda = lambda,
+                     dttm = now()
+                    ) 
+  
+  scores <- bind_rows(scores, score)
+  
+  pred <- as.data.table(pred_val)
+  pred[, model := name_tsk]
+  pred[, tuning_round := tuning_round]
+  
+  preds <- bind_rows(preds, pred)
+
+
+  return(list(scores, preds))
+}
 
 # Set programme instructions ----------------------------------------------
 
-if (file.exists("~/EDcrowding/predict-admission/data-output/scores_table.rda")) {
-  load("~/EDcrowding/predict-admission/data-output/scores_table.rda")
+scores_file <- paste0("~/EDcrowding/predict-admission/data-output/scores_",today(),".rda")
+
+if (file.exists(scores_file)) {
+  load(scores_file)
 } else {
-  scores_table <- data.table()
+  scores <- data.table()
 }
+
+preds_file <- paste0("~/EDcrowding/predict-admission/data-output/preds_",today(),".rda")
+
+if (file.exists(preds_file)) {
+  load(preds_file)
+} else {
+  preds <- data.table()
+}
+
+
+
 
 file_date <- "2021-02-08"
 
 base_model = FALSE
+check_eval_metric = FALSE
+tune_nr = TRUE
 tune_spw = FALSE
-tune_nr = FALSE
 tune_trees = FALSE
 tune_trees2 = FALSE
 tune_gamma = FALSE
@@ -104,8 +291,6 @@ tune_samples = TRUE
 # Load data and encode factors --------------------------------------------------------------
 
 timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
-
-
 
 for (ts_ in timeslices) {
   
@@ -138,41 +323,9 @@ for (ts_ in timeslices) {
 }
 
 
-# Check timeslice class balance --------------------------------------------------------
-# 
-# 
-# adm_summ <- data.table()
-# 
-# for (ts_ in timeslices) {
-#   name_ <- paste0("dm", ts_, "p")
-#   ts = get(name_)
-#   num_adm <- ts[, .N, by = adm]
-#   num_adm[, model := ts_]
-#   adm_summ <- bind_rows(adm_summ, num_adm)
-#   
-# }
-# 
-# # Trying to show proportions on chart - can't think how to do it
-# props <- adm_summ %>% pivot_wider(names_from = adm, values_from = N) 
-# cols <- c("model", "admitted", "discharged") 
-# setnames(props, cols )
-# props <- props %>% mutate(prop = admitted/discharged)
-# 
-# # look at class balance as timeslices progress
-# adm_summ %>% ggplot(aes(x = model, y = N, fill = adm)) + geom_bar(stat = "identity") + 
-#   labs(title = "Numbers admitted / not admitted in each timeslice", 
-#        fill = "Admitted (1 = TRUE)",
-#        x = "Timeslice") +
-#   theme(legend.position = "bottom") 
-
-
 # Set up ML ------------------------------------------------------------
 
-# inFile <- paste0("~/EDcrowding/predict-admission/data-raw/dm_", file_date, ".rda")
-# load(inFile)
-
 # create task
-
 for (ts_ in timeslices) {
   name_ts <- paste0("dm", ts_, "p")
   ts = get(name_ts)
@@ -189,937 +342,127 @@ for (ts_ in timeslices) {
 # create learner
 learner = lrn("classif.xgboost", predict_type = "prob")
 
-# Train without cross validation and check against validation set, no tuning -----------------------------------
+# Train without and then with cross validation and check against validation set, no tuning -----------------------------------
 
 if (base_model) {
   
-  set.seed(17L)
   for (ts_ in timeslices) {
     name_tsk <- paste0("task", ts_)
     tsk = get(name_tsk)
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-
-    learner$param_set$values = insert_named(
-      learner$param_set$values,
-      list(
-        "eval_metric" = "auc"
-      )
-    )
     
-    # train learner on training set
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "base"
-    score$dttm = now()
-    
-    # save default values
-    score$nrounds = learner$param_set$default$nrounds
-    score$max_depth = learner$param_set$default$max_depth
-    score$min_child_weight = learner$param_set$default$min_child_weight
-    score$gamma = learner$param_set$default$gamma
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$early_stopping_rounds = NA
-    score$scale_pos_weight = learner$param_set$default$scale_pos_weight 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-
-    
-    scores_table <- bind_rows(scores_table, score)
+    learner <- train_learner(learner, tsk, tsk_train_ids)
+    scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "base", scores)
+    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "base", scores)
     
   } 
   
-  save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
+  save(scores, file = scores_file)
+  
+}
+
+
+# Examine eval_metric -----------------------------------
+
+if (check_eval_metric) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    for(eval_metric in c("logloss", "auc", "error")) {
+      learner <- train_learner(learner, tsk, tsk_train_ids, eval_metric = eval_metric)
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "eval_metric", eval_metric = eval_metric, scores)
+    }
+    
+    scores %>% 
+      pivot_longer(logloss:tn) %>% filter(name %in% c("auc")) %>% 
+      ggplot(aes(x = tsk, y = value, colour = tsk_ids, group = tsk_ids)) + geom_line() + facet_grid(. ~ eval_metric)
+    
+#    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "base", scores)
+    
+  } 
+  
+  save(scores, file = scores_file)
   
 }
 
 
 # Tuning nrounds ----------------------------------------------------------
 
+
 if (tune_nr) {
   
-  if (file.exists(paste0("EDcrowding/predict-admission/data-output/nr_results_",today(),".rda"))) {
-    load(paste0("EDcrowding/predict-admission/data-output/nr_results_",today(),".rda"))
-  } else {
-    nr_results <- data.table()
-  }
-  
-  
-  learner$param_set$values = insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  # set param grid
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamInt$new("nrounds", lower = 20, upper = 60)
-  ))
-  
-  # # set tuner values
-  tuner = tnr("grid_search", resolution = 5)
-  
-  nr_results <- data.table()
-  set.seed(17L)
-  
   for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_ts <- paste0("dm", ts_, "p")
-    ts  = get(name_ts)
-    
-    # get class balance for use in scale_pos_weight
-    sp <- nrow(ts[adm == 0])/nrow(ts[adm == 1])
-    
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp
-      )
-    )
-    
     name_tsk <- paste0("task", ts_)
     tsk = get(name_tsk)
-    
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    nr_results <- bind_rows(nr_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "nrounds"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$max_depth = learner$param_set$default$max_depth
-    score$min_child_weight = learner$param_set$default$min_child_weight
-    score$gamma = learner$param_set$default$gamma
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(nr_results, file = paste0("EDcrowding/predict-admission/data-output/nr_results_",today(),".rda"))
-    
-    
-  }
-  
-  # nr_results %>% ggplot(aes(x = nrounds, y = classif.auc, col = model, group = model)) + geom_line() + facet_grid(. ~ model)
-  
-}
-
-
-
-# Tuning scale pos weight ------------------------------------------------------------------
-
-
-if (tune_spw) {  
-  
-  spw_range <- vector()
-  for (ts_ in timeslices) {
-    name_ts <- paste0("dm", ts_, "p")
-    ts  = get(name_ts)
-    spw_range <- c(spw_range, nrow(ts[adm == 0])/nrow(ts[adm == 1]))
-  }
-  
-  # set default params
-  learner$param_set$values = insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  # set param grid
-  tune_ps = ParamSet$new(list(
-    ParamDbl$new("scale_pos_weight", lower = min(spw_range), upper = max(spw_range))
-  ))
-  
-  # set tuner values
-  spw_design = data.table(scale_pos_weight = spw_range)
-  tuner = tnr("design_points", design = spw_design)
-  
-  # iterate through timeslices - run tuning
-  spw_results <- data.table()
-  
-  for (ts_ in timeslices) {
-  
-    print(paste0("Processing timeslice ", ts_))
-  
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-  
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-  
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-  
-    # save instance
-    name_ins <- paste0("instance", ts_)
-#    assign(name_ins, instance)
-  
-    # save results of all instances
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    spw_results <- bind_rows(spw_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "spw"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    # save default values
-    score$nrounds = learner$param_set$default$nrounds
-    score$max_depth = learner$param_set$default$max_depth
-    score$min_child_weight = learner$param_set$default$min_child_weight
-    score$gamma = learner$param_set$default$gamma
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-
-    scores_table <- bind_rows(scores_table, score)
-  }
-  
-  # save results
-  save(spw_results, file = paste0("EDcrowding/predict-admission/data-output/spw_results",today(),".rda"))
-  save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-  
-  # scores_table[, .SD[which.max(val_auc)], by=.(model)]
-}
-
-
-
-# Tuning tree parameters ----------------------------------------------------------
-
-if (tune_trees) {
-
-  learner$param_set$values = insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamInt$new("max_depth", lower = 3, upper = 9),
-    ParamInt$new("min_child_weight", lower = 2, upper = 5)
-  ))
-  
-  tuner = tnr("grid_search", resolution = 3)
-  
-  trees_results <- data.table()
-  set.seed(17L)
-  
-  for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    # get best value for nrounds from previous results
-    nr <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(nrounds)])
-    
-    # retrieve best scale_pos_weight (if tuned; if not will return default
-    sp <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)])
-    
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp,
-        "nrounds" = nr
-      )
-    )
-
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    trees_results <- bind_rows(trees_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "trees"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$max_depth = instance$result_learner_param_vals$max_depth
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$gamma = learner$param_set$default$gamma
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(trees_results, file = paste0("EDcrowding/predict-admission/data-output/trees_results_",today(),".rda"))
-    
-    
-  }
-  # trees_results %>% pivot_longer(max_depth: min_child_weight) %>%
-  #   group_by(model, name, value) %>% summarise(mean_auc = mean(classif.auc)) %>%
-  #   ggplot(aes(x = value, y = mean_auc, col = model)) + geom_line() + facet_grid(. ~ name)
-}
-
-
-# Tuning tree parameters - zooming in  ----------------------------------------------------------
-
-if (tune_trees2) {
-  
-  if (file.exists(paste0("~/EDcrowding/predict-admission/data-output/trees_results_", today(), ".rda"))) {
-    load(paste0("~/EDcrowding/predict-admission/data-output/trees_results_", today(), ".rda"))
-  }
-  else   {
-    trees_results <- data.table()
-  }
-  
-  learner$param_set$values = mlr3misc::insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamInt$new("max_depth", lower = 2, upper = 10),
-    ParamInt$new("min_child_weight", lower = 1, upper = 6)
-  ))
-  
-  set.seed(17L)
-  
-  for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    # get best value for nrounds from previous results
-    nr <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(nrounds)])
-    
-    # retrieve best scale_pos_weight (if tuned; if not will return default
-    sp <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)])
-    
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp,
-        "nrounds" = nr
-      )
-    )
-    
-    # retrieve max_depth and min_child_weight from previous round for tuner values
-    
-    md <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees"), .SD[which.max(val_auc)], by=.(model)][,.(max_depth)])
-    mcw <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees"), .SD[which.max(val_auc)], by=.(model)][,.(min_child_weight)])
-    
-    tree_design = data.table(max_depth = c(md-1, md-1, md+1, md+1), min_child_weight = c(mcw+1, mcw-1, mcw+1, mcw-1))
-    tuner = tnr("design_points", design = tree_design)
-
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-#    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    trees_results <- bind_rows(trees_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "trees2"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$max_depth = instance$result_learner_param_vals$max_depth
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$gamma = learner$param_set$default$gamma
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(trees_results, file = paste0("EDcrowding/predict-admission/data-output/trees_results_",today(),".rda"))
-    
-    
-  }
-  # trees_results %>% pivot_longer(max_depth: min_child_weight) %>%
-  #   group_by(model, name, value) %>% summarise(mean_auc = mean(classif.auc)) %>%
-  #   ggplot(aes(x = value, y = mean_auc, col = model)) + geom_line() + facet_grid(. ~ name)
-}
-
-
-
-# Tuning gamma ------------------------------------------------------------
-
-
-if (tune_gamma) {
-  
-  if (file.exists(paste0("~/EDcrowding/predict-admission/data-output/gamma_results_", today(), ".rda"))) {
-    load(paste0("~/EDcrowding/predict-admission/data-output/gamma_results_", today(), ".rda"))
-  }   else   {
-    gamma_results <- data.table()
-  }
-  
-  learner$param_set$values = mlr3misc::insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamDbl$new("gamma", lower = 0, upper = 0.4)
-  ))
-  
-  tuner = tnr("grid_search", resolution = 5)
-  
-  set.seed(17L)
-  
-  for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    # get best value for nrounds from previous results
-    nr <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(nrounds)])
-    
-    # retrieve best scale_pos_weight (if tuned; if not will return default
-    sp <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)])
-    
-    # retrieve max_depth and min_child_weight
-    
-    md <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(max_depth)])
-    mcw <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(min_child_weight)])
-    
-    
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp,
-        "nrounds" = nr,
-        "max_depth" = md, 
-        "min_child_weight" = mcw
-      )
-    )
-    
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-    #    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    gamma_results <- bind_rows(gamma_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "gamma"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$max_depth = instance$result_learner_param_vals$max_depth
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight  
-    score$gamma = instance$result_learner_param_vals$gamma
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(gamma_results, file = paste0("EDcrowding/predict-admission/data-output/gamma_results_",today(),".rda"))
-    
-    
-  }
-  # 
-  # scores_table[tuning_round == "gamma"]
-  # 
-  # gamma_results %>% 
-  #   ggplot(aes(x = gamma, y = classif.auc, col = model)) + geom_line() + facet_grid(. ~ model)
-  # 
-  # gamma_results %>% group_by(model) %>% summarise(g_mean = mean(classif.auc), 
-  #                                                 g_sd = sd(classif.auc))
-  #   ggplot(aes(x = model, y = classif.auc, col = model)) + geom_line() + facet_grid(. ~ model)
-  # 
-  
-}
-
-
-# Recalibrating nrounds ---------------------------------------------------
-
-
-if (recal_nr) {
-  
-  if (file.exists(paste0("~/EDcrowding/predict-admission/data-output/nr_results_", today(), ".rda"))) {
-    load(paste0("~/EDcrowding/predict-admission/data-output/nr_results_", today(), ".rda"))
-  }   else   {
-    nr_results <- data.table()
-  }
-  
-  learner$param_set$values = mlr3misc::insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  # set param grid
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamInt$new("nrounds", lower = 25, upper = 55)
-  ))
-  
-  # # set tuner values
-  tuner = tnr("grid_search", resolution = 4)
-  
-  set.seed(17L)
-  
-  for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    # retrieve best scale_pos_weight (if tuned; if not will return default
-    sp <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)])
-    
-    # retrieve max_depth and min_child_weight
-    md <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(max_depth)])
-    mcw <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(min_child_weight)])
-    
-    # # retrieve gamma
-    # gam <- as.numeric(scores_table[(tuning_round == "gamma"), .SD[which.max(val_auc)], by=.(model)][,.(gamma)])
+    # # first round - test wide range - returns 50 as best for all timeslices
+    # # for(nrounds in c(1, 50, 100, 200)) {    
+    # for(nrounds in c(30, 45, 60, 75)) {
+    #   learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = nrounds)
+    #   scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "nrounds", nrounds = nrounds, scores)
+    # }
     # 
+    # save(scores, file = scores_file)
+
+    scores_pred_list <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "nrounds", 
+             #             nrounds = as.numeric(scores[tsk_ids == "train" & tsk == name_tsk & tuning_round == "nrounds", .SD[which.min(logloss)], by = list(tsk)][,.(nrounds)]), 
+                          nrounds = 30,
+                          scores, preds)
     
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp,
-        "max_depth" = md, 
-        "min_child_weight" = mcw,
-        "gamma" = 0.1
-      )
-    )
+    scores <- scores_pred_list[[1]]
+    preds <- scores_pred_list[[2]]
+    preds[, dttm := now()]
     
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-    #    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    nr_results <- bind_rows(nr_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "recal_nr"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$max_depth = instance$result_learner_param_vals$max_depth
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight  
-    score$gamma = instance$result_learner_param_vals$gamma
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$subsample = learner$param_set$default$subsample
-    score$colsample_bytree = learner$param_set$default$colsample_bytree
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(nr_results, file = paste0("EDcrowding/predict-admission/data-output/nr_results_",today(),".rda"))
-    
-    
-  }
+    save(scores, file = scores_file)
+    save(preds, file = preds_file)
   
-  # nr_results %>% filter(timestamp > '2021-02-10 12:48:01') %>% 
-  #   ggplot(aes(x = nrounds, y = classif.auc, col = model, group = model)) + geom_line() + facet_grid(. ~ model)
+  } 
+  
+  # print ("Best results:")
+  # setindex(scores, tsk_ids)
+  # scores[tsk_ids == "train" & tuning_round == "nrounds", .SD[which.min(logloss)], by = list(tsk)][,.(tsk, nrounds)]
   # 
-}
-
-
-# Turning sample and colsample proportions  ---------------------------------------------------
-
-
-if (tune_samples) {
+  # scores_n <- scores[tuning_round == "nrounds"]
+  # scores_n[tsk_ids == "train", .SD[which.min(logloss)], by = list(tsk)][,.(tsk, nrounds)]
+  # 
+  # scores_n[tsk_ids == "train"] %>% 
+  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ tsk) +
+  #   labs(y = "logloss", title = "Results of tuningnumber of rounds of XGBoost for each timeslice - logloss scores")
+  # 
+  # scores_n[tsk_ids == "train"] %>% 
+  #   pivot_longer(logloss:tn) %>% filter(name %in% c("auc")) %>%
+  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ tsk) +
+  #   labs(y = "auc", title = "Results of tuningnumber of rounds of XGBoost for each timeslice - auc scores")
   
-  if (file.exists(paste0("~/EDcrowding/predict-admission/data-output/samples_results_", today(), ".rda"))) {
-    load(paste0("~/EDcrowding/predict-admission/data-output/samples_results_", today(), ".rda"))
-  }   else   {
-    samples_results <- data.table()
+  # looking at model output
+  
+  s = scores[tuning_round == "nrounds" & tsk_ids == "train"]
+  setorder(s, nrounds)
+  s[tuning_round == "nrounds" & tsk_ids == "train" & tsk == "task060"] %>% 
+    mutate(actual = tp + fn, predicted = tp + fp) %>% 
+    pivot_longer(c(tp:fn, actual, predicted)) %>% 
+    
+    ggplot(aes(x = nrounds, y = value, col = name, group = name)) + geom_line() + geom_point() +
+    labs(title = "Scores for 60 minute timeslice over various values of nrounds", 
+         col = "score")
+  
+  
+  
+  s[tuning_round == "nrounds" & tsk_ids == "train" & tsk == "task060"] %>% 
+    mutate(actual = tp + fn, predicted = tp + fp) %>% 
+    
+    ggplot(aes(x = nrounds)) + 
+    geom_line(aes(y = actual), colour = "red", linetype = "dashed") +
+    geom_line(aes(y = predicted), colour = "blue", linetype = "dashed") + 
+    geom_line(aes(y = tp), colour = "blue") +
+    geom_line(aes(y = tp), colour = "blue") 
+  
   }
-  
-  learner$param_set$values = mlr3misc::insert_named(
-    learner$param_set$values,
-    list(
-      "early_stopping_rounds" = 10,
-      "nthread" = 8,
-      "eval_metric" = "auc"
-    )
-  )
-  
-  # set param grid
-  tune_ps = ParamSet$new(list(
-    #  ParamDbl$new("cp", lower = 0.001, upper = 0.1),
-    ParamDbl$new("subsample", lower = 0.6, upper = 0.9),
-    ParamDbl$new("colsample_bytree", lower = 0.6, upper = 0.9)
-  ))
-  
-  # # set tuner values
-  tuner = tnr("grid_search", resolution = 4)
-  
-  set.seed(17L)
-  
-  for (ts_ in timeslices) {
-    
-    print(paste0("Processing timeslice ", ts_))
-    
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    # get best value for nrounds from recalibration
-    nr <- as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), .SD[which.max(val_auc)], by=.(model)][,.(nrounds)])
-    
-    # retrieve best scale_pos_weight (if tuned; if not will return default
-    sp <- as.numeric(scores_table[(model == name_tsk ), .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)])
-    
-    # retrieve max_depth and min_child_weight
-    md <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(max_depth)])
-    mcw <- as.numeric(scores_table[(model == name_tsk & tuning_round == "trees2"), .SD[which.max(val_auc)], by=.(model)][,.(min_child_weight)])
-    
-    # # retrieve gamma
-    # gam <- as.numeric(scores_table[(tuning_round == "gamma"), .SD[which.max(val_auc)], by=.(model)][,.(gamma)])
-    # 
-    
-    learner$param_set$values = mlr3misc::insert_named(
-      learner$param_set$values,
-      list(
-        "scale_pos_weight" = sp,
-        "nrounds" = nr,
-        "max_depth" = md, 
-        "min_child_weight" = mcw,
-        "gamma" = 0.1
-      )
-    )
-    
-    instance = TuningInstanceSingleCrit$new(
-      task = tsk,
-      learner = learner$train(tsk, row_ids = tsk_train_ids),
-      resampling = rsmp("cv"),
-      measure = msr("classif.auc"),
-      search_space = tune_ps,
-      terminator = trm("evals", n_evals = 20) # alternative is trm("stagnation", iters = 5, threshold = 1e-3)
-    )
-    tuner$optimize(instance)
-    
-    # save instance
-    name_ins <- paste0("instance", ts_)
-    #    assign(name_ins, instance)
-    
-    # save results for print
-    res <- data.table(instance$archive$data())
-    res[, model := name_ins]
-    samples_results <- bind_rows(samples_results, res)
-    
-    # set learner parameters to best results and train with whole of training set
-    learner$param_set$values = instance$result_learner_param_vals
-    learner$train(tsk, row_ids = tsk_train_ids)
-    
-    # score predictions on training and validation set
-    pred_train = learner$predict(tsk, row_ids = tsk_train_ids)
-    score_train = data.table(train_mcc = pred_train$score(msr("classif.mcc")),
-                             train_acc = pred_train$score(msr("classif.acc")),
-                             train_auc = pred_train$score(msr("classif.auc")))
-    pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-    score_val = data.table(val_mcc = pred_val$score(msr("classif.mcc")),
-                           val_acc = pred_val$score(msr("classif.acc")),
-                           val_auc = pred_val$score(msr("classif.auc"))) 
-    score <- bind_cols(score_train, score_val)
-    
-    # save parameters with scores
-    score$model = name_tsk
-    score$tuning_round = "samples"
-    score$scale_pos_weight = instance$result_learner_param_vals$scale_pos_weight
-    score$nrounds = instance$result_learner_param_vals$nrounds
-    score$max_depth = instance$result_learner_param_vals$max_depth
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight
-    score$min_child_weight = instance$result_learner_param_vals$min_child_weight  
-    score$gamma = instance$result_learner_param_vals$gamma
-    score$early_stopping_rounds = instance$result_learner_param_vals$early_stopping_rounds
-    score$subsample =  instance$result_learner_param_vals$subsample
-    score$colsample_bytree =  instance$result_learner_param_vals$colsample_bytree
-    score$dttm = now()
-    
-    
-    # save default values for the rest
-    score$eta = learner$param_set$default$eta 
-    score$alpha = learner$param_set$default$alpha
-    score$lambda = learner$param_set$default$lambda
-    
-    scores_table <- bind_rows(scores_table, score)
-    save(scores_table, file = paste0("EDcrowding/predict-admission/data-output/scores_table.rda"))
-    
-    save(samples_results, file = paste0("EDcrowding/predict-admission/data-output/samples_results_",today(),".rda"))
-    
-    
-  }
-
-  scores_table[tuning_round == "samples"]
-  
-  samples_results %>% pivot_longer(subsample: colsample_bytree) %>%
-    group_by(model, name, value) %>% summarise(mean_auc = mean(classif.auc)) %>%
-    ggplot(aes(x = value, y = mean_auc, col = name)) + geom_line() + facet_grid(. ~ model)
-
-
-}

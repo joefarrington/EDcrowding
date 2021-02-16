@@ -35,64 +35,37 @@ madcap = function(pred){
 
 # Use run_MLR.R to generate dm000p datasets and tasks
 
-load("~/EDcrowding/predict-admission/data-output/scores_table.rda")
+scores_file <- paste0("~/EDcrowding/predict-admission/data-output/scores_",today(),".rda")
+load(scores_file)
 
-# create learner
-learner = lrn("classif.xgboost", predict_type = "prob")
-
-learner$param_set$values = mlr3misc::insert_named(
-  learner$param_set$values,
-  list(
-    "early_stopping_rounds" = 10,
-    "eval_metric" = "auc"
-  )
-)
+preds_file <- paste0("~/EDcrowding/predict-admission/data-output/preds_",today(),".rda")
+load(preds_file)
 
 
+# Plot madcap  ---------------------------------
 
-
-# Predict using optimised parameters ---------------------------------
 all_madcap = data.table()
+
+preds <- preds[tuning_round == "nrounds" & dttm > "2021-02-15 14:44:09"]
 
 for (ts_ in timeslices) {
   name_tsk <- paste0("task", ts_)
   tsk = get(name_tsk)
+  
   tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
   tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-  
-  learner$param_set$values = mlr3misc::insert_named(
-    learner$param_set$values,
-    list(
-      "scale_pos_weight" = as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), 
-                                                   .SD[which.max(val_auc)], by=.(model)][,.(scale_pos_weight)]),
-      "nrounds" = as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), 
-                                          .SD[which.max(val_auc)], by=.(model)][,.(nrounds)]),
-      "max_depth" = as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), 
-                                            .SD[which.max(val_auc)], by=.(model)][,.(max_depth)]), 
-      "min_child_weight" = as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), 
-                                                   .SD[which.max(val_auc)], by=.(model)][,.(min_child_weight)]),
-      "gamma" = as.numeric(scores_table[(model == name_tsk & tuning_round == "recal_nr"), 
-                                        .SD[which.max(val_auc)], by=.(model)][,.(gamma)])
-    )
-  )
-  
-  # train learner on training set
-  learner$train(tsk, row_ids = tsk_train_ids)
-  
+
   # score predictions on training and validation set
-  pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
-  name_pred_val <- paste0("pred_val", ts_)
-  assign(name_pred_val, as.data.table(pred_val))
-  
-  # get roc plot
-  
-  name_roc <- paste0("plot_roc", ts_)
-  assign(name_roc, autoplot(pred_val, type = "roc") + labs(title = paste0("ROC curve for timeslice ", ts_)))
+  pred_val = preds[model == name_tsk]
   
   # get data for madcap
   
-  mc_result = as.data.table(madcap(as.data.table(pred_val)))
+  mc_result = as.data.table(madcap(pred_val))
   mc_result[, model := ts_]
+  
+  mc_result[, distribution := case_when(x < nrow(mc_result)/3 ~ "lower",
+                                        x > nrow(mc_result)*2/3 ~ "upper",
+                                        TRUE ~ "middle")]
   
   all_madcap = bind_rows(all_madcap, mc_result)
   
@@ -118,14 +91,23 @@ ggplot(mc_result, aes(x))+
 
 # all timeslices
 all_madcap %>% ggplot(aes(x))+ 
-  geom_line(aes(y = y1, colour = "model"), size = 2) +
-  geom_line(aes(y = y2, colour = "data"), size = 2) +
+  geom_line(aes(y = y1, colour = "model"), size = 1) +
+  geom_line(aes(y = y2, colour = "data"), size = 1) +
   scale_color_manual(breaks = c('model','data'), values = c('model'='red','data'='black')) + 
   labs(x='No. of patients (ordered by risk factor)',y='Number of admissions', 
        title = paste0("Madcap plot for timeslice ")) +
   theme(legend.title = element_blank()) + 
   facet_wrap(vars(model), nrow = 3, ncol = 3, scales = "free")
 
+# all timeslices divided into thirds
+all_madcap %>% ggplot(aes(x))+ 
+  geom_line(aes(y = y1, colour = "model"), size = 1) +
+  geom_line(aes(y = y2, colour = "data"), size = 1) +
+  scale_color_manual(breaks = c('model','data'), values = c('model'='red','data'='black')) + 
+  labs(x='No. of patients (ordered by risk factor)',y='Number of admissions', 
+       title = paste0("Madcap plot for timeslice ")) +
+  theme(legend.title = element_blank()) + 
+  facet_grid(distribution ~ model, scales = "free")
 
 
 # Look at individual predictions ------------------------------------------
@@ -136,28 +118,42 @@ all_madcap %>% ggplot(aes(x))+
 
 library(DALEX)
 
-model_ = learner$train(tsk, row_ids = tsk_train_ids)
+name_tsk <- paste0("task", ts_)
+tsk = get(name_tsk)
 
-data_ = dm360p[tsk_val_ids]
+tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+
+learner = lrn("classif.xgboost", predict_type = "prob")
+
+learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = 30)
+
+model = Predictor$new(learner, data = x, y = penguins$species)
+
+name_ts <- paste0("dm", ts_, "p")
+tsp = get(name_ts)
+y_ = tsp[tsk_val_ids, adm]
+
+data_ = tsp[tsk_val_ids]
 data_[, adm:= NULL]
-y_ = dm360[tsk_val_ids, adm]
+
 
 
 # create explainer
-explain_ <- DALEX::explain(model = model_,  
+explain_ <- DALEX::explain(model = learner,  
                              data = data_,
                              y = y_) # note y_ has value 1 for admitted and 2 for discharged
 
-
-pred = as.data.table(learner$predict(tsk, row_ids = tsk_val_ids))
-# pred = bind_cols(pred, dm30p[tsk_val_ids])
-
+pred_val = preds[model == name_tsk]
+pred_val[truth == 0 & response == 1]
 
 # understand predictions for a particular case
 bd <- predict_parts(explainer = explain_,
-                       new_observation = data_[140,],
+                       new_observation = tsp[42,],
                        type = "break_down")
-plot(bd)
+p = plot(bd)
+p + labs(title = "Breakdown plot for a false positive in timeslice 30 () ",
+         subtitle = "Green denotes features pushing the predictions towards 2 (which is discharge)")
 
 imp <- data.table(learner$importance())
 imp$feature <- names(learner$importance())
