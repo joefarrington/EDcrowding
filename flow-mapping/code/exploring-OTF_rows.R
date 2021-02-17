@@ -56,3 +56,10 @@ otf_next_occupant_of_prior_location[next_occupant_admission < last_loc_discharge
 # 9 % of cases
 nrow(otf_next_occupant_of_prior_location[next_occupant_admission < last_loc_discharge])/
   nrow(otf_next_occupant_of_prior_location)
+
+otf_next_occupant_of_prior_location[, overlap := 
+                                      next_occupant_admission < last_loc_discharge]
+
+otf_next_occupant_of_prior_location %>% group_by(date(otf_admission)) %>% summarise(N = sum(overlap)) %>% 
+  ggplot(aes(x = `date(otf_admission)`, y = N)) + geom_line() +
+  labs(title = "Number of overlaps of prior-to-OTF-locations with next occupant", x = "Date")

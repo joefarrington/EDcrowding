@@ -46,7 +46,7 @@ library(mlr3misc)
 
 # from https://stackoverflow.com/questions/39905820/how-to-one-hot-encode-factor-variables-with-data-table
 one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
-
+  
   # Automatically get the unordered factor columns
   if(cols[1] == "auto") cols <- colnames(dt)[which(sapply(dt, function(x) is.factor(x) & !is.ordered(x)))]
   
@@ -89,7 +89,7 @@ train_learner <- function(learner, tsk, tsk_train_ids,
                           alpha = 0,
                           lambda = 1,
                           early_stopping_rounds = 10
-                          ) {
+) {
   
   learner$param_set$values = insert_named(
     learner$param_set$values,
@@ -116,7 +116,7 @@ train_learner <- function(learner, tsk, tsk_train_ids,
   return(learner)
 }
 
-tune_learner <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scores, 
+tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, scores, 
                          # initialise params at default values
                          eval_metric = "logloss",
                          nrounds = 1,
@@ -152,10 +152,12 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scor
   set.seed(17L)
   rr = resample(tsk, learner, rsmp("cv"), store_models = TRUE)
   
-  score = data.table(tsk_ids = "train",
-                     tsk = name_tsk,
+  score = data.table(
+                     timeslice = name_tsk,
+                     tsk_ids = "train",
                      tuning_round = tuning_round,
                      logloss = rr$aggregate(msr("classif.logloss")),
+                     bbrier = rr$aggregate(msr("classif.bbrier")), # binary brier score
                      auc = rr$aggregate(msr("classif.auc")),
                      acc = rr$aggregate(msr("classif.acc")),
                      tp = rr$aggregate(msr("classif.tp")),
@@ -179,7 +181,23 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scor
   scores <- bind_rows(scores, score)
 }
 
-save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scores, preds,
+get_preds <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_ids, tuning_round, param_value, preds) {
+  pred_values = learner$predict(tsk, row_ids = tsk_train_ids)
+  
+  pred <- as.data.table(pred_values)
+  pred[, timeslice := name_tsk]
+  pred[, tsk_ids := tsk_ids]
+  pred[, tuning_round := tuning_round]
+  pred[, param_value := param_value]
+  pred[, dttm := now()]
+  
+  preds <- bind_rows(preds, pred)
+  return(preds)
+  
+}
+
+
+save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tsk_ids, tuning_round, scores,
                          # initialise params at default values
                          eval_metric = "logloss",
                          nrounds = 1,
@@ -218,10 +236,12 @@ save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scor
   # get predictions
   pred_val = learner$predict(tsk, row_ids = tsk_val_ids)
   
-  score = data.table(tsk_ids = "val",
-                     tsk = name_tsk,
+  score = data.table(
+                     timeslice = name_tsk,
+                     tsk_ids = tsk_ids,
                      tuning_round = tuning_round,
                      logloss = pred_val$score(msr("classif.logloss")),
+                     bbrier = pred_val$score(msr("classif.bbrier")), # binary brier score
                      auc = pred_val$score(msr("classif.auc")),
                      acc = pred_val$score(msr("classif.acc")),
                      tp = pred_val$score(msr("classif.tp")),
@@ -240,18 +260,11 @@ save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tuning_round, scor
                      alpha = alpha,
                      lambda = lambda,
                      dttm = now()
-                    ) 
+  ) 
   
   scores <- bind_rows(scores, score)
   
-  pred <- as.data.table(pred_val)
-  pred[, model := name_tsk]
-  pred[, tuning_round := tuning_round]
-  
-  preds <- bind_rows(preds, pred)
-
-
-  return(list(scores, preds))
+  return(scores)
 }
 
 # Set programme instructions ----------------------------------------------
@@ -290,7 +303,8 @@ tune_samples = TRUE
 
 # Load data and encode factors --------------------------------------------------------------
 
-timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
+timeslices <- c("000")
+#timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
 
 for (ts_ in timeslices) {
   
@@ -382,7 +396,7 @@ if (check_eval_metric) {
       pivot_longer(logloss:tn) %>% filter(name %in% c("auc")) %>% 
       ggplot(aes(x = tsk, y = value, colour = tsk_ids, group = tsk_ids)) + geom_line() + facet_grid(. ~ eval_metric)
     
-#    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "base", scores)
+    #    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "base", scores)
     
   } 
   
@@ -402,27 +416,32 @@ if (tune_nr) {
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    # # first round - test wide range - returns 50 as best for all timeslices
-    # # for(nrounds in c(1, 50, 100, 200)) {    
-    # for(nrounds in c(30, 45, 60, 75)) {
-    #   learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = nrounds)
-    #   scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "nrounds", nrounds = nrounds, scores)
-    # }
-    # 
-    # save(scores, file = scores_file)
+    # first round - test wide range - returns 50 as best for all timeslices
+      for(nrounds in c(1, 30, 50, 100, 200)) {
+  #  for(nrounds in c(30, 45, 60, 75)) {
+      learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = nrounds)
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "nrounds", nrounds = nrounds, scores)
+      
+      # added this to look at how predictions change as parameters change
+      preds <- get_preds(name_tsk, tsk, learner, tsk_train_ids, tsk_ids = "train", tuning_round = "nrounds", 
+                         param_value = nrounds,
+                         preds) 
+    }
 
-    scores_pred_list <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "nrounds", 
-             #             nrounds = as.numeric(scores[tsk_ids == "train" & tsk == name_tsk & tuning_round == "nrounds", .SD[which.min(logloss)], by = list(tsk)][,.(nrounds)]), 
-                          nrounds = 30,
-                          scores, preds)
+    save(scores, file = scores_file) #scores saved as this point will have based on aggregate scores of 10 resamplings
+    save(preds, file = preds_file)
     
-    scores <- scores_pred_list[[1]]
-    preds <- scores_pred_list[[2]]
-    preds[, dttm := now()]
-    
+    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds",
+                            nrounds = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "nrounds", .SD[which.min(bbrier)], by = list(timeslice)][,.(nrounds)]),
+                            scores)
+
+    preds <- get_preds(name_tsk, tsk, learner, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", 
+                       param_value = nrounds,
+                       preds) 
+
     save(scores, file = scores_file)
     save(preds, file = preds_file)
-  
+    
   } 
   
   # print ("Best results:")
@@ -442,27 +461,23 @@ if (tune_nr) {
   #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ tsk) +
   #   labs(y = "auc", title = "Results of tuningnumber of rounds of XGBoost for each timeslice - auc scores")
   
-  # looking at model output
+  # # looking at model output
+  # 
+  # scores <- data.table(scores)
+  # s = scores[tuning_round == "nrounds" & tsk_ids == "train"]
+  # setorder(s, nrounds)
+  # s[tuning_round == "nrounds" & tsk_ids == "train"] %>%
+  #   mutate(actual = tp + fn, predicted = tp + fp) %>%
+  #   pivot_longer(c(tp:fn, actual, predicted)) %>%
+  #   mutate(name = factor(name, levels = c("actual", "predicted", "fn", "fp", "tp"),
+  #                        labels = c("actual (tp + fn)", "predicted (tp + fp)", "fn", "fp", "tp"))) %>%
+  #   ggplot(aes(x = nrounds, y = value, col = name, group = name)) + geom_line() + geom_point() +
+  #   facet_wrap(.~tsk, scales = "free", ncol = 9) +
+  #   theme(legend.position = "bottom") +
+  #   labs(title = "Scores for each timeslice over various values of XGBoost's nrounds parameter",
+  #        col = "score")
+
   
-  s = scores[tuning_round == "nrounds" & tsk_ids == "train"]
-  setorder(s, nrounds)
-  s[tuning_round == "nrounds" & tsk_ids == "train" & tsk == "task060"] %>% 
-    mutate(actual = tp + fn, predicted = tp + fp) %>% 
-    pivot_longer(c(tp:fn, actual, predicted)) %>% 
-    
-    ggplot(aes(x = nrounds, y = value, col = name, group = name)) + geom_line() + geom_point() +
-    labs(title = "Scores for 60 minute timeslice over various values of nrounds", 
-         col = "score")
   
   
-  
-  s[tuning_round == "nrounds" & tsk_ids == "train" & tsk == "task060"] %>% 
-    mutate(actual = tp + fn, predicted = tp + fp) %>% 
-    
-    ggplot(aes(x = nrounds)) + 
-    geom_line(aes(y = actual), colour = "red", linetype = "dashed") +
-    geom_line(aes(y = predicted), colour = "blue", linetype = "dashed") + 
-    geom_line(aes(y = tp), colour = "blue") +
-    geom_line(aes(y = tp), colour = "blue") 
-  
-  }
+}

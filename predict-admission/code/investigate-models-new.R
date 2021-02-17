@@ -110,6 +110,54 @@ all_madcap %>% ggplot(aes(x))+
   facet_grid(distribution ~ model, scales = "free")
 
 
+# Looking at effect of different number of nrounds ------------------------
+
+# Run nrounds in run-ML.R and save predictions for training set to preds 
+# NB this is for just one timeslice
+
+all_madcap = data.table()
+
+for (nrounds in c(30, 45, 60, 75)) {
+  pred_train <- preds[param_value == nrounds]
+  mc_result = as.data.table(madcap(pred_train))
+  mc_result[, param_value := nrounds]
+  
+  all_madcap = bind_rows(all_madcap, mc_result)
+}
+
+
+# all timeslices
+all_madcap %>% ggplot(aes(x))+ 
+  geom_line(aes(y = y1, colour = "model"), size = 1) +
+  geom_line(aes(y = y2, colour = "data"), size = 1) +
+  scale_color_manual(breaks = c('model','data'), values = c('model'='red','data'='black')) + 
+  labs(x='No. of patients (ordered by risk factor)',y='Number of admissions', 
+       title = paste0("Madcap plot for nround value ")) +
+  theme(legend.title = element_blank()) + 
+  facet_wrap(vars(param_value), scales = "free")
+
+
+# find observations which changed a lot
+
+preds[, min1 := min(prob.1), by = .(timeslice, row_id)]
+preds[, min1 := min(prob.1), by = .(timeslice, row_id)]
+preds[, max1 := max(prob.1), by = .(timeslice, row_id)]
+preds[, diff1 := max1 - min1, by = .(timeslice, row_id)]
+
+# order by diff1 descending to see the samples whose probs changed the most
+
+preds[, brier := ((truth == 1)-prob.1)^2] # (truth == 1 is converting the factor into value 0 or 1)
+preds[, .(SSE = sum(brier)), by = .(timeslice,param_value)]
+
+# to get reference value for brier scores
+ref_prob =sum(dm000p[tsk_train_ids, adm == 1])/sum(dm000p[tsk_train_ids, adm == 0])
+preds[, brier_r := ((truth == 1) - ref_prob)^2]
+
+preds[, .(SSE = sum(brier), SSE_r = sum(brier_r)), by = param_value]
+
+# according to mlr3 documentation bbrier is 
+
+
 # Look at individual predictions ------------------------------------------
 
 
