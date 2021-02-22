@@ -181,8 +181,69 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
   scores <- bind_rows(scores, score)
 }
 
-get_preds <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_ids, tuning_round, param_value, preds) {
-  pred_values = learner$predict(tsk, row_ids = tsk_train_ids)
+update_learner <- function(learner, 
+                         eval_metric = NA,
+                         nrounds = NA,
+                         max_depth = NA, 
+                         min_child_weight = NA, 
+                         gamma = NA,
+                         subsample = NA,
+                         colsample_bytree = NA,
+                         eta = NA, 
+                         scale_pos_weight = NA,
+                         alpha = NA,
+                         lambda = NA,
+                         early_stopping_rounds = NA) {
+  
+  if (!is.na(eval_metric)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("eval_metric" = eval_metric))
+  }
+  
+  if (!is.na(nrounds)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("nrounds" = nrounds))
+  }
+  
+  if (!is.na(max_depth)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("max_depth" = max_depth))
+  }
+  
+  if (!is.na(min_child_weight)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("min_child_weight" = min_child_weight))
+  }
+  
+  if (!is.na(gamma)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("gamma" = gamma))
+  }
+  
+  if (!is.na(subsample)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("subsample" = subsample))
+  }
+  
+  if (!is.na(colsample_bytree)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("colsample_bytree" = colsample_bytree))
+  }
+  
+  if (!is.na(eta)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("eta" = eta))
+  }
+  
+  if (!is.na(scale_pos_weight)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("scale_pos_weight" = scale_pos_weight))
+  }
+  
+  if (!is.na(alpha)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("alpha" = alpha))
+  }
+  
+  if (!is.na(lambda)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("lambda" = lambda))
+  }
+  
+  return(learner)
+}
+
+get_preds <- function(name_tsk, tsk, learner, train_or_val_ids, tsk_ids, tuning_round, param_value, preds) {
+  pred_values = learner$predict(tsk, row_ids = train_or_val_ids)
   
   pred <- as.data.table(pred_values)
   pred[, timeslice := name_tsk]
@@ -196,38 +257,26 @@ get_preds <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_ids, tuning_rou
   
 }
 
-
-save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tsk_ids, tuning_round, scores,
-                         # initialise params at default values
-                         eval_metric = "logloss",
-                         nrounds = 1,
-                         max_depth = 6, 
-                         min_child_weight = 1, 
-                         gamma = 0,
-                         subsample = 1,
-                         colsample_bytree = 1,
-                         eta = 0.3, 
-                         scale_pos_weight = 1,
-                         alpha = 0,
-                         lambda = 1,
-                         early_stopping_rounds = 10) {
+get_imps <- function(name_tsk, learner, tsk_ids, tuning_round, param_value, imps) {
   
-  learner$param_set$values = insert_named(
-    learner$param_set$values,
-    list(
-      "eval_metric" = eval_metric,
-      "nrounds" = nrounds,
-      "max_depth" = max_depth,
-      "min_child_weight" = min_child_weight,
-      "gamma" = gamma, 
-      "subsample" = subsample,
-      "colsample_bytree" = colsample_bytree,
-      "eta" = eta,
-      "scale_pos_weight" = scale_pos_weight,
-      "alpha" = alpha,
-      "lambda" = lambda
-    )
-  )
+  imp <- as.data.table(learner$importance())
+  setnames(imp, "V1", "importance")
+  imp[, feature := names(learner$importance())]
+  imp[, timeslice := name_tsk]
+  imp[, tsk_ids := tsk_ids]
+  imp[, tuning_round := tuning_round]
+  imp[, param_value := param_value]
+  imp[, dttm := now()]
+  
+  imps <- bind_rows(imps, imp)
+  return(imps)
+  
+}
+
+
+
+
+save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids, tuning_round, scores) {
   
   # train learner on training set
   set.seed(17L)
@@ -248,17 +297,17 @@ save_results <- function(name_tsk, tsk, learner, tsk_val_ids, tsk_ids, tuning_ro
                      fp = pred_val$score(msr("classif.fp")),
                      fn = pred_val$score(msr("classif.fn")),
                      tn = pred_val$score(msr("classif.tn")),
-                     eval_metric = eval_metric,
-                     nrounds = nrounds,
-                     max_depth = max_depth,
-                     min_child_weight = min_child_weight,
-                     gamma = gamma, 
-                     subsample = subsample,
-                     colsample_bytree = colsample_bytree,
-                     eta = eta,
-                     scale_pos_weight = scale_pos_weight,
-                     alpha = alpha,
-                     lambda = lambda,
+                     eval_metric = learner$param_set$values$eval_metric,
+                     nrounds = learner$param_set$values$nrounds,
+                     max_depth = learner$param_set$values$max_depth,
+                     min_child_weight = learner$param_set$values$min_child_weight,
+                     gamma = learner$param_set$values$gamma, 
+                     subsample = learner$param_set$values$subsample,
+                     colsample_bytree = learner$param_set$values$colsample_bytree,
+                     eta = learner$param_set$values$eta,
+                     scale_pos_weight = learner$param_set$values$scale_pos_weight,
+                     alpha = learner$param_set$values$alpha,
+                     lambda = learner$param_set$values$lambda,
                      dttm = now()
   ) 
   
@@ -286,9 +335,14 @@ if (file.exists(preds_file)) {
 }
 
 
+imps_file <- paste0("~/EDcrowding/predict-admission/data-output/imps_",today(),".rda")
 
+if (file.exists(imps_file)) {
+  load(imps_file)
+} else {
+  imps <- data.table()
+}
 
-file_date <- "2021-02-08"
 
 base_model = FALSE
 check_eval_metric = FALSE
@@ -303,8 +357,11 @@ tune_samples = TRUE
 
 # Load data and encode factors --------------------------------------------------------------
 
-timeslices <- c("000")
-#timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
+#timeslices <- c("000")
+timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
+
+file_date <- "2021-02-08"
+
 
 for (ts_ in timeslices) {
   
@@ -417,67 +474,104 @@ if (tune_nr) {
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
     # first round - test wide range - returns 50 as best for all timeslices
-      for(nrounds in c(1, 30, 50, 100, 200)) {
-  #  for(nrounds in c(30, 45, 60, 75)) {
+    for(nrounds in c(1, 5, 10, 15, 30, 40, 100)) {
+   # for(nrounds in c(30, 45, 60, 75)) {
+  #  for(nrounds in c(1, 5, 10, 15)) {
+
+      # train learner
       learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = nrounds)
+
+      # get scores on training set using cross-validation
       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "nrounds", nrounds = nrounds, scores)
-      
-      # added this to look at how predictions change as parameters change
-      preds <- get_preds(name_tsk, tsk, learner, tsk_train_ids, tsk_ids = "train", tuning_round = "nrounds", 
-                         param_value = nrounds,
-                         preds) 
+
+      # # get importances for each round; added this to look at how predictions change as parameters change
+      # imps <- get_imps(name_tsk, learner, tsk_ids = "train", tuning_round = "nrounds",
+      #                  param_value = nrounds,
+      #                  imps)
+      # 
+      # # get predictions for each round; added this to look at how predictions change as parameters change
+      # preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = tsk_train_ids, tsk_ids = "train", tuning_round = "nrounds",
+      #                    param_value = nrounds,
+      #                    preds)
     }
 
     save(scores, file = scores_file) #scores saved as this point will have based on aggregate scores of 10 resamplings
+    save(imps, file = imps_file)
     save(preds, file = preds_file)
     
-    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds",
-                            nrounds = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "nrounds", .SD[which.min(bbrier)], by = list(timeslice)][,.(nrounds)]),
-                            scores)
+    best_param_val = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "nrounds",
+                                       .SD[which.min(bbrier)], by = list(timeslice)][,.(nrounds)])
+    
+    # update learner with best scores
+    learner <- update_learner(learner, 
+                              nrounds = best_param_val
+                              )
 
-    preds <- get_preds(name_tsk, tsk, learner, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", 
-                       param_value = nrounds,
+    
+    # train on full training set and save results on validation set
+    scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", scores)
+    
+    # get importances 
+    imps <- get_imps(name_tsk, learner, tsk_ids = "val", tuning_round = "nrounds", 
+                     param_value = best_param_val,
+                     imps)
+    
+    # get predictions on validation set
+    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", 
+                       param_value = best_param_val,
                        preds) 
 
     save(scores, file = scores_file)
+    save(imps, file = imps_file)
     save(preds, file = preds_file)
     
   } 
   
-  # print ("Best results:")
-  # setindex(scores, tsk_ids)
-  # scores[tsk_ids == "train" & tuning_round == "nrounds", .SD[which.min(logloss)], by = list(tsk)][,.(tsk, nrounds)]
-  # 
-  # scores_n <- scores[tuning_round == "nrounds"]
-  # scores_n[tsk_ids == "train", .SD[which.min(logloss)], by = list(tsk)][,.(tsk, nrounds)]
-  # 
-  # scores_n[tsk_ids == "train"] %>% 
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ tsk) +
-  #   labs(y = "logloss", title = "Results of tuningnumber of rounds of XGBoost for each timeslice - logloss scores")
-  # 
-  # scores_n[tsk_ids == "train"] %>% 
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("auc")) %>%
-  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ tsk) +
-  #   labs(y = "auc", title = "Results of tuningnumber of rounds of XGBoost for each timeslice - auc scores")
-  
-  # # looking at model output
-  # 
+  # # print ("Best results:")
   # scores <- data.table(scores)
-  # s = scores[tuning_round == "nrounds" & tsk_ids == "train"]
-  # setorder(s, nrounds)
-  # s[tuning_round == "nrounds" & tsk_ids == "train"] %>%
-  #   mutate(actual = tp + fn, predicted = tp + fp) %>%
-  #   pivot_longer(c(tp:fn, actual, predicted)) %>%
-  #   mutate(name = factor(name, levels = c("actual", "predicted", "fn", "fp", "tp"),
-  #                        labels = c("actual (tp + fn)", "predicted (tp + fp)", "fn", "fp", "tp"))) %>%
-  #   ggplot(aes(x = nrounds, y = value, col = name, group = name)) + geom_line() + geom_point() +
-  #   facet_wrap(.~tsk, scales = "free", ncol = 9) +
-  #   theme(legend.position = "bottom") +
-  #   labs(title = "Scores for each timeslice over various values of XGBoost's nrounds parameter",
-  #        col = "score")
-
-  
+  # scores[tsk_ids == "train" & tuning_round == "nrounds", .SD[which.min(bbrier)], by = list(timeslice)][,.(timeslice, nrounds)]
+  # scores[tsk_ids == "train" & tuning_round == "nrounds", .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, nrounds)]
+  # 
+  # 
+  # scores[tsk_ids == "train"] %>%
+  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
+  #   labs(y = "logloss", title = "Results of tuning number of rounds of XGBoost for each timeslice - logloss scores")
+  # 
+  # scores[tsk_ids == "train"] %>%
+  #   pivot_longer(logloss:tn) %>% filter(name %in% c("bbrier")) %>%
+  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
+  #   labs(y = "brier score", title = "Results of tuning number of rounds of XGBoost for each timeslice - brier scores")
+  # 
+  # # # looking at model output
+  # # 
+  # # scores <- data.table(scores)
+  # # s = scores[tuning_round == "nrounds" & tsk_ids == "train"]
+  # # setorder(s, nrounds)
+  # # s[tuning_round == "nrounds" & tsk_ids == "train"] %>%
+  # #   mutate(actual = tp + fn, predicted = tp + fp) %>%
+  # #   pivot_longer(c(tp:fn, actual, predicted)) %>%
+  # #   mutate(name = factor(name, levels = c("actual", "predicted", "fn", "fp", "tp"),
+  # #                        labels = c("actual (tp + fn)", "predicted (tp + fp)", "fn", "fp", "tp"))) %>%
+  # #   ggplot(aes(x = nrounds, y = value, col = name, group = name)) + geom_line() + geom_point() +
+  # #   facet_wrap(.~tsk, scales = "free", ncol = 9) +
+  # #   theme(legend.position = "bottom") +
+  # #   labs(title = "Scores for each timeslice over various values of XGBoost's nrounds parameter",
+  # #        col = "score")
+  # 
+  # imps = imps[dttm > '2021-02-22 11:00:09']
+  # imps[, count := .N, by = feature]
+  # # imps[count >10 & tsk_ids == "val" & !feature %in% c("quarter_1", "quarter_2", "quarter_3", "quarter_4",
+  # #                                                     "tod_1", "tod_2", "tod_3", "tod_4", "tod_5", "tod_6")] %>%
+  # imps[count > 8 & !feature %in% c("quarter_1", "quarter_2", "quarter_3", "quarter_4",
+  #                                                                                     "tod_1", "tod_2", "tod_3", "tod_4", "tod_5", "tod_6")] %>% 
+  #   ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+  #   scale_fill_gradient(low="grey", high="red") +
+  #   theme_classic() +
+  #   labs(title = "Feature importances by timeslice",
+  #        fill = "Importance",
+  #        x = "Timeslice",
+  #        y = "Feature")
   
   
 }

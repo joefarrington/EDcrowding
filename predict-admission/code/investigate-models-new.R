@@ -46,36 +46,28 @@ load(preds_file)
 
 all_madcap = data.table()
 
-preds <- preds[tuning_round == "nrounds" & dttm > "2021-02-15 14:44:09"]
+preds <- preds[tuning_round == "nrounds" & dttm > '2021-02-22 11:00:09']
 
 for (ts_ in timeslices) {
   name_tsk <- paste0("task", ts_)
-  tsk = get(name_tsk)
-  
-  tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-  tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
 
-  # score predictions on training and validation set
-  pred_val = preds[model == name_tsk]
+    # score predictions on training and validation set
+  pred_val = preds[timeslice == name_tsk & tsk_ids == "val"]
   
   # get data for madcap
   
   mc_result = as.data.table(madcap(pred_val))
   mc_result[, model := ts_]
   
-  mc_result[, distribution := case_when(x < nrow(mc_result)/3 ~ "lower",
-                                        x > nrow(mc_result)*2/3 ~ "upper",
-                                        TRUE ~ "middle")]
+  # mc_result[, distribution := case_when(x < nrow(mc_result)/3 ~ "lower",
+  #                                       x > nrow(mc_result)*2/3 ~ "upper",
+  #                                       TRUE ~ "middle")]
   
   all_madcap = bind_rows(all_madcap, mc_result)
   
 } 
 
 
-
-for (ts_ in timeslices) {
-  
-}
 
 # single madcap plot
 pred_val060 = pred_val060[order(pred_val060$prob.1),]
@@ -95,7 +87,7 @@ all_madcap %>% ggplot(aes(x))+
   geom_line(aes(y = y2, colour = "data"), size = 1) +
   scale_color_manual(breaks = c('model','data'), values = c('model'='red','data'='black')) + 
   labs(x='No. of patients (ordered by risk factor)',y='Number of admissions', 
-       title = paste0("Madcap plot for timeslice ")) +
+       title = paste0("Madcap plot for timeslice - predictions on validation set")) +
   theme(legend.title = element_blank()) + 
   facet_wrap(vars(model), nrow = 3, ncol = 3, scales = "free")
 
@@ -147,7 +139,8 @@ preds[, diff1 := max1 - min1, by = .(timeslice, row_id)]
 # order by diff1 descending to see the samples whose probs changed the most
 
 preds[, brier := ((truth == 1)-prob.1)^2] # (truth == 1 is converting the factor into value 0 or 1)
-preds[, .(SSE = sum(brier)), by = .(timeslice,param_value)]
+brier = preds[, .(SSE = sum(brier), N= .N), by = .(timeslice,param_value)]
+brier[, brier := SSE/N]
 
 # to get reference value for brier scores
 ref_prob =sum(dm000p[tsk_train_ids, adm == 1])/sum(dm000p[tsk_train_ids, adm == 0])
@@ -242,13 +235,17 @@ imp$feature <- names(learner$importance())
 #   pred_results <- bind_rows(pred_results, pred)
 # }
 # 
-# imp_results[, count := .N, by = feature]
-# imp_results[count >2] %>% ggplot(aes(x = gsub("task","", model), y = reorder(feature, desc(feature)), fill = V1)) + geom_tile() +
-#   scale_fill_gradient(low="blue", high="red") +
-#   labs(title = "Feature importances by timeslice",
-#        fill = "Importance",
-#        x = "Timeslice",
-#        y = "Feature")
+
+imps = imps[dttm > '2021-02-22 11:00:09']
+imps[, count := .N, by = feature]
+imps[count >10 & tsk_ids == "val" & !feature %in% c("quarter_1", "quarter_2", "quarter_3", "quarter_4",
+                                                 "tod_1", "tod_2", "tod_3", "tod_4", "tod_5", "tod_6")] %>% 
+  ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances by timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature")
 # 
 # save(imp_results, file = paste0("EDcrowding/predict-admission/data-output/imp_results",today(),".rda"))
 # save(pred_results, file = paste0("EDcrowding/predict-admission/data-output/pred_results",today(),".rda"))
