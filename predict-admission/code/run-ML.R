@@ -352,7 +352,8 @@ tune_trees = FALSE
 tune_trees2 = FALSE
 tune_gamma = FALSE
 recal_nr = FALSE
-tune_samples = TRUE
+tune_samples = FALSE
+get_preds = TRUE
 
 
 # Load data and encode factors --------------------------------------------------------------
@@ -572,6 +573,58 @@ if (tune_nr) {
   #        fill = "Importance",
   #        x = "Timeslice",
   #        y = "Feature")
+  
+  
+}
+
+
+# Save preds from final model ---------------------------------------------
+
+
+
+if (final_preds) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    params = scores[tsk_ids == "val" & timeslice == name_tsk ,
+           .SD[which.min(bbrier)], by = list(timeslice)]
+    
+    learner <- update_learner(learner, 
+                              eval_metric = params$eval_metric,
+                              nrounds = params$nrounds,
+                              max_depth = params$max_depth, 
+                              min_child_weight = params$min_child_weight, 
+                              gamma = params$gamma,
+                              subsample = params$subsample,
+                              colsample_bytree = params$colsample_bytree,
+                              eta = params$eta, 
+                              scale_pos_weight = params$scale_pos_weight,
+                              alpha = params$alpha,
+                              lambda = params$lambda,
+                              early_stopping_rounds = params$early_stopping_rounds)
+    
+    set.seed(17L)
+    learner$train(tsk, row_ids = tsk_train_ids)
+    
+    name_ts <- paste0("dm", ts_)
+    dt = get(name_ts)
+    
+    dt[, row_id := seq_len(nrow(dt))]
+    
+    # get predictions on validation set
+    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = dt$row_id, tsk_ids = "all", tuning_round = "get_preds", 
+                       param_value = "get_preds",
+                       preds)   
+    
+    
+    save(preds, file = preds_file)
+    
+  } 
+  
   
   
 }
