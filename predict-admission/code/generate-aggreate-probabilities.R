@@ -73,6 +73,8 @@ for (ts_ in timeslices) {
   
 }
 
+preds_all_ts[, timeslice := gsub("task", "timeslice", timeslice)]
+
 
 # Get a sample of time points of interest ---------------------------------
 
@@ -90,7 +92,7 @@ while (last_pt + hours(12) < max(summ$presentation_time, na.rm = TRUE)) {
 }
 
 
-# Get each patient in ED at that time -------------------------------------
+# Get probability distribution for all patients together -------------------------------------
 
 distr_coll = data.table()
 adm_coll = data.table()
@@ -100,15 +102,15 @@ for (i in (1:length(time_pts))) {
   in_ED = summ[presentation_time < time_pts[i] &
           last_ED_discharge > time_pts[i], .(csn, presentation_time, elapsed = difftime(time_pts[i], presentation_time, units = "mins"))]
   
-  in_ED[, timeslice := case_when(elapsed < 15 ~ "task000",
-                                 elapsed < 30 ~ "task015",
-                                 elapsed < 60 ~ "task030",
-                                 elapsed < 120 ~ "task060",
-                                 elapsed < 180 ~ "task120",
-                                 elapsed < 240 ~ "task180",
-                                 elapsed < 300 ~ "task240",
-                                 elapsed < 360 ~ "task300",
-                                 TRUE ~ "task360")]
+  in_ED[, timeslice := case_when(elapsed < 15 ~ "timeslice000",
+                                 elapsed < 30 ~ "timeslice015",
+                                 elapsed < 60 ~ "timeslice030",
+                                 elapsed < 120 ~ "timeslice060",
+                                 elapsed < 180 ~ "timeslice120",
+                                 elapsed < 240 ~ "timeslice180",
+                                 elapsed < 300 ~ "timeslice240",
+                                 elapsed < 360 ~ "timeslice300",
+                                 TRUE ~ "timeslice360")]
   
   df = setorder(merge(in_ED, preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], by = c("csn", "timeslice")), prob.1)
   
@@ -219,6 +221,7 @@ cutoff_cdf_normalised %>% pivot_longer(actual_less_than_lower_limit:model_lower_
   
                 
 
+
 # To get probability distribution for time to admission for each timeslice ----------------------------
 # each of the probs in the resulting tta_prob is a prob that can be put into a Bernouilli trial
 # to get the number of successes (patients) needing a bed in that number of hours
@@ -228,10 +231,10 @@ cutoff_cdf_normalised %>% pivot_longer(actual_less_than_lower_limit:model_lower_
 
 summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
 
-summ[,timeslice0 := 1]
-summ[,timeslice15 := if_else(ED_duration > 15, 1, 0)]
-summ[,timeslice30 := if_else(ED_duration > 30, 1, 0)]
-summ[,timeslice60 := if_else(ED_duration > 60, 1, 0)]
+summ[,timeslice000 := 1]
+summ[,timeslice015 := if_else(ED_duration > 15, 1, 0)]
+summ[,timeslice030 := if_else(ED_duration > 30, 1, 0)]
+summ[,timeslice060 := if_else(ED_duration > 60, 1, 0)]
 summ[,timeslice120 := if_else(ED_duration > 120, 1, 0)]
 summ[,timeslice180 := if_else(ED_duration > 180, 1, 0)]
 summ[,timeslice240 := if_else(ED_duration > 240, 1, 0)]
@@ -239,8 +242,8 @@ summ[,timeslice300 := if_else(ED_duration > 300, 1, 0)]
 summ[,timeslice360 := if_else(ED_duration > 360, 1, 0)]
 
 # get time to admission after beginning of each timeslice
-tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% select(csn, timeslice0:timeslice360, ED_duration) %>% 
-  pivot_longer(timeslice0:timeslice360, names_to = "in_timeslice"))
+tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% select(csn, timeslice000:timeslice360, ED_duration) %>% 
+  pivot_longer(timeslice000:timeslice360, names_to = "in_timeslice"))
 tta = tta[value ==1]
 tta[, tta := case_when(value ==1 ~ as.numeric(ED_duration - as.numeric(gsub("timeslice","", in_timeslice))),
                        TRUE ~ NA_real_)]
@@ -260,7 +263,7 @@ tta_prob[, prob := num_with_tta_in_hr/num_ts]
 # plot tta after timeslice
 tta_prob[tta_hr < 24] %>% 
   mutate(in_timeslice = as.numeric(gsub("timeslice", "", in_timeslice))) %>% 
-  ggplot(aes(x = tta_hr, y = prob)) + geom_line() + facet_grid(.~in_timeslice) +
+  ggplot(aes(x = tta_hr, y = prob.1)) + geom_line() + facet_grid(.~in_timeslice) +
   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
        x = "Time to admission (hrs)",
        y = "Probability")
@@ -277,3 +280,100 @@ setorder(tta_prob, in_timeslice)
 
 tta_prob[tta_hr > 24, sum(prob), by = in_timeslice]
 tta_prob[tta_hr > 48, sum(prob), by = in_timeslice]
+
+
+# Looking at 360 timeslice ------------------------------------------------
+
+
+summ[, los := difftime(last_ED_discharge, presentation_time, units = "hours")]
+summ[los > 6 & los < 8, .N, by = adm2]
+summ[los >= 48, .N]
+
+summ[,adm2 := adm %in% c("direct_adm", "indirect_adm")]
+summ[los > 6 & los < 48] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
+  labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 48 hours of total length of stay",
+       x = "Length of stay beyond 6 hours (hours)") +
+  facet_grid(adm2 ~ .) +
+  geom_vline(xintercept = 1.5)
+
+
+summ[los > 6 & los < 24*30] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
+  labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 30 days of total length of stay",
+       x = "Length of stay beyond 6 hours (hours)") +
+  facet_grid(adm2 ~ .)
+
+
+# Now taking timeslices into account -------------------------------------------------
+
+# cutting tta_prob for now at 48 hours
+tta_prob = tta_prob[tta_hr <= 48]
+setnames(tta_prob, "prob", "prob.1")
+
+# either use a probability generating function
+distry_all = data.table()
+
+for (ts_ in timeslices) {
+  name_ts = paste0("timeslice", ts_)
+  
+  pgfy = poly_prod(tta_prob[in_timeslice == name_ts])
+  num_hr = seq(0, nrow(tta_prob[in_timeslice == name_ts]), 1)
+  
+  distry = bind_cols(timeslice = name_ts, num_hr = num_hr, prob = pgfy, cdf = cumsum(pgfy))
+  distry_all = bind_rows(distry_all, distry)
+}
+
+distry_all %>%  ggplot(aes(x = num_hr, y = prob)) + geom_point() + facet_grid((timeslice ~ .))
+
+# or something much simpler 
+distry_4hr = tta_prob[tta_hr <=4, sum(prob.1), by = in_timeslice]
+
+distrx_coll = data.table()
+
+for (i in (1:length(time_pts))) {
+  
+  in_ED = summ[presentation_time < time_pts[i] &
+                 last_ED_discharge > time_pts[i], .(csn, presentation_time, elapsed = difftime(time_pts[i], presentation_time, units = "mins"))]
+  
+  in_ED[, timeslice := case_when(elapsed < 15 ~ "timeslice000",
+                                 elapsed < 30 ~ "timeslice015",
+                                 elapsed < 60 ~ "timeslice030",
+                                 elapsed < 120 ~ "timeslice060",
+                                 elapsed < 180 ~ "timeslice120",
+                                 elapsed < 240 ~ "timeslice180",
+                                 elapsed < 300 ~ "timeslice240",
+                                 elapsed < 360 ~ "timeslice300",
+                                 TRUE ~ "timeslice360")]
+  
+  for (ts_ in timeslices) {
+    name_ts = paste0("timeslice", ts_)
+    
+    if (nrow(in_ED[timeslice == name_ts]) > 0) {
+      
+      dfx = setorder(merge(in_ED[timeslice == name_ts], preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], by = c("csn", "timeslice")), prob.1)
+      
+      num_adm = seq(0,nrow(dfx), 1) # number of patients in timeslice at sample time
+      pgfx = poly_prod(dfx) # the probabilities of each of these being admitted
+      bernoulli_prob = distry_4hr[in_timeslice == name_ts, V1] # the probability of this being within four hours
+      
+      for (j in 1:length(num_adm)) {
+        
+        for (k in 0: num_adm[j]) {
+          prob_in4 = dbinom(k, num_adm[j], bernoulli_prob)
+          
+          row = bind_cols(sample_time = time_pts[i], timeslice = name_ts, num_adm_pred = num_adm[j], prob_num_adm = pgfx[j], 
+                          of_which_adm_in4_pred = k, of_which_prob_adm_in4 = prob_in4)
+          
+          distr = bind_rows(distr, row)
+          
+        } 
+      }
+    }
+  }
+}
+
+
+# predictions for in 4 hours
+distr = data.table(distr)
+distr[, prob_num_adm_in4 := prob_num_adm * of_which_prob_adm_in4]
+
+distr[, sum(prob_num_adm_in4), by = of_which_adm_in4_pred]
