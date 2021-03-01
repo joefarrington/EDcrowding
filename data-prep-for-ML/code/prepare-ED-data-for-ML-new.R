@@ -68,6 +68,7 @@ edgedf[, to := case_when(to == "OTF POOL" ~ "OTF",
 moves[, location := case_when(location == "OTF POOL" ~ "OTF",
                               location %in% c("PAEDS", "SAA") ~ "Other",
                               location == "DIAGNOSTICS" & admission > date(covid_start) ~ "Other",
+                              location == "UCHT00CDU" ~ "CDU",
                               TRUE ~ location)]
 
 
@@ -135,10 +136,10 @@ after_covid_adj_matrix <- after_covid_adj_matrix %>%
          Admitted, Discharged)
 
 outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_adj_matrix_",today(),".csv")
-write.csv(before_covid_adj_matrix, file = outFile, row.names = FALSE)
+write.csv(before_covid_adj_matrix, file = outFile, row.names = TRUE)
 
 outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_adj_matrix_",today(),".csv")
-write.csv(after_covid_adj_matrix, file = outFile, row.names = FALSE)
+write.csv(after_covid_adj_matrix, file = outFile, row.names = TRUE)
 
 # Process data by time periods ------------------------------------------------------------
 
@@ -215,6 +216,18 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
     num_w <- num_w %>% select(-`NA`)
   }
   
+  moved_w <- moved_w %>% 
+    # reorder colnames
+    select(DateTime:day_of_week, colnames(moved_w)[5:(ncol(moved_w)-1)][order(colnames(moved_w)[5:(ncol(moved_w)-1)])],
+           adm)
+  
+  num_w <- num_w %>% 
+    # reorder colnames
+    select(DateTime:day_of_week, colnames(num_w)[5:(ncol(num_w)-1)][order(colnames(num_w)[5:(ncol(num_w)-1)])],
+           adm)
+  
+  
+  
   output <- list(moved_w, num_w)
   
   return(output)
@@ -237,11 +250,13 @@ write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
 date_range <- seq(covid_start - hours(1), matrix_end_date, by = "hours")
 after_covid <- get_nums_by_dttm(date_range, moves, edgedf_after_covid)
 
+
 outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_moved_from_location_",today(),".csv")
 write.csv(after_covid[[1]], file = outFile, row.names = FALSE)
 
 outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_num_in_location_",today(),".csv")
 write.csv(after_covid[[2]], file = outFile, row.names = FALSE)
+
 
 
 
