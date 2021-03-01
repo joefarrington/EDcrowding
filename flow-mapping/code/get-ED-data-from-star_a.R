@@ -105,7 +105,8 @@ sqlQuery <- "select m.mrn, hv.encounter as csn, hv.patient_class, hv.presentatio
 sqlQuery <- gsub('\n','',sqlQuery)
 csn_summ <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
-rpt(csn_summ) #3,387,833
+print(paste0("csn_summ", Sys.Date()))
+rpt(csn_summ) 
 
 
 # patient class history
@@ -115,6 +116,7 @@ sqlQuery <- gsub('\n','',sqlQuery)
 all_patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 #all_patient_class <- all_patient_class %>% arrange(csn, valid_from)
+print(paste0("all_patient_class", Sys.Date()))
 rpt(all_patient_class) #2,275,160 csns have class history
 
 
@@ -169,6 +171,7 @@ print(rpt(csn_summ))
 # identify csns which had patient class emergency at some point
 
 csn_summ <- csn_summ %>% left_join(patient_class) 
+print("csn_summ %>% filter(!is.na(max_emerg_class)):")
 rpt(csn_summ %>% filter(!is.na(max_emerg_class))) # has emergency class with 'valid until'
 
 # split location string to get department information 
@@ -179,6 +182,7 @@ visited_ED_csn <- bed_moves %>% filter(department == "ED") %>% select(csn) %>% d
   mutate(visited_ED = TRUE)
 
 csn_summ <- csn_summ %>% left_join(visited_ED_csn) 
+print("csn_summ %>% filter(visited_ED):")
 rpt(csn_summ %>% filter(visited_ED)) # visited ED at some point
 
 # deal with missing admission times; infer these from location data
@@ -305,6 +309,12 @@ rpt(ED_csn_summ_raw %>% filter(is.na(presentation_time)))
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))
+
+# if presentation time is great than admission time, update it to be admission time
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  mutate(presentation_time = if_else(presentation_time > admission_time, admission_time, presentation_time))
+
+
 
 # get latest ED discharge from bed moves
 ED_discharge =  ED_bed_moves_raw %>% 
@@ -578,6 +588,21 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   select(-discharge_time, -next_admission, -next_discharge) 
 
 
+# Remove patients currently in ED -------------------------------------------
+
+in_ED <- ED_csn_summ_raw %>% filter(is.na(discharge_time), patient_class == "EMERGENCY") %>%
+  mutate(in_ED = TRUE)
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% left_join(
+  in_ED %>% select(csn, in_ED)
+) %>% filter(is.na(in_ED)) %>% select(-in_ED)
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% inner_join(ED_csn_summ_raw %>% select(csn))
+
+print("Not still in ED")
+print(rpt(ED_csn_summ_raw)) 
+print(rpt(ED_bed_moves_raw))
+
 
 # Create visit history ----------------------------------------------------
 
@@ -629,7 +654,7 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/bed_moves_",today(),".rda")
 save(bed_moves, file = outFile)
 rm(outFile)
 
-# save ED_bed_moves for later use
+# save ED_bed_moves_raw for later use
 
 outFile = paste0("EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_",today(),".rda")
 save(ED_bed_moves_raw, file = outFile)

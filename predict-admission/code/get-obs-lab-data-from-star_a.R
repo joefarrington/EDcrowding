@@ -43,23 +43,50 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 
 # Get and process flowsheet data ------------------------------------------------------
+# 
+# 
+# sqlQuery <- "select hv.encounter as csn, vo.observation_datetime, vo.unit, vo.value_as_real, vo.value_as_text,
+# vo.visit_observation_type_id
+#     from star_a.hospital_visit hv,
+#       star_a.visit_observation vo
+#   where hv.hospital_visit_id = vo.hospital_visit_id
+#     and hv.patient_class in ('EMERGENCY', 'INPATIENT')
+#     order by csn, vo.observation_datetime "
+# 
+# sqlQuery <- gsub('\n','',sqlQuery)
+# obs_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+# 
+# 
+# save(obs_raw, file = paste0('EDcrowding/predict-admission/data-raw/obs_raw_',today(),'.rda'))
 
 
-sqlQuery <- "select hv.encounter as csn, vo.observation_datetime, vo.unit, vo.value_as_real, vo.value_as_text,
-vo.visit_observation_type_id
-    from star_a.hospital_visit hv,
-      star_a.visit_observation vo
-  where hv.hospital_visit_id = vo.hospital_visit_id
-    and hv.patient_class in ('EMERGENCY', 'INPATIENT')
-    order by csn, vo.observation_datetime "
-
-sqlQuery <- gsub('\n','',sqlQuery)
-obs_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 
-save(obs_raw, file = paste0('EDcrowding/predict-admission/data-raw/obs_raw_',today(),'.rda'))
+
+
+
 
 # Get and process lab data ------------------------------------------------
+
+sqlQuery <- "  select hv.encounter as csn, lr.abnormal_flag, lr.comment, lr.range_high, lr.range_low, lr.result_last_modified_time, lr.value_as_real, lr.value_as_text, ltd.test_lab_code
+    from star_test.hospital_visit hv,
+      star_test.lab_result lr,
+    star_test.lab_number ln,
+    star_test.lab_test_definition ltd
+  where hv.hospital_visit_id = ln.hospital_visit_id
+    and lr.lab_number_id = ln.lab_number_id
+    and ltd.lab_test_definition_id = lr.lab_test_definition_id
+    and hv.mrn_id = ln.mrn_id
+    and hv.patient_class in ('EMERGENCY', 'INPATIENT')
+      order by csn, lr.result_last_modified_time"
+
+sqlQuery <- gsub('\n','',sqlQuery)
+lab_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+
+save(lab_raw, file = paste0('EDcrowding/predict-admission/data-raw/lab_raw_',today(),'.rda'))
+
+
 
 
 # 
