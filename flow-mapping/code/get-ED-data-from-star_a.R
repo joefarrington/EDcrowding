@@ -171,8 +171,8 @@ print(rpt(csn_summ))
 # identify csns which had patient class emergency at some point
 
 csn_summ <- csn_summ %>% left_join(patient_class) 
-print("csn_summ %>% filter(!is.na(max_emerg_class)):")
-rpt(csn_summ %>% filter(!is.na(max_emerg_class))) # has emergency class with 'valid until'
+#print("csn_summ %>% filter(!is.na(max_emerg_class)):")
+#rpt(csn_summ %>% filter(!is.na(max_emerg_class))) # has emergency class with 'valid until'
 
 # split location string to get department information 
 
@@ -182,8 +182,8 @@ visited_ED_csn <- bed_moves %>% filter(department == "ED") %>% select(csn) %>% d
   mutate(visited_ED = TRUE)
 
 csn_summ <- csn_summ %>% left_join(visited_ED_csn) 
-print("csn_summ %>% filter(visited_ED):")
-rpt(csn_summ %>% filter(visited_ED)) # visited ED at some point
+#print("csn_summ %>% filter(visited_ED):")
+#rpt(csn_summ %>% filter(visited_ED)) # visited ED at some point
 
 # deal with missing admission times; infer these from location data
 missing_admission_time <- visited_ED_csn %>% 
@@ -310,7 +310,7 @@ rpt(ED_csn_summ_raw %>% filter(is.na(presentation_time)))
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(presentation_time = if_else(is.na(presentation_time), admission_time, presentation_time))
 
-# if presentation time is great than admission time, update it to be admission time
+# if presentation time is greater than admission time, update it to be admission time
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(presentation_time = if_else(presentation_time > admission_time, admission_time, presentation_time))
 
@@ -404,9 +404,21 @@ print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinc
 
 
 # remove csns where admission is later than discharge
-admission_later_csns <- ED_bed_moves_raw %>% filter(admission > discharge) %>% select(csn) %>% distinct() # none to remove
-print("Admission later than discharge csns (should be zero but check")
+admission_later_csns <- ED_bed_moves_raw %>% filter(admission > discharge) %>% select(csn) %>% distinct() %>% 
+  bind_rows(ED_csn_summ_raw %>% filter(admission_time > discharge_time) %>% select(csn) %>% distinct())
+
+print("Admission later than discharge csns")
 print(rpt(admission_later_csns))
+
+ED_csn_summ_raw = ED_csn_summ_raw %>% 
+  anti_join(admission_later_csns)
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  anti_join(admission_later_csns)
+
+print("After removing csns with admission after discharge")
+print(rpt(ED_csn_summ_raw))
+print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
 
 # where discharge on bed moves is null but csn has a discharge time, update this
 
