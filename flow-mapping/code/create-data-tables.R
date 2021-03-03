@@ -34,32 +34,134 @@ moves <- data.table(ED_bed_moves_raw %>%
                       arrange(csn, admission))
 setkey(moves, csn)
 
-# add lead csn, admission and location - see https://rdrr.io/cran/data.table/man/shift.html
+# Set up column names for lead and lag functionality
 cols = c("csn","admission","discharge", "department", "location")
 leadcols = paste("lead", cols, sep="_")
 lagcols = paste("lag", cols, sep="_")
 
-# update with next row's discharge time when locations are repeated
-#moves[csn == lead_csn & location == lead_location, discharge := lead_discharge]
+# Deal with OTF rows first -----------------------------------------------------------
+# remove rows where OTF and set location to be same as previous
+# check moves[csn == "1017913821"]
+
+moves[, "otf" := case_when(location == "OTF" ~ 1, 
+                           TRUE ~ 0)]
+moves[, num_OTF := sum(otf), by = csn]
+
+# # to get summary of numbers involved - load summ first
+# moves = merge(moves, summ[,.(csn, adm)], all.x = TRUE)
+# m = moves[, .(N = uniqueN(csn)), by = .(adm, num_OTF)]
+# m %>% arrange(adm, num_OTF) %>%  pivot_wider(names_from = num_OTF, values_from = N)
+# # to save csns for later reference
+# moves_ = moves[num_OTF > 0]
+
+# reset lead and lag values
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
+
+# find rows where OTF is last row
+moves[csn == lag_csn & location == "OTF" & csn != lead_csn, otf_row_to_drop_last_row := TRUE]
+rpt(moves) 
+rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
+moves <- moves[is.na(otf_row_to_drop_last_row)]
+rpt(moves) 
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
+moves[csn == lag_csn & admission != lag_discharge] # checking - should be zero as only last row was deleted
+
+# find rows where OTF is first row - check moves[csn == "1022475707"]
+moves[csn != lag_csn & location == "OTF" & csn == lead_csn, otf_row_to_drop_first_row := TRUE]
+rpt(moves) 
+rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
+moves <- moves[is.na(otf_row_to_drop_first_row)]
+rpt(moves) 
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
+moves[csn == lead_csn & lead_admission != discharge] # checking - should be zero as only first row was deleted
+
+# drop whole csns if they have outrageously long OTF rows
+# calc row duration
+moves[, "row_duration_temp" := difftime(discharge, admission, units = "hours")]
+# moves[row_duration_temp > 4 & location == "OTF"] %>% ggplot(aes(x = row_duration_temp, y = reorder(csn, row_duration_temp), fill = lead_department)) +
+#   geom_bar(stat = "identity") +
+#   labs(title = "Duration of OTF rows with more than 4 hours duration, with next location",
+#        x = "Duration of OTF row (hours)",
+#        fill = "Next location",
+#        y = "csn") +
+#   scale_x_continuous(breaks = seq(0,180, 20))
+
+moves[, problematic_duration := row_duration_temp > 10 & location == "OTF"]
+moves[, drop_csn := sum(problematic_duration) > 0, by = csn]
+moves = moves[!(drop_csn)]
+rpt(moves)
+
+# find other rows with OTF 
+moves[csn == lag_csn & location == "OTF", otf_row_to_drop := TRUE]
+rpt(moves) 
+rpt(moves[(otf_row_to_drop)])
+# remove OTF rows
+moves <- moves[is.na(otf_row_to_drop)]
+rpt(moves)
+
+# update admission date of the remaining rows
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
+moves[csn == lag_csn & admission != lag_discharge, amend_row := TRUE] 
+rpt(moves[(amend_row)])
+moves[csn == lag_csn & admission != lag_discharge, admission := lag_discharge]
+
+# redo first and last row checks in case there were repeated OTF rows at beginning or end
+# find rows where OTF is last row
+moves[csn == lag_csn & location == "OTF" & csn != lead_csn, otf_row_to_drop_last_row := TRUE]
+rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
+moves <- moves[is.na(otf_row_to_drop_last_row)]
+
+# find rows where OTF is first row - check moves[csn == "1022475707"]
+moves[csn != lag_csn & location == "OTF" & csn == lead_csn, otf_row_to_drop_first_row := TRUE]
+rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
+moves <- moves[is.na(otf_row_to_drop_first_row)]
+rpt(moves) 
+
+# remove any lag and lead rows for avoidance of error
+set(moves, NULL , c("otf_row_to_drop", "otf_row_to_drop_last_row", "otf_row_to_drop_first_row", "num_OTF", "otf",
+                    "amend_row", "drop_csn", "row_duration_temp", "problematic_duration", 
+                    "lag_csn", "lag_location", "lag_department", "lag_admission", "lag_discharge",  
+                    "lead_csn", "lead_location", "lead_department", "lead_admission", "lead_discharge"), NULL)
+
+
+
+
+# Deal with repeated locations --------------------------------------------
+# update with next row's discharge time when locations are repeated
+
+# add lead and lag csn, admission and location - see https://rdrr.io/cran/data.table/man/shift.html
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+# find rows where locations are repeated so the first one can be dropped
 moves[csn == lead_csn & location == lead_location, drop_row := TRUE]
 rpt(moves) 
 rpt(moves[(drop_row)]) # this is number of csns where a row will be dropped
-
-
 # remove rows where location is repeated
 moves <- moves[is.na(drop_row)]
+rpt(moves) 
+
+# update admission date of the remaining row
 moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
 moves[csn == lag_csn & admission != lag_discharge, amend_row := TRUE]
 rpt(moves[(amend_row)])
 moves[csn == lag_csn & admission != lag_discharge, admission := lag_discharge]
 
+# remove any lag and lead rows for avoidance of error
+set(moves, NULL , c("drop_row", "amend_row", 
+                    "lag_csn", "lag_location", "lag_department", "lag_admission", "lag_discharge",  
+                    "lead_csn", "lead_location", "lead_department", "lead_admission", "lead_discharge"), NULL)
 
-# delete cols not needed
 
-set(moves, NULL , c("drop_row", "amend_row", "lag_csn", "lag_location", "lag_department",
-                    "lag_admission", "lag_discharge",  "lead_discharge"), NULL)
-rpt(moves)
+
+
+
+# Other -------------------------------------------------------------------
+
+# reset lead columns
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 
 # update lead location where csns change
 moves[, lead_department := if_else(csn != lead_csn, NA_character_, lead_department)]
@@ -173,7 +275,7 @@ indirect_dis <- moves[((!visited_same_day) & visited_obs & !visited_outside) |
                         (visited_same_day & visited_obs & !visited_outside), unique(csn)]
 direct_dis <- moves[(!visited_same_day) & !visited_obs & !visited_outside, unique(csn)]
 
-summ <- data.table(ED_csn_summ_raw %>% 
+summ <- data.table(ED_csn_summ_raw %>% filter(csn %in% moves$csn) %>% 
                      mutate(adm = case_when(csn %in% direct_adm ~ "direct_adm",
                                             csn %in% indirect_adm ~ "indirect_adm",
                                             csn %in% indirect_dis ~ "indirect_dis",
@@ -181,7 +283,7 @@ summ <- data.table(ED_csn_summ_raw %>%
 setkey(summ, csn)
 rpt(summ)
 
-# Add relevant transition time to summay table -------------------------------------------
+# Add relevant transition time to summary table -------------------------------------------
 
 summ <- merge(summ, (unique(moves[,.(csn, first_ED_admission, first_outside_ED_admission, 
                                      first_outside_proper_admission, last_ED_discharge, last_inside_discharge, 
