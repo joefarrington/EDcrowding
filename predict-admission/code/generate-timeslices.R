@@ -41,6 +41,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   loc_count <- merge(loc_count, loc_cutoff[(admission_e <= cutoff & discharge_e > cutoff), location, by = csn],
                      all.x = TRUE)
   setnames(loc_count, "location", "l_current")
+  loc_count[, l_current := factor(l_current)]
   
   # add indicator of location visited at csn level
   loc_cutoff_csn <- merge(loc_count, data.table(
@@ -135,12 +136,14 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # select for cutoff
   lab_cutoff <- lab_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
   
-  # add number of observation measurements up to cutoff
-  lab_cutoff[, p_num := .N, by = csn]
-  
+  # # add number of observation measurements up to cutoff
+  # lab_cutoff[, p_num := .N, by = csn]
+  # 
   # add number of types of results by csn
-  lab_cutoff_csn <- merge(unique(lab_cutoff[, .(csn, p_num)]), 
-                          lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn], by = "csn")
+  lab_cutoff_csn <- lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn]
+  
+  # lab_cutoff_csn <- merge(unique(lab_cutoff[, .(csn, p_num)]), 
+  #                         lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn], by = "csn")
   
   # add number of lab events per csn
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[, .(p_num_events = uniqueN(elapsed_mins)), by = csn])
@@ -148,13 +151,30 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # add number of lab results that are out of range high and low
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn])
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn])
+  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn])
   
-  # generate counts of obs meas by csn
-  lab_cutoff_csn_w <- lab_cutoff[, .N, by = .(csn, test_lab_code)] %>% 
-    pivot_wider(names_from = test_lab_code, names_prefix = "p_num_", values_from = N, values_fill = 0)
-  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_w))
+  # # generate counts of obs meas by csn
+  # lab_cutoff_csn_w <- lab_cutoff[, .N, by = .(csn, test_lab_code)] %>% 
+  #   pivot_wider(names_from = test_lab_code, names_prefix = "p_num_", values_from = N, values_fill = 0)
+  # lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_w))
   
 
+  # generate abnormal results by lab test - note that this treats people without a lab test
+  # the same as people with a lab test result returned as normal
+  lab_cutoff_csn_abnormal <- lab_cutoff[(abnormal), .(N = .N >0), by = .(csn, test_lab_code)] %>% 
+    pivot_wider(names_from = test_lab_code, names_prefix = "p_abnormal_", values_from = N, values_fill = NA)
+  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_abnormal))
+  
+  
+  # add latest score for each lab
+  lab_cutoff_csn_val <- data.table(
+    lab_cutoff %>% 
+      group_by(csn, test_lab_code) %>% 
+      filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
+      # using max allows for possibility of two measurements in same minute
+      summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%  
+      pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)    
+  )
   
 
   
@@ -165,6 +185,8 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # just use csn from summ to start with - add the other summ fields (which may have genuine NAs) later
   matrix_cutoff <- merge(dm[duration > cutoff, .(csn, adm)], loc_cutoff_csn, all.x = TRUE) 
   matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn, all.x = TRUE)
+  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn, all.x = TRUE)
+  
   
   # need to fill in the NA values as zeroes for people without any observation measurements
   # do this before adding the valued results as these need to remain as NA
@@ -176,7 +198,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # add other info where there may be genuine NAs
   matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff], by = c("csn", "adm")) 
   matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, all.x = TRUE) 
-  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn, all.x = TRUE) 
+  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, all.x = TRUE) 
   matrix_cutoff[, duration := NULL]
   
   return(matrix_cutoff)
@@ -188,21 +210,19 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
 # load data
 # =========
 
-file_date = '2021-03-01'
+file_date = '2021-03-03'
 
 load(paste0("~/EDcrowding/flow-mapping/data-raw/moves_", file_date,".rda"))
 load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
 
+file_date = '2021-03-10'
 
 # observation data
 load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda"))
-# remove any punctuation that will make column names problematic
-obs_real[, obs_name := gsub("\\(|\\)|\\-|\\>|\\?|\\/","", obs_name)]
-obs_real[, obs_name := gsub("Currenttemperature>37.5orhistoryoffeverinthelast24hours","Fever", obs_name)]
-
-
 # lab data
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_real_", file_date,".rda"))
+
+file_date = '2021-03-01'
 
 # prior visit info
 load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
@@ -212,7 +232,7 @@ load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
 # Create admission details--------------------------------------------------
 
 
-dm <- summ[,.(csn, age, sex, presentation_time, adm, epoch, arrival_method, last_inside_discharge, min_I, first_ED_admission)]
+dm <- summ[,.(csn, age, sex, presentation_time, adm, epoch, arrival_method, first_outside_proper_admission, last_ED_discharge, min_I, first_ED_admission)]
 
 dm[, tod := factor((hour(presentation_time) %/% 4)+1)]
 dm[, quarter := factor(case_when( month(presentation_time) <= 3 ~ 1,
@@ -236,9 +256,12 @@ dm[, beforeED := as.numeric(difftime(first_ED_admission, presentation_time, unit
 # small number have negative time for before ED
 dm[, beforeED := if_else(beforeED <0, 0, beforeED) ]
 
-# NB - using last inside discharge for duration - includes time spent in CDU
-dm[, duration := as.numeric(difftime(last_inside_discharge, presentation_time, units = "mins"))]
+# NB - using first inside admission for duration - includes time spent in CDU
+# NB - first ED admission exludes any time as an inpatient prior to arriving in ED
 
+dm[, duration := case_when(is.na(first_outside_proper_admission) ~ as.numeric(difftime(last_ED_discharge, first_ED_admission, units = "mins")),
+                               TRUE ~ as.numeric(difftime(first_outside_proper_admission, first_ED_admission, units = "mins")))]
+print("Rows in design matrix initially")
 rpt(dm)
 
 
@@ -262,6 +285,7 @@ dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 
 # For now, only process from start of Covid only
 dm <- dm[date(presentation_time) >= '2020-03-19']
+print("Rows in design matrix after COVID")
 rpt(dm)
 
 
@@ -295,16 +319,22 @@ dm[, in_set := case_when(csn %in% dm_train$csn ~ "train",
 # Prepare location data --------------------------------------------------
 
 loc <- moves[csn %in% dm$csn, .(csn, admission, discharge, location, visited_CDU, outside)]
-loc <- merge(loc, dm[,.(csn, presentation_time,last_inside_discharge, duration)])
-loc[, admission_e := as.numeric(difftime(admission, presentation_time, units = "mins"))]
-loc[, discharge_e := as.numeric(difftime(discharge, presentation_time, units = "mins"))]
+loc <- merge(loc, dm[,.(csn, first_ED_admission, first_outside_proper_admission, duration)])
+
+# remove rows where admission occurs to locations before arrival at ED
+loc <- loc[admission >= first_ED_admission]
+
+
+loc[, admission_e := as.numeric(difftime(admission, first_ED_admission, units = "mins"))]
+loc[, discharge_e := as.numeric(difftime(discharge, first_ED_admission, units = "mins"))]
 
 # remove rows after the patient leaves ED or other inside location (where inside includes CDU and possibly others)
-loc <- loc[discharge <= last_inside_discharge | is.na(last_inside_discharge)]
+loc <- loc[discharge <= first_outside_proper_admission | is.na(first_outside_proper_admission)]
+print("Rows in loc")
 rpt(loc)
 
-loc[, c("admission", "discharge", "presentation_time") := NULL]
-dm[, c("presentation_time", "last_inside_discharge", "min_I", "first_ED_admission") := NULL]
+loc[, c("admission", "discharge", "first_ED_admission", "first_outside_proper_admission") := NULL]
+dm[, c("presentation_time", "first_outside_proper_admission", "min_I", "first_ED_admission", "last_ED_discharge") := NULL]
 
 cols = colnames(copy(dm)[, c("csn", "adm", "duration", "in_set") := NULL])
 cols_ = paste("a", cols, sep="_")
@@ -315,7 +345,7 @@ setkey(loc, csn)
 # Create timeslices -------------------------------------------------------
 
 
-timeslices <- c(0, 15, 30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 480, 480+4*60)
+timeslices <- c(0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 480+4*60)
 
 for (i in seq(1, length(timeslices) -1, 1)) {
   print(paste0("Processing timeslice ", timeslices[i]))
@@ -329,23 +359,19 @@ for (i in seq(1, length(timeslices) -1, 1)) {
 
 
 
-# useful function to explore data 
-skimr::skim(dm15)
-
-
 save(dm000, file = paste0("EDcrowding/predict-admission/data-raw/dm000_",today(),".rda"))
 save(dm015, file = paste0("EDcrowding/predict-admission/data-raw/dm015_",today(),".rda"))
 save(dm030, file = paste0("EDcrowding/predict-admission/data-raw/dm030_",today(),".rda"))
 save(dm060, file = paste0("EDcrowding/predict-admission/data-raw/dm060_",today(),".rda"))
 save(dm090, file = paste0("EDcrowding/predict-admission/data-raw/dm090_",today(),".rda"))
 save(dm120, file = paste0("EDcrowding/predict-admission/data-raw/dm120_",today(),".rda"))
-save(dm150, file = paste0("EDcrowding/predict-admission/data-raw/dm150_",today(),".rda"))
+# save(dm150, file = paste0("EDcrowding/predict-admission/data-raw/dm150_",today(),".rda"))
 save(dm180, file = paste0("EDcrowding/predict-admission/data-raw/dm180_",today(),".rda"))
-save(dm210, file = paste0("EDcrowding/predict-admission/data-raw/dm210_",today(),".rda"))
+# save(dm210, file = paste0("EDcrowding/predict-admission/data-raw/dm210_",today(),".rda"))
 save(dm240, file = paste0("EDcrowding/predict-admission/data-raw/dm240_",today(),".rda"))
 save(dm300, file = paste0("EDcrowding/predict-admission/data-raw/dm300_",today(),".rda"))
 save(dm360, file = paste0("EDcrowding/predict-admission/data-raw/dm360_",today(),".rda"))
-
+save(dm480, file = paste0("EDcrowding/predict-admission/data-raw/dm480_",today(),".rda"))
 
 dm[, row_id := seq_len(nrow(dm))]
 save(dm, file = paste0("EDcrowding/predict-admission/data-raw/dm_",today(),".rda"))

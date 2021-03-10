@@ -348,8 +348,10 @@ missing_dis_time <- missing_dis_time %>%
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   left_join(missing_dis_time %>% select(csn, new_discharge_time))
 
-# update discharge time in ED_csn_summ where new discharge time is available
+# remove last_ED_discharge_time as this will be updated in later processing to remove OTF rows
+ED_csn_summ_raw <- ED_csn_summ_raw %>% select(-last_ED_discharge_time)
 
+# update discharge time in ED_csn_summ where new discharge time is available
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   mutate(discharge_time = 
            case_when(is.na(discharge_time) & !is.na(new_discharge_time) ~ new_discharge_time,

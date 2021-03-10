@@ -19,19 +19,21 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-25.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-25.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
 rpt(moves)
 
 ## Having to delete this one row because it has a NA_dttm in last_ED_discharge_time 
 summ [, adm := factor(adm, levels = c("direct_dis", "indirect_dis", "indirect_adm", "direct_adm"))]
-m = unique(moves[, .(csn, last_ED_discharge)])
-summ = summ[m, on = "csn"]
+# m = unique(moves[, .(csn, last_ED_discharge)])
+# summ = summ[m, on = "csn"]
 
 
 # Find out how many patients in each timeslice ----------------------------
 
-summ[,ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
+summ[,ED_duration := case_when(is.na(first_outside_proper_admission) ~ difftime(last_ED_discharge, first_ED_admission, units = "mins"),
+                              TRUE ~ difftime(first_outside_proper_admission, first_ED_admission, units = "mins"))]
+
 summ[,timeslice := case_when(ED_duration < 15 ~ 0,
                              ED_duration >= 15 & ED_duration < 60 ~ 15,
                              ED_duration >= 60 & ED_duration < 90 ~ 90,
@@ -40,7 +42,8 @@ summ[,timeslice := case_when(ED_duration < 15 ~ 0,
                              ED_duration >= 180 & ED_duration < 240 ~ 180,
                              ED_duration >= 240 & ED_duration < 300 ~ 240,
                              ED_duration >= 300 & ED_duration < 360 ~ 300,
-                             ED_duration >= 360 ~ 360)
+                             ED_duration >= 360 & ED_duration < 480 ~ 360,
+                             ED_duration >= 480 ~ 480)
                              ]
 
 summ[ED_duration < 24*60] %>% ggplot(aes(x = ED_duration)) + geom_histogram()
@@ -93,13 +96,17 @@ chart_data %>%
 summ[,timeslice0 := 1]
 summ[,timeslice15 := if_else(ED_duration > 15, 1, 0)]
 summ[,timeslice60 := if_else(ED_duration > 60, 1, 0)]
+summ[,timeslice90 := if_else(ED_duration > 90, 1, 0)]
 summ[,timeslice120 := if_else(ED_duration > 120, 1, 0)]
 summ[,timeslice180 := if_else(ED_duration > 180, 1, 0)]
 summ[,timeslice240 := if_else(ED_duration > 240, 1, 0)]
 summ[,timeslice300 := if_else(ED_duration > 300, 1, 0)]
 summ[,timeslice360 := if_else(ED_duration > 360, 1, 0)]
+summ[,timeslice480 := if_else(ED_duration > 480, 1, 0)]
 
 summ[ED_duration < 24*60] %>% ggplot(aes(x = ED_duration)) + geom_histogram()
+
+# same chart as above
 summ[,.N, by = list(adm, timeslice)] %>% 
   ggplot(aes(x = as.factor(timeslice), y = N, fill = adm)) + 
   geom_bar(stat = "identity") +
@@ -113,7 +120,7 @@ summ[,.N, by = list(adm, timeslice)] %>%
 
 # generate long version of this for chart
 summ_timeslice_long = summ[ED_duration < 24*60] %>% select(csn, adm, ED_duration, starts_with("timeslice")) %>% select(-timeslice) %>% 
-  pivot_longer(c(timeslice15:timeslice360, timeslice0), names_to = "timeslice", values_to = "value") %>% 
+  pivot_longer(c(timeslice0:timeslice480), names_to = "timeslice", values_to = "value") %>% 
   mutate(timeslice = gsub("timeslice", "", timeslice)) 
 
 summ_timeslice_long = data.table(summ_timeslice_long)
@@ -121,7 +128,7 @@ summ_timeslice_long = data.table(summ_timeslice_long)
 # Number in each timeslice
 summ_timeslice_long %>% 
   group_by(adm, timeslice) %>% summarise(N = sum(value)) %>% 
-  ggplot(aes(x = factor(timeslice, levels = c(0, 15, 60, 120, 180,  240, 300, 360)), y = N, fill = adm)) + 
+  ggplot(aes(x = factor(timeslice, levels = c(0, 15, 60, 90, 120, 180,  240, 300, 360, 480)), y = N, fill = adm)) + 
   geom_bar(stat = "identity") +
   scale_fill_manual(values = c("#F8766D" , "#FFB2B2","#99E4E7","#00BFC4", guide = NULL, name = NULL)) +
   #  scale_x_continuous(breaks = unique(summ$timeslice)) +

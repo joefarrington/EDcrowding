@@ -17,8 +17,8 @@ library(readr)
 # Load data ---------------------------------------------------------------
 
 load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-03-01.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-01.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-01.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
 
 
 # mapping of obs visit id not yet availablein Star
@@ -39,7 +39,7 @@ vo_mapping = unique(merge(vo_mapping, vo_type[,.(visit_observation_type_id, id_i
 # these 5 types have multiple mappings
 vo_mapping[,.N, by = visit_observation_type_id][N>1]
 vo_mapping = unique(vo_mapping[, obs_name := max(obs_name), by = visit_observation_type_id])
-vo_mapping[, vo_mapping := gsub(" ", "", obs_name)]
+vo_mapping[, obs_name := gsub(" ", "", obs_name)]
 
 # Process data ------------------------------------------------------------
 
@@ -50,11 +50,16 @@ obs_real <- obs_real[csn %in% summ$csn]
 setkey(obs_real, csn)
 
 # remove obs that take place after ED
-obs_real <- merge(obs_real, summ[,.(csn, first_ED_admission, last_ED_discharge)]) 
-obs_real <- obs_real[observation_datetime <= last_ED_discharge]
+obs_real <- merge(obs_real, summ[,.(csn, first_ED_admission, first_outside_proper_admission)]) 
+obs_real <- obs_real[observation_datetime <= first_outside_proper_admission]
 
 # add elapsed time
 obs_real[, elapsed_mins := as.numeric(difftime(observation_datetime, first_ED_admission, units = "mins"))]
+
+# remove obs from prior to ED by more than 2 hours
+
+obs_real <- obs_real[elapsed_mins >= -120]
+
 
 # add obs description
 obs_real[, visit_observation_type_id := as.character(visit_observation_type_id)]
@@ -133,7 +138,11 @@ obs_real <- obs_real %>%
 
 
 # create final dataset of results (real values)
-obs_real <- obs_real[, .(csn, observation_datetime, value_as_real, obs_name, first_ED_admission, last_ED_discharge, elapsed_mins)]
+obs_real <- obs_real[, .(csn, observation_datetime, value_as_real, obs_name, elapsed_mins)]
+
+# remove any punctuation that will make column names problematic
+obs_real[, obs_name := gsub("\\(|\\)|\\-|\\>|\\?|\\/","", obs_name)]
+obs_real[, obs_name := gsub("Currenttemperature>37.5orhistoryoffeverinthelast24hours","Fever", obs_name)]
 
 
 outFile = paste0("EDcrowding/predict-admission/data-raw/obs_real_",today(),".rda")
