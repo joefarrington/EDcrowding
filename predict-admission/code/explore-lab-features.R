@@ -85,3 +85,53 @@ imp_test_count[importance > 	0.001] %>% pivot_longer(prop_oor_h:prop_in_range) %
 
 lab_real[test_lab_code == "TDDI" & oor_high]
 
+
+# Which lab results co-occur - creating adjacency matrix ----------------------------------------------
+
+load("~/EDcrowding/predict-admission/data-raw/lab_real_2021-03-01.rda")
+
+# summarise by lab test code to get raw numbers
+l1 = lab_real[, .N, by = test_lab_code]
+write.csv(l1, "lab_test_nums.csv")
+
+# count number of tests returned within each timestamp
+l2 = lab_real[, .N, by = .(csn, result_last_modified_time, test_lab_code)]
+
+# pivot to wide data frame to get all tests within each timestamp
+l3 = l2 %>% pivot_wider(names_from = test_lab_code, values_from = N)
+# l4 = l3 %>% select(-csn, - result_last_modified_time)
+# l4 = unique(l4)
+# l4 = data.table(l4)
+# l4[, row_id := seq_len(nrow(l4))]
+
+# create an edgelist by counting the number of times each lab test co-occurs
+codes = unique(l2$test_lab_code)
+
+edgelist = data.table()
+
+for (i in 1:length(codes)) {
+  print(i)
+  from = codes[i]
+  for (j in 1:length(codes)) {
+    to = codes[j]
+    vector_from = get(from, l3)
+    vector_to = get(to, l3)
+    weight = sum(vector_to * vector_from, na.rm = TRUE)
+    edge = data.table(from = from, to = to, weight = weight)
+    edgelist = bind_rows(edgelist, edge)
+  }
+}
+
+save(edgelist, file = "~/EDcrowding/predict-admission/data-raw/lab_test_edgelist.rda")
+
+lab_test_adj = edgelist %>% pivot_wider(names_from = to, values_from = weight)
+
+
+# Network analysis --------------------------------------------------------
+
+library(igraph)
+
+# Create an igraph network object from the two-mode matrix: 
+net2 <- graph_from_incidence_matrix(links2)
+
+
