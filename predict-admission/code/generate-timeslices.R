@@ -140,18 +140,26 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # lab_cutoff[, p_num := .N, by = csn]
   # 
   # add number of types of results by csn
-  lab_cutoff_csn <- lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn]
+  # lab_cutoff_csn <- lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn]
   
   # lab_cutoff_csn <- merge(unique(lab_cutoff[, .(csn, p_num)]), 
   #                         lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn], by = "csn")
   
   # add number of lab events per csn
-  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[, .(p_num_events = uniqueN(elapsed_mins)), by = csn])
+  lab_cutoff_csn <- lab_cutoff[, .(p_num_events = uniqueN(elapsed_mins)), by = csn]
   
   # add number of lab results that are out of range high and low
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn])
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn])
   lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn])
+  
+  # add whether each cluster was requested
+  
+  lab_cutoff = setorder(lab_cutoff, cluster)
+  lab_cutoff_csn_cluster = lab_cutoff[!is.na(cluster), (N =.N > 0), by = .(csn, cluster)] %>% 
+       pivot_wider(names_from = cluster, names_prefix = "p_req_cluster", values_from = V1, values_fill = 0)
+  
+  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_cluster))
   
   # # generate counts of obs meas by csn
   # lab_cutoff_csn_w <- lab_cutoff[, .N, by = .(csn, test_lab_code)] %>% 
@@ -159,22 +167,22 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_w))
   
 
-  # generate abnormal results by lab test - note that this treats people without a lab test
-  # the same as people with a lab test result returned as normal
-  lab_cutoff_csn_abnormal <- lab_cutoff[(abnormal), .(N = .N >0), by = .(csn, test_lab_code)] %>% 
-    pivot_wider(names_from = test_lab_code, names_prefix = "p_abnormal_", values_from = N, values_fill = NA)
-  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_abnormal))
-  
-  
-  # add latest score for each lab
-  lab_cutoff_csn_val <- data.table(
-    lab_cutoff %>% 
-      group_by(csn, test_lab_code) %>% 
-      filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
-      # using max allows for possibility of two measurements in same minute
-      summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%  
-      pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)    
-  )
+  # # generate abnormal results by lab test - note that this treats people without a lab test
+  # # the same as people with a lab test result returned as normal
+  # lab_cutoff_csn_abnormal <- lab_cutoff[(abnormal), .(N = .N >0), by = .(csn, test_lab_code)] %>% 
+  #   pivot_wider(names_from = test_lab_code, names_prefix = "p_abnormal_", values_from = N, values_fill = NA)
+  # lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_abnormal))
+  # 
+  # 
+  # # add latest score for each lab
+  # lab_cutoff_csn_val <- data.table(
+  #   lab_cutoff %>% 
+  #     group_by(csn, test_lab_code) %>% 
+  #     filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
+  #     # using max allows for possibility of two measurements in same minute
+  #     summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%  
+  #     pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)    
+  # )
   
 
   
@@ -219,6 +227,8 @@ file_date = '2021-03-10'
 
 # observation data
 load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda"))
+
+file_date = '2021-03-15'
 # lab data
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_real_", file_date,".rda"))
 
