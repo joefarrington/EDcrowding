@@ -21,7 +21,8 @@ library(ggdendro)
 
 # Load data ---------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-raw/lab_real_2021-03-10.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_real_2021-03-16.rda")
+
 
 
 # Create adjacency matrix -------------------------------------------------
@@ -69,21 +70,21 @@ ggdendrogram(hclust, rotate = FALSE, size = 2) +
   geom_hline(aes(yintercept = 11.5, colour = "red")) +
   theme(legend.position = "none")
 
-# looks like 37
+# looks like 30 
 
 # from : https://cran.r-project.org/web/packages/dendextend/vignettes/Cluster_Analysis.html
 # get a dendogram objecti
 dend <- as.dendrogram(hclust(dist(lab_test_adj_scaled)))
 
 # forcing a cluster distribution of 37
-dend <- color_branches(dend, k=37) #, groupLabels=iris_species)
+dend <- color_branches(dend, k=30) #, groupLabels=iris_species)
 
-# not sure how I did this ???
-labels_colors(dend) <-
-  rainbow_hcl(37)[sort_levels_values(
-    labels(lab_test_adj_scaled)[[2]][order.dendrogram(dend)]
-  )]
-
+# # not sure how I did this ???
+# labels_colors(dend) <-
+#   rainbow_hcl(30)[sort_levels_values(
+#     labels(lab_test_adj_scaled)[[2]][order.dendrogram(dend)]
+#   )]
+# 
 
 labels(dend) <- labels(lab_test_adj_scaled)[[2]][order.dendrogram(dend)]
 
@@ -96,7 +97,7 @@ dend <- set(dend, "labels_cex", 0.5)
 # And plot:
 par(mar = c(3,3,3,7))
 plot(dend, 
-     main = "Dendogram of co-occuring lab results used more than 50 times since Jan 2020, forced into 37 clusters", 
+     main = "Dendogram of co-occuring lab results used more than 50 times since Jan 2020, forced into 30 clusters", 
      horiz =  TRUE,  nodePar = list(cex = .007))
 legend("topleft", legend = iris_species, fill = rainbow_hcl(3))
 
@@ -106,8 +107,15 @@ legend("topleft", legend = iris_species, fill = rainbow_hcl(3))
 length(ddata$segments$y > 3)
 
 # cut into clusters
-cut_avg <- cutree(hclust, k = 37)
-cluster_lookup <- data.table(test_lab_code = lab_test_adj$from, cluster = cut_avg, lab_test_num = as.numeric(ddata$labels$label))
+ddata <- dendro_data(as.dendrogram(hclust), type = "rectangle")
+as.numeric(ddata$labels$label)
+# so we can use this to get the labels for each lab test in the same order
+labels(lab_test_adj_scaled)[[2]][as.numeric(ddata$labels$label)]
+
+
+
+cut_avg <- cutree(hclust, k = 30)
+cluster_lookup <- data.table(test_lab_code = lab_test_adj$from, cluster = cut_avg)
 
 lab_test_adj <- mutate(lab_test_adj, cluster = cut_avg)
 count(lab_test_adj,cluster)

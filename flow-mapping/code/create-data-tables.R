@@ -32,6 +32,17 @@ moves <- data.table(ED_bed_moves_raw %>%
                                                    TRUE ~ department)) %>% 
                       select(csn, admission, discharge, department, location) %>% 
                       arrange(csn, admission))
+
+# applying same location naming as being done for Ken's work in prepare-ED-data-for-ML-new.R
+
+covid_start <- as.POSIXct('2020-03-19 00:00:00')
+moves[, location := case_when(
+                              location %in% c("PAEDS", "SAA") ~ "Other",
+                              location == "DIAGNOSTICS" & admission > date(covid_start) ~ "Other",
+                              location == "UCHT00CDU" ~ "CDU",
+                              location == "WR_POOL" ~ "Waiting",
+                              
+                              TRUE ~ location)]
 setkey(moves, csn)
 
 # Set up column names for lead and lag functionality

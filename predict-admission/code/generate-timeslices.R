@@ -64,24 +64,19 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   obs_cutoff <- obs_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
   
   # add number of observation measurements up to cutoff
-  obs_cutoff[, o_num := .N, by = csn]
+  obs_cutoff[, o_num_all := .N, by = csn]
   
   # add number of types of results by csn
-  obs_cutoff_csn <- merge(unique(obs_cutoff[, .(csn, o_num)]), 
+  obs_cutoff_csn <- merge(unique(obs_cutoff[, .(csn, o_num_all)]), 
                           obs_cutoff[, .(o_num_types = uniqueN(obs_name)), by = csn], by = "csn")
   
   # add number of observation events per csn
-  obs_cutoff_csn <- merge(obs_cutoff_csn, obs_cutoff[, .(o_events = uniqueN(elapsed_mins)), by = csn])
-  
-  # generate counts of obs meas by csn
-  obs_cutoff_csn_w <- obs_cutoff[, .N, by = .(csn, obs_name)] %>% 
-    pivot_wider(names_from = obs_name, names_prefix = "o_num_", values_from = N, values_fill = 0)
-  obs_cutoff_csn <- data.table(merge(obs_cutoff_csn, obs_cutoff_csn_w))
+  obs_cutoff_csn <- merge(obs_cutoff_csn, obs_cutoff[, .(o_num_events = uniqueN(elapsed_mins)), by = csn])
 
-  # blood pressure has two measurements, so delete one
+  # blood pressure has two measurements per event, so delete one type
   obs_cutoff_csn[, o_num_types := o_num_types -1]
-  obs_cutoff_csn[, o_num := o_num - o_num_Bloodpressure_sys]
-  obs_cutoff_csn[, o_has := if_else(o_num > 0, 1, 0)]
+  # obs_cutoff_csn[, o_num := o_num - o_num_Bloodpressure_sys]
+  obs_cutoff_csn[, o_has := 1] # this will be 1 for all csns currently; zeros added later
 
   
   # add count of times when O2 sat dropped below 90 or 95
@@ -104,31 +99,49 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   obs_cutoff_csn <- merge(obs_cutoff_csn, news_med, all.x = TRUE, by = "csn")
   obs_cutoff_csn <- merge(obs_cutoff_csn, news_high, all.x = TRUE, by = "csn")
   
-  print("Processing observation values")
-  # Note - this uses a different table due to handling of NA values later on
-
-  # add min for each measurement
-  obs_cutoff_csn_val <- data.table(
-    obs_cutoff[!is.na(value_as_real),  min(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
-    pivot_wider(names_from = obs_name, names_prefix = "o_min_", values_from = V1)
-  )
+  # add count of times ACVPU not equal to A
+  ACVPU_notA <- obs_cutoff[obs_name == "ACVPU" & value_as_real > 1, .N, by = .(csn)] 
+  setnames(ACVPU_notA, "N", "o_num_ACVPU_notA")
   
-  # add max score for each measurement
-  obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
-    obs_cutoff[!is.na(value_as_real),  max(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
-      pivot_wider(names_from = obs_name, names_prefix = "o_max_", values_from = V1)
-  ))
+  obs_cutoff_csn <- merge(obs_cutoff_csn, ACVPU_notA, all.x = TRUE, by = "csn")
   
-  # add latest score for each measurement
-  obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
-      obs_cutoff %>% 
-        group_by(csn, obs_name) %>% 
-        filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
-        # using max allows for possibility of two measurements in same minute
-        summarise(latest_obs_name = max(value_as_real, na.rm = TRUE))  %>%  
-        pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_obs_name)    
-    ))
+  # add count of times GCS <= 8
+  GCS_lt9 <- obs_cutoff[obs_name == "GCStotal" & value_as_real < 9, .N, by = .(csn)] 
+  setnames(GCS_lt9, "N", "o_num_GCS_lt9")
   
+  obs_cutoff_csn <- merge(obs_cutoff_csn, GCS_lt9, all.x = TRUE, by = "csn")
+  
+  # generate counts of obs meas by csn
+  obs_cutoff_csn_w <- obs_cutoff[, .N, by = .(csn, obs_name)] %>%
+    pivot_wider(names_from = obs_name, names_prefix = "o_num_", values_from = N, values_fill = 0)
+  obs_cutoff_csn <- data.table(merge(obs_cutoff_csn, obs_cutoff_csn_w))
+  # 
+  # 
+  # print("Processing observation values")
+  # # Note - this uses a different table due to handling of NA values later on
+  # 
+  # # add min for each measurement
+  # obs_cutoff_csn_val <- data.table(
+  #   obs_cutoff[!is.na(value_as_real),  min(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
+  #   pivot_wider(names_from = obs_name, names_prefix = "o_min_", values_from = V1)
+  # )
+  # 
+  # # add max score for each measurement
+  # obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
+  #   obs_cutoff[!is.na(value_as_real),  max(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
+  #     pivot_wider(names_from = obs_name, names_prefix = "o_max_", values_from = V1)
+  # ))
+  # 
+  # # add latest score for each measurement
+  # obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
+  #     obs_cutoff %>% 
+  #       group_by(csn, obs_name) %>% 
+  #       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
+  #       # using max allows for possibility of two measurements in same minute
+  #       summarise(latest_obs_name = max(value_as_real, na.rm = TRUE))  %>%  
+  #       pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_obs_name)    
+  #   ))
+  # 
   # add lab data
   
   print("Processing lab numbers")
@@ -205,8 +218,8 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   
   # add other info where there may be genuine NAs
   matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff], by = c("csn", "adm")) 
-  matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, all.x = TRUE) 
-  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, all.x = TRUE) 
+  # matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, all.x = TRUE) 
+  # matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, all.x = TRUE) 
   matrix_cutoff[, duration := NULL]
   
   return(matrix_cutoff)
@@ -218,17 +231,17 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
 # load data
 # =========
 
-file_date = '2021-03-03'
+file_date = '2021-03-16'
 
 load(paste0("~/EDcrowding/flow-mapping/data-raw/moves_", file_date,".rda"))
 load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
 
-file_date = '2021-03-10'
+file_date = '2021-03-16'
 
 # observation data
 load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda"))
 
-file_date = '2021-03-15'
+file_date = '2021-03-16'
 # lab data
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_real_", file_date,".rda"))
 
@@ -283,12 +296,16 @@ dm[, arrival := factor(if_else(!arrival %in% c("Ambulance",
                                                         "Ambnomedic"), "Other", arrival)) ]
 dm[, arrival_method := NULL]
 
-### add prior visits
+### add prior visits - for now excluding features that will have missing values
 
-dm <- merge(dm, visits %>% select(csn, days_since_last_visit, num_prior_adm_after_ED, num_prior_ED_visits, prop_adm_from_ED), all.x = TRUE)
+dm <- merge(dm, visits %>% select(csn, 
+                                  # days_since_last_visit, 
+                                  num_prior_adm_after_ED, num_prior_ED_visits, 
+                                  # prop_adm_from_ED
+                                  ), all.x = TRUE)
 
-# correcting error in visits processing - small number have negative number of days since last visit
-dm[, days_since_last_visit := if_else(days_since_last_visit <0, NA_real_, days_since_last_visit) ]
+# # correcting error in visits processing - small number have negative number of days since last visit
+# dm[, days_since_last_visit := if_else(days_since_last_visit <0, NA_real_, days_since_last_visit) ]
 
 # prepare outcome variable
 dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]

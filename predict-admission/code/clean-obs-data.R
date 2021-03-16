@@ -17,8 +17,10 @@ library(readr)
 # Load data ---------------------------------------------------------------
 
 load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-03-01.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-16.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-16.rda")
+
+summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
 
 # mapping of obs visit id not yet availablein Star
@@ -50,8 +52,8 @@ obs_real <- obs_real[csn %in% summ$csn]
 setkey(obs_real, csn)
 
 # remove obs that take place after ED
-obs_real <- merge(obs_real, summ[,.(csn, first_ED_admission, first_outside_proper_admission)]) 
-obs_real <- obs_real[observation_datetime <= first_outside_proper_admission]
+obs_real <- merge(obs_real, summ[,.(csn, first_ED_admission, left_ED)]) 
+obs_real <- obs_real[observation_datetime <= left_ED]
 
 # add elapsed time
 obs_real[, elapsed_mins := as.numeric(difftime(observation_datetime, first_ED_admission, units = "mins"))]

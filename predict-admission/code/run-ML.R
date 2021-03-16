@@ -359,7 +359,7 @@ model_features = "alop"
 
 base_model = TRUE
 check_eval_metric = FALSE
-tune_nr = FALSE
+tune_nr = TRUE
 tune_spw = FALSE
 tune_trees = FALSE
 tune_trees2 = FALSE
@@ -374,7 +374,7 @@ final_preds = FALSE
 #timeslices <- c("000")
 timeslices <- c("000", "015", "030", "060",  "090", "120", "180", "240", "300", "360", "480")
 
-file_date <- "2021-03-10"
+file_date <- "2021-03-16"
 
 
 for (ts_ in timeslices) {
@@ -512,25 +512,15 @@ if (tune_nr) {
       learner <- train_learner(learner, tsk, tsk_train_ids, nrounds = nrounds)
 
       # get scores on training set using cross-validation
-      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "nrounds", nrounds = nrounds, scores, model_features)
-
-      # # get importances for each round; added this to look at how predictions change as parameters change
-      # imps <- get_imps(name_tsk, learner, tsk_ids = "train", tuning_round = "nrounds",
-      #                  param_value = nrounds,
-      #                  imps, model_features)
-      # 
-      # # get predictions for each round; added this to look at how predictions change as parameters change
-      # preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = tsk_train_ids, tsk_ids = "train", tuning_round = "nrounds",
-      #                    param_value = nrounds,
-      #                    preds, model_features)
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "nrounds", nrounds = nrounds, 
+                             scores, model_features)
     }
 
     save(scores, file = scores_file) #scores saved as this point will have based on aggregate scores of 10 resamplings
-    save(imps, file = imps_file)
-    save(preds, file = preds_file)
     
     best_param_val = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "nrounds",
-                                       .SD[which.min(bbrier)], by = list(timeslice)][,.(nrounds)])
+                                       .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)])
     
     # update learner with best scores
     learner <- update_learner(learner, 
@@ -539,15 +529,19 @@ if (tune_nr) {
 
     
     # train on full training set and save results on validation set
-    scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", scores, model_features)
+    scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", 
+                           tuning_round = "nrounds", 
+                           scores, model_features)
     
     # get importances 
-    imps <- get_imps(name_tsk, learner, tsk_ids = "val", tuning_round = "nrounds", 
+    imps <- get_imps(name_tsk, learner, tsk_ids = "val", 
+                     tuning_round = "nrounds", 
                      param_value = best_param_val,
                      imps, model_features)
     
     # get predictions on validation set
-    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = tsk_val_ids, tsk_ids = "val", tuning_round = "nrounds", 
+    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = tsk_val_ids, tsk_ids = "val", 
+                       tuning_round = "nrounds", 
                        param_value = best_param_val,
                        preds, model_features) 
 
@@ -588,8 +582,8 @@ if (tune_nr) {
   #   theme(legend.position = "bottom") +
   #   labs(title = "Scores for each timeslice over various values of XGBoost's nrounds parameter",
   #        col = "score")
-  
-  imps[importance > 0.01] %>% ggplot(aes(x = feature, y = importance)) + geom_bar(stat = "identity") + coord_flip() + facet_wrap(.~timeslice)
+
+  imps %>% ggplot(aes(x = feature, y = importance)) + geom_bar(stat = "identity") + coord_flip() + facet_wrap(.~timeslice)
 
   imps = imps[dttm > '2021-02-22 11:00:09']
   imps[, count := .N, by = feature]
@@ -604,7 +598,7 @@ if (tune_nr) {
          fill = "Importance",
          x = "Timeslice",
          y = "Feature")
-  
+
   imps[grep("^p_", feature )] %>%
     ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
     scale_fill_gradient(low="grey", high="red") +
@@ -613,11 +607,68 @@ if (tune_nr) {
          fill = "Importance",
          x = "Timeslice",
          y = "Feature")
-  
+
 
   
 }
 
+
+# Tune tree depth and max child weight ------------------------------------
+
+
+if (tune_trees) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    for(max_depth in c(3, 6, 9)) { # first round - test wide range
+      
+      # train learner
+      learner <- train_learner(learner, tsk, tsk_train_ids, max_depth = max_depth)
+      
+      # get scores on training set using cross-validation
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "max_depth", max_depth = max_depth, scores, model_features)
+    }
+    
+    save(scores, file = scores_file) #scores saved as this point will have based on aggregate scores of 10 resamplings
+    
+    for(min_child_weight in c(2, 4, 6)) { # first round - test wide range
+      
+      # train learner
+      learner <- train_learner(learner, tsk, tsk_train_ids, min_child_weight = min_child_weight)
+      
+      # get scores on training set using cross-validation
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "min_child_weight", min_child_weight = min_child_weight, scores, model_features)
+    }
+    
+    save(scores, file = scores_file) #scores saved as this point will have based on aggregate scores of 10 resamplings
+    
+    best_param_val_md = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "max_depth",
+                                       .SD[which.min(logloss)], by = list(timeslice)][,.(max_depth)])
+    
+    
+    best_param_val_mcw = as.numeric(scores[tsk_ids == "train" & timeslice == name_tsk & tuning_round == "min_child_weight",
+                                          .SD[which.min(logloss)], by = list(timeslice)][,.(min_child_weight)])
+    
+    # update learner with best scores
+    learner <- update_learner(learner, 
+                              max_depth = best_param_val_md,
+                              min_child_weight = min_child_weight_mcw
+    )
+    
+    # train on full training set and save results on validation set
+    scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
+                           tuning_round = "tune_trees", scores, model_features)
+    
+    save(scores, file = scores_file)
+  } 
+  
+}
 
 
 # Save preds from final model ---------------------------------------------
@@ -633,7 +684,7 @@ if (final_preds) {
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
     params = scores[tsk_ids == "val" & timeslice == name_tsk ,
-           .SD[which.min(bbrier)], by = list(timeslice)]
+           .SD[which.min(logloss)], by = list(timeslice)]
     
     learner <- update_learner(learner, 
                               eval_metric = params$eval_metric,

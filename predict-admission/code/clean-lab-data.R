@@ -17,8 +17,10 @@ library(readr)
 # Load data ---------------------------------------------------------------
 
 load("~/EDcrowding/predict-admission/data-raw/lab_raw_2021-03-01.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-16.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-16.rda")
+
+summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
 
 # Process data ------------------------------------------------------------
@@ -30,8 +32,8 @@ lab_real <- lab_real[csn %in% summ$csn]
 setkey(lab_real, csn)
 
 # remove labs that are returned after ED
-lab_real <- merge(lab_real, summ[,.(csn, first_ED_admission, first_outside_proper_admission)]) 
-lab_real <- lab_real[result_last_modified_time <= first_outside_proper_admission]
+lab_real <- merge(lab_real, summ[,.(csn, first_ED_admission, left_ED)]) 
+lab_real <- lab_real[result_last_modified_time <= left_ED]
 
 # add elapsed time
 lab_real[, elapsed_mins := as.numeric(difftime(result_last_modified_time, first_ED_admission, units = "mins"))]
