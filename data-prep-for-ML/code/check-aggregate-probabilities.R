@@ -176,9 +176,9 @@ p4 + coord_flip() +
   geom_rect(aes(ymin = 0.891, ymax = .906 , xmin= 12, xmax = 13)) +
   geom_rect(aes(ymin = 0.942, ymax = .952 , xmin= 16, xmax = 17)) +
   geom_hline(yintercept = .35, colour = "black") +
-  annotate("text", y = .35, x = 25, label = "Actual num admitted\nis <=  model lower \nfor all alpha \n below 0.35", hjust = 1, vjust = 1) +
+  annotate("text", y = .355, x = 25, label = "Actual num admitted\nis <  model lower \nfor all alpha \n >= 0.35", hjust = 0 , vjust = 1) +
   geom_hline(yintercept = .2, colour = "black") +
-  annotate("text", y = .2, x = 20, label = "Actual num admitted\nis <= model upper \nfor all alpha \n below 0.2", colour = "black", hjust = 1)
+  annotate("text", y = .205, x = 20, label = "Actual num admitted\nis < model upper \nfor all alpha \n >= 0.20", colour = "black", hjust = 0)
 
 
 
