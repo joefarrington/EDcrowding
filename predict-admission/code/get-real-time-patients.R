@@ -49,6 +49,8 @@ clean_room_names <- function(department, room) {
     room = gsub(" $","",room)
     room = gsub("^ ","",room) 
     room = gsub("SDEC CH","SDEC",room)
+    room = gsub("SDEC SR","SDEC",room)
+    
   }
   else if (grepl("UCHT00CDU",department)) {
     room = "CDU"
@@ -155,14 +157,17 @@ moves_now <- moves_now %>%
 
 moves_now %>% filter(is.na(discharge)) %>% group_by(room4) %>% summarise(n()) 
 
-timeslices = c(15, 60, 120, 180, 240)
+moves_now = moves_now %>% mutate(room = gsub("null", "Waiting", room4))
+
+timeslices = c(0 , 15, 30, 60, 90, 120, 180, 240, 360, 480)
 # chart in in minutes
 moves_now %>% filter(is.na(discharge)) %>% 
   left_join(in_ED_now %>% select(csn, time_since_arrival)) %>% 
   filter(patient_class != "INPATIENT") %>% 
   mutate(room = gsub("[0-9]{2}", "", room)) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival), y = room)) + geom_point() +
-  labs(y = "Current location", x = "Minutes since arrival") +
+  labs(y = "Current location", x = "Hours since arrival",
+       title = "Patients in ED at 2021-03-19 15:55:00") +
   geom_vline(xintercept = timeslices) +
   scale_x_continuous(breaks = c(timeslices, seq(240, 24*60, 120))) + theme(panel.grid.minor = element_blank())
   
@@ -172,7 +177,8 @@ moves_now %>% filter(is.na(discharge)) %>%
   filter(patient_class != "INPATIENT") %>% 
   mutate(room = gsub("[0-9]{2}", "", room)) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival)/60, y = room)) + geom_point() +
-  labs(y = "Current location", x = "Hours since arrival") 
+  labs(y = "Current location", x = "Hours since arrival",
+       title = "Patients in ED at 2021-03-19 15:55:00") 
 #  scale_x_continuous(breaks = c(timeslices, seq(240, 24*60, 120))) + theme(panel.grid.minor = element_blank())
 
 

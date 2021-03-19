@@ -56,6 +56,12 @@ library(readr)
 
 pred_dist <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/df_y_predicted2.csv",
                             col_types = cols(X1 = col_skip()))
+pred_dist <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/df_y_test1_dummy.csv",
+                      col_types = cols(X1 = col_skip()))
+fcnn_neg_bin_probs <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/2021-03-18_fcnn_neg_bin_probs.csv")
+ngboost_normal_probs <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/2021-03-18_ngboost_normal_probs.csv")
+
+# for Ken's file
 max_predicted <- as.numeric(colnames(pred_dist)[length(colnames(pred_dist))])
 seq_nums = seq(0, max_predicted, 1)
 seq_nums = paste0("adm_", seq_nums)
@@ -81,9 +87,26 @@ loc_nums_k %>% pivot_longer(adm_0: adm_25) %>% filter(value == 1)
 # plot of actual admissions
 loc_nums[dttm > min(pred_dist$dttm)] %>% ggplot(aes(x = dttm, y = actual)) + geom_line()
 
+ken = TRUE
+joe = FALSE
+
+# Read data for Joe's file ------------------------------------------------
+
+
+# for Joe's file
+pred_dist <- fcnn_neg_bin_probs
+max_predicted <- as.numeric(colnames(pred_dist)[length(colnames(pred_dist))-1])
+seq_nums = seq(0, max_predicted, 1)
+seq_nums = paste0("adm_", seq_nums)
+colnames(pred_dist) <- c("dttm", seq_nums, "actual")
+pred_dist <- data.table(pred_dist %>% mutate(dttm = as.POSIXct(dttm)))
+
+loc_nums = pred_dist[, .(dttm, actual)]
+
+ken = FALSE
+joe = TRUE
+
 # Get a sample of time points of interest ---------------------------------
-
-
 
 set.seed(17L)
 time_pts <- get_random_dttm(min(pred_dist$dttm), min(pred_dist$dttm) + hours(12))
@@ -96,11 +119,15 @@ while (last_pt + hours(12) < max(pred_dist$dttm)) {
   
 }
 
+# or use whole sample
+time_pts <- seq(min(pred_dist$dttm), max(pred_dist$dttm), 60*60)
+
 
 # Quick plots to look at the distribution ---------------------------------------------------------------
 
 # get row with latest dttm less than  the sampled
 d = pred_dist[pred_dist$dttm < time_pts[1], ]
+d = pred_dist[pred_dist$dttm < "2020-01-14 20:00:01 GMT", ]
 d = d[nrow(d),]
 
 # quick plot of distributions
@@ -123,6 +150,7 @@ p3 = d[nrow(d),] %>% pivot_longer(adm_0:adm_25) %>%
 
 # get row with latest dttm less than the sampled maximum
 d = pred_dist[pred_dist$dttm < time_pts[257], ]
+d = pred_dist[pred_dist$dttm < "2020-03-18 08:35:52 GMT", ]
 d = d[nrow(d),]
 
 # quick plot of distributions
@@ -186,9 +214,9 @@ p4 + coord_flip() +
 # Generate array of predicted probabilities --------------------------------
 
 
-
-a = loc_nums[loc_nums$dttm < time_pts[1] , ]
-a[nrow(a), actual]
+# 
+# a = loc_nums[loc_nums$dttm < time_pts[1] , ]
+# a[nrow(a), actual]
 
 distr_coll = data.table()
 adm_coll = data.table()
@@ -200,9 +228,18 @@ for (i in (1:length(time_pts))) {
   d = d[nrow(d),]
 
   num_adm = seq(0, max_predicted, 1)# make an array from 0 admissions to max admissions (ie all patients admitted)
-  distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm, 
-                    probs = as.numeric(d[, adm_0:adm_25]), # adding 1 to max_predicted to reference last col of d
-                    cdf = cumsum(as.numeric(d[, adm_0:adm_25])))
+  
+  if (ken)  {
+    distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm, 
+                      probs = as.numeric(d[, adm_0:adm_25]), # adding 1 to max_predicted to reference last col of d
+                      cdf = cumsum(as.numeric(d[, adm_0:adm_25])))
+  } else if (joe) {
+    distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm, 
+                      cdf = as.numeric(d[, adm_0:adm_25]))
+  }
+
+  
+  
   
   distr_coll = bind_rows(distr_coll, distr)
   
@@ -302,7 +339,7 @@ cutoff_cdf_normalised %>% pivot_longer(model_lower_limits:actual_less_than_upper
   mutate(model = factor(model, levels = c("model_lower_limits", "actual_less_than_lower_limit", "model_upper_limits", "actual_less_than_upper_limit"))) %>% 
   ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line()  + theme_classic() +
   scale_x_continuous(breaks = seq(0, 1, .05)) +
-  labs(title = paste0("Admission probability distribution evaluation - based on ", length(time_pts), " randomly sampled time points of interest"), 
+  labs(title = paste0("Admission probability distribution evaluation - fcnn_neg_bin_probs - based on ", length(time_pts), " randomly sampled time points of interest"), 
        y = "Proportion of instances <= X on cdf",
        # subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
        # 20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
