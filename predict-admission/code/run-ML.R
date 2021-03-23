@@ -362,9 +362,10 @@ check_eval_metric =  FALSE
 tune_nr = FALSE
 tune_spw = FALSE
 tune_trees = FALSE
-tune_gamma = TRUE
-recal_nr = TRUE
+tune_gamma = FALSE
+recal_nr = FALSE
 tune_samples = FALSE
+tune_alpha = TRUE
 final_preds = FALSE
 
 
@@ -671,14 +672,14 @@ if (tune_gamma) {
     save(scores, file = scores_file) # aggregate scores of 10 resamplings
 
   } 
-  # 
-  # scores[tsk_ids == "train" & tuning_round == "gamma" & model_features == model_features,
-  #        .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, gamma)]
-  # 
-  # scores[tsk_ids == "train" & tuning_round == "gamma" & model_features == model_features] %>%
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-  #   ggplot(aes(x = gamma, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
-  #   labs(y = "logloss", title = "Results of tuning gamma of XGBoost for each timeslice - logloss scores")
+# 
+#   scores[tsk_ids == "val" & tuning_round == "gamma" & model_features == model_features,
+#          .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, gamma)]
+# 
+#   scores[tsk_ids == "train" & tuning_round == "gamma" & model_features == model_features] %>%
+#     pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+#     ggplot(aes(x = gamma, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
+#     labs(y = "logloss", title = "Results of tuning gamma of XGBoost for each timeslice - logloss scores")
 
 }
 
@@ -822,7 +823,7 @@ if (tune_samples) {
     
     # tune in combination
     
-    for(subsample in c(best_param_val_sub - .01, best_param_val_sub, best_param_val_sub + .1)) { 
+    for(subsample in c(best_param_val_sub - .1, best_param_val_sub, best_param_val_sub + .1)) { 
       for (colsample_bytree in c(best_param_val_col - .1, best_param_val_col, best_param_val_col + .1)) {
         
         # get scores on training set using cross-validation
@@ -848,26 +849,72 @@ if (tune_samples) {
     
   } 
 
-  scores[tsk_ids == "train" & tuning_round == "tune_samples" & model_features == model_features & subsample != 1,
-         .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, subsample)]
+  scores[tsk_ids == "val" & tuning_round == "tune_samples" & model_features == model_features & subsample != 1,
+         .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, subsample, colsample_bytree)]
 
 
-  scores[tsk_ids == "train" & tuning_round == "tune_samples" & model_features == model_features & subsample != 1] %>%
+  scores[tsk_ids == "val" & tuning_round == "subsample" & model_features == model_features] %>%
     pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
     ggplot(aes(x = subsample, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
     labs(y = "logloss", title = "Results of recalibrating subsample of XGBoost for each timeslice - logloss scores")
 
-  scores[tsk_ids == "train" & tuning_round == "tune_samples" & model_features == model_features & colsample_bytree != 1,
-         .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, colsample_bytree)]
-
-
-  scores[tsk_ids == "train" & tuning_round == "tune_samples" & model_features == model_features & colsample_bytree != 1] %>%
+  scores[tsk_ids == "train" & tuning_round == "colsample_bytree" & model_features == model_features] %>%
     pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
     ggplot(aes(x = colsample_bytree, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
     labs(y = "logloss", title = "Results of recalibrating colsample_bytree of XGBoost for each timeslice - logloss scores")
   
 }
 
+
+# Tune alpha --------------------------------------------------------------
+
+if (tune_alpha) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & 
+                           tuning_round == "tune_samples",
+                         .SD[which.min(logloss)], by = list(timeslice)]
+    
+    # tune gamma
+    # for(alpha in c(.005, 1, 10, 100)) { 
+    for(alpha in c(0)) { 
+        
+      
+      # get scores on training set using cross-validation
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "alpha", 
+                             nrounds = params$nrounds,
+                             max_depth = params$max_depth, 
+                             min_child_weight = params$min_child_weight, 
+                             gamma = params$gamma, 
+                             subsample = params$subsample,
+                             colsample_bytree = params$colsample_bytree,
+                             alpha = alpha,
+                             scores, model_features)
+      
+      # train on full training set and save results on validation set
+      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
+                             tuning_round = "alpha", scores, model_features)
+    }
+    
+    save(scores, file = scores_file) # aggregate scores of 10 resamplings
+    
+  } 
+
+  scores[tsk_ids == "val" & tuning_round == "alpha" & model_features == model_features,
+         .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, alpha)]
+
+  scores[tsk_ids == "val" & tuning_round == "alpha" & model_features == model_features & alpha <= 10] %>%
+    pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+    ggplot(aes(x = alpha, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
+    labs(y = "logloss", title = "Results of tuning alpha of XGBoost for each timeslice - logloss scores")
+
+}
 
 # Looking at improvement on validation set with tuning --------------------
 
@@ -893,11 +940,11 @@ if (final_preds) {
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    params = scores[tsk_ids == "val" & timeslice == name_tsk ,
-           .SD[which.min(logloss)], by = list(timeslice)]
+    params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & 
+                      tuning_round == "alpha",
+                    .SD[which.min(logloss)], by = list(timeslice)]
     
     learner <- update_learner(learner, 
-                              eval_metric = params$eval_metric,
                               nrounds = params$nrounds,
                               max_depth = params$max_depth, 
                               min_child_weight = params$min_child_weight, 
@@ -911,8 +958,11 @@ if (final_preds) {
                               early_stopping_rounds = params$early_stopping_rounds)
     
     set.seed(17L)
-    learner$train(tsk, row_ids = tsk_train_ids)
     
+    # train on full training set and save results on validation set
+    scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
+                           tuning_round = "alpha", scores, model_features)
+
     name_ts <- paste0("dm", ts_)
     dt = get(name_ts)
     
@@ -925,6 +975,13 @@ if (final_preds) {
     
     
     save(preds, file = preds_file)
+    
+    imps <- get_imps(name_tsk, learner, tsk_ids = "all", tuning_round = "final_preds", 
+                       param_value = "final_preds",
+                       imps, model_features)   
+    
+    
+    save(imps, file = imps_file)
     
   } 
   

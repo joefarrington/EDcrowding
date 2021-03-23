@@ -34,7 +34,8 @@ summ[, ED_duration := case_when(is.na(first_outside_proper_admission) ~ as.numer
 # Explore locations -------------------------------------------------------
 
 
-loc <- moves[csn %in% examples[c(1,2,3,10,16)]]
+loc <- moves[csn %in% examples[1:5]] # all admitted
+loc <- moves[csn %in% examples[c(1,2,3,10,16)]] # 3 admitted, 3 discharges
 
 # record of wihch csns these are
 # > summ[csn %in% loc$csn, .(adm, csn)]
@@ -109,6 +110,33 @@ p2 = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>%
   theme(legend.title=element_text(size=10))
 
 
+# as above but coloured according to whether triage or obs
+p2a = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>% 
+  mutate(obs_name = case_when(obs_name %in% c("ACVPU", "NEWS", "GCStotal") ~ "Triage", 
+                              TRUE ~ "Other")) %>% 
+  filter(!obs_name %in% c("Bloodpressure_dia", "Painscoreverbalatrest")) %>% 
+  mutate(obs_name = case_when(obs_name == "Bloodpressure_sys" ~ "Bloodpressure",
+                              obs_name == "Painscoreverbalonmovement" ~ "Painscore",
+                              TRUE ~ obs_name)) %>% 
+  ggplot(aes(x = e_floor, y = N, fill = obs_name)) + geom_bar(stat = "identity") +
+  scale_x_continuous(breaks = c(0,60,120,180,240), limits = c(0,240)) +
+  theme_grey(base_size = 16) +
+  facet_grid(csn~.) +
+  facet_grid(csn~., switch = "y") +
+  theme(strip.text.y.left = element_text(angle = 0)) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  labs(title = "Observations measured in ED by elapsed time (mins)",
+       x = NULL,
+       # x = "Elapsed time in ED (mins)",
+       fill = "Observation type") +
+  theme(legend.position = "bottom")  + 
+  guides(fill=guide_legend(nrow=1,byrow=TRUE)) +
+  theme(legend.text=element_text(size=10)) +
+  theme(legend.title=element_text(size=10)) + guides(fill = guide_legend(reverse=T))
+
+
 
 
 # Explore labs ------------------------------------------------------------
@@ -145,8 +173,8 @@ ex = "1020535843"
 
 
 library("gridExtra")
-grid.arrange(p1, p2, p3,
+grid.arrange(p1, p2a, p3,
              ncol = 1, nrow = 3)
 
-png("~/EDcrowding/dissertation/five-example-patients-inc-2-discharge.png", res = 300, width = 297 , height = 210, units = "mm")
+png("~/EDcrowding/dissertation/five-example-patients-inc-2-discharge-simple.png", res = 300, width = 297 , height = 210, units = "mm")
 dev.off()
