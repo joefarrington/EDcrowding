@@ -37,7 +37,10 @@ summ[, ED_duration := case_when(is.na(first_outside_proper_admission) ~ as.numer
 loc <- moves[csn %in% examples[1:5]] # all admitted
 loc <- moves[csn %in% examples[c(1,2,3,10,16)]] # 3 admitted, 3 discharges
 
-# record of wihch csns these are
+loc_lookup = data.table(csn = unique(loc$csn), pat_num = seq(1, length(unique(loc$csn)), 1))
+loc <- merge(loc, loc_lookup)
+
+# record of wihch pat_nums these are
 # > summ[csn %in% loc$csn, .(adm, csn)]
 # adm        csn
 # 1: direct_adm 1019936246
@@ -58,12 +61,12 @@ loc[, discharge_e := as.numeric(difftime(discharge, first_ED_admission, units = 
 # remove rows after the patient leaves ED or other inside location (where inside includes CDU and possibly others)
 loc <- loc[discharge <= first_outside_proper_admission | is.na(first_outside_proper_admission)]
 
-loc <- loc[,.(csn,  admission_e, discharge_e, location, row_duration)]
+loc <- loc[,.(pat_num,  admission_e, discharge_e, location, row_duration)]
 
 p1 = loc[admission_e < 240] %>% 
   mutate(discharge_e = if_else(discharge_e > 240, 240, discharge_e),
-         row_duration = discharge_e - admission_e) %>% 
- ggplot(aes(y = fct_rev(csn), x = row_duration, fill = location)) + geom_bar(stat = "identity") +
+         row_duration = discharge_e - admission_e,) %>% 
+ ggplot(aes(y = fct_rev(as.character(pat_num)), x = row_duration, fill = location)) + geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(0,60,120,180,240), limits = c(0,240)) +
   theme_grey(base_size = 16) +
   labs(title = "Location in ED by elapsed time (in mins) for five example patients",
@@ -81,12 +84,12 @@ p1 = loc[admission_e < 240] %>%
 # Explore observations ----------------------------------------------------
 obs <- obs_real[csn %in% examples[1:5]] # all admitted
 obs <- obs_real[csn %in% examples[c(1,2,3,10,16)]]
-
+obs <- merge(obs, loc_lookup)
 
 # freq_obs = obs[, .N, by = obs_name][N>50]
 
 obs[, e_floor := floor(elapsed_mins/5)*5]
-p2 = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>% 
+p2 = obs[e_floor <= 240, .N, by = .(pat_num, obs_name, e_floor)] %>% 
   filter(!obs_name %in% c("Bloodpressure_dia", "Painscoreverbalatrest")) %>% 
   mutate(obs_name = case_when(obs_name == "Bloodpressure_sys" ~ "Bloodpressure",
                               obs_name == "Painscoreverbalonmovement" ~ "Painscore",
@@ -94,8 +97,8 @@ p2 = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>%
   ggplot(aes(x = e_floor, y = N, fill = obs_name)) + geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(0,60,120,180,240), limits = c(0,240)) +
   theme_grey(base_size = 16) +
-  facet_grid(csn~.) +
-  facet_grid(csn~., switch = "y") +
+  facet_grid(pat_num~.) +
+  facet_grid(pat_num~., switch = "y") +
   theme(strip.text.y.left = element_text(angle = 0)) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -111,7 +114,7 @@ p2 = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>%
 
 
 # as above but coloured according to whether triage or obs
-p2a = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>% 
+p2a = obs[e_floor <= 240, .N, by = .(pat_num, obs_name, e_floor)] %>% 
   mutate(obs_name = case_when(obs_name %in% c("ACVPU", "NEWS", "GCStotal") ~ "Triage", 
                               TRUE ~ "Other")) %>% 
   filter(!obs_name %in% c("Bloodpressure_dia", "Painscoreverbalatrest")) %>% 
@@ -121,8 +124,8 @@ p2a = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>%
   ggplot(aes(x = e_floor, y = N, fill = obs_name)) + geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(0,60,120,180,240), limits = c(0,240)) +
   theme_grey(base_size = 16) +
-  facet_grid(csn~.) +
-  facet_grid(csn~., switch = "y") +
+  facet_grid(pat_num~.) +
+  facet_grid(pat_num~., switch = "y") +
   theme(strip.text.y.left = element_text(angle = 0)) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -143,14 +146,15 @@ p2a = obs[e_floor <= 240, .N, by = .(csn, obs_name, e_floor)] %>%
 
 
 labs <- lab_real[csn %in% examples[c(1,2,3,10,16)]]
-
+labs <- merge(labs, loc_lookup, by = "csn")
 
 labs[, e_floor := floor(elapsed_mins/5)*5]
-p3 = labs[e_floor <= 240, .N, by = .(csn, cluster, e_floor)] %>% mutate(N = 1) %>% 
+p3 = labs[e_floor <= 240, .N, by = .(pat_num, cluster, e_floor)] %>% mutate(N = 1) %>% 
+  mutate(cluster = paste0("cluster", cluster)) %>% 
   ggplot(aes(x = e_floor, y = N, fill = factor(cluster))) + geom_bar(stat = "identity") +
   scale_x_continuous(breaks = c(0,60,120,180,240), limits = c(0,240)) +
   theme_grey(base_size = 16) +
-  facet_grid(csn~., switch = "y") +
+  facet_grid(pat_num~., switch = "y") +
   theme(strip.text.y.left = element_text(angle = 0)) +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -173,8 +177,8 @@ ex = "1020535843"
 
 
 library("gridExtra")
-grid.arrange(p1, p2a, p3,
+grid.arrange(p1, p2, p3,
              ncol = 1, nrow = 3)
 
-png("~/EDcrowding/dissertation/five-example-patients-inc-2-discharge-simple.png", res = 300, width = 297 , height = 210, units = "mm")
+png("~/EDcrowding/dissertation/five-example-patients-inc-2-discharge.png", res = 300, width = 297 , height = 210, units = "mm")
 dev.off()

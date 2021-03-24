@@ -131,6 +131,9 @@ lab_real <- merge(lab_real, cluster_lookup[,.(test_lab_code, cluster)], by = "te
 outFile = paste0("EDcrowding/predict-admission/data-raw/lab_real_",today(),".rda")
 save(lab_real, file = outFile)
 
+# added this as I didn't save cluster_lookup it seems
+cluster_lookup = lab_real[!is.na(cluster), .(test_lab_code, cluster)] %>% unique()
+
 
 
 outFile = paste0("EDcrowding/predict-admission/data-raw/cluster_lookup_",today(),".rda")

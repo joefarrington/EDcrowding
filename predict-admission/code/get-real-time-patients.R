@@ -162,12 +162,13 @@ moves_now = moves_now %>% mutate(room = gsub("null", "Waiting", room4))
 timeslices = c(0 , 15, 30, 60, 90, 120, 180, 240, 360, 480)
 # chart in in minutes
 moves_now %>% filter(is.na(discharge)) %>% 
-  left_join(in_ED_now %>% select(csn, time_since_arrival)) %>% 
+  left_join(in_ED_now %>% filter(time_since_arrival <= 480) %>% select(csn, time_since_arrival)) %>% 
   filter(patient_class != "INPATIENT") %>% 
   mutate(room = gsub("[0-9]{2}", "", room)) %>% 
-  ggplot(aes(x = as.numeric(time_since_arrival), y = room)) + geom_point() +
-  labs(y = "Current location", x = "Hours since arrival",
-       title = "Patients in ED at 2021-03-19 15:55:00") +
+  ggplot(aes(x = as.numeric(time_since_arrival), y = room)) + geom_point(size = 4) +
+  labs(y = "Current location", x = "Minutes since arrival",
+       title = "Patients in ED at 2021-03-23 16:55:00") + 
+  theme_grey(base_size = 18) +
   geom_vline(xintercept = timeslices) +
   scale_x_continuous(breaks = c(timeslices, seq(240, 24*60, 120))) + theme(panel.grid.minor = element_blank())
   

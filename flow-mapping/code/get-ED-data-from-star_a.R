@@ -53,6 +53,7 @@ clean_room_names <- function(department, room) {
     room = gsub(" $","",room)
     room = gsub("^ ","",room)  
     room = gsub("OTF POOL","OTF",room)  
+    room = gsub("CONS", "", room)
     room = gsub(" ","_",room)  
   }
   else if (grepl("UCHT00CDU",department)) {

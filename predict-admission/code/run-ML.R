@@ -882,7 +882,7 @@ if (tune_alpha) {
     
     # tune gamma
     # for(alpha in c(.005, 1, 10, 100)) { 
-    for(alpha in c(0)) { 
+    for(alpha in c(0, .01, .1, .5, 2, 5)) { 
         
       
       # get scores on training set using cross-validation

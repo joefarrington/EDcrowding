@@ -117,10 +117,10 @@ tta = tta[value ==1]
 tta[, tta := case_when(value ==1 ~ as.numeric(ED_duration - as.numeric(gsub("task","", timeslice))),
                        TRUE ~ NA_real_)]
 
-# cut this to get whole number of hours until admission (cut at floor)
-tta[, tta_hr := floor(tta/60)]
+# cut this to get whole number of hours until admission (was cutting at floor, now cutting at ceiling)
+tta[, tta_hr := ceiling(tta/60)]
 
-# cut the distribution at 24 hours _ NB not sure this is right
+# cut the distribution at 24 hours _ NB not sure this is right but this will increase the probability at earlier points, only very marginal
 tta = tta[tta_hr <= 24]
 
 # generate number of visits in timslice in total
@@ -134,12 +134,12 @@ tta_prob[, prob := num_with_tta_in_hr/num_ts]
 tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 # # plot tta after timeslice
-# tta_prob[tta_hr < 24] %>% 
-#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
-#   ggplot(aes(x = tta_hr, y = prob)) + geom_line() + facet_grid(.~timeslice) +
-#   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
-#        x = "Time to admission (hrs)",
-#        y = "Probability")
+tta_prob[tta_hr < 24] %>%
+  mutate(timeslice = as.numeric(gsub("task", "", timeslice))) %>%
+  ggplot(aes(x = tta_hr, y = prob)) + geom_line() + facet_grid(.~timeslice) +
+  labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
+       x = "Time to admission (hrs)",
+       y = "Probability")
 # 
 # 
 # # plot cdf by timeslice
