@@ -20,6 +20,7 @@ rpt <- function(dataframe) {
   print(dataframe %>% select(csn) %>% n_distinct())
 }
 
+
 # function to create design matrix
 
 create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff) {
@@ -255,7 +256,7 @@ load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
 # Create admission details--------------------------------------------------
 
 
-dm <- summ[,.(csn, age, sex, presentation_time, adm, epoch, arrival_method, first_outside_proper_admission, last_ED_discharge, min_I, first_ED_admission)]
+dm <- summ[,.(csn, age, sex, presentation_time, adm, arrival_method, first_outside_proper_admission, last_ED_discharge, min_I, first_ED_admission)]
 
 dm[, tod := factor((hour(presentation_time) %/% 4)+1)]
 dm[, quarter := factor(case_when( month(presentation_time) <= 3 ~ 1,
@@ -310,11 +311,27 @@ dm <- merge(dm, visits %>% select(csn,
 # prepare outcome variable
 dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
 
-# For now, only process from start of Covid only
-dm <- dm[date(presentation_time) >= '2020-03-19']
-print("Rows in design matrix after COVID")
-rpt(dm)
 
+
+       
+# Train test split --------------------------------------
+
+dm[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
+                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
+                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
+                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
+                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
+                         TRUE ~ "Test",)]
+
+
+dm[, epoch := case_when(date(presentation_time) >= '2020-03-19' ~ "Post",
+                        TRUE ~ "Pre")]
+
+# For now, only process from start of Covid only
+print("Rows in design matrix before COVID")
+rpt(dm[epoch == "Pre"])
+print("Rows in design matrix after COVID")
+rpt(dm[epoch == "Post"])
 
 # # to show implications of this cut off
 # summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
@@ -323,23 +340,9 @@ rpt(dm)
 #   labs(title = "Number of admissions and discharges by day since beginning of Epic",
 #        fill = "Admitted (1 = True)") +
 #   theme(legend.position = "bottom")
-       
-# Remove test set for training later --------------------------------------
 
-set.seed(123)
-dm_split <- initial_split(dm, strata = adm, prop = 8/10)
-dm_train_val <- training(dm_split)
-dm_test <- testing(dm_split)
-
-dm_split2 <- initial_split(dm_train_val, strata = adm, prop = 7/8)
-dm_train <- training(dm_split2)
-dm_val <- testing(dm_split2)
 
 setkey(dm, csn)
-
-dm[, in_set := case_when(csn %in% dm_train$csn ~ "train",
-                         csn %in% dm_val$csn ~ "val",
-                         csn %in% dm_test$csn ~ "test")]
 
 
 

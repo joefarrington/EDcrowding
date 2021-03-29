@@ -7,12 +7,7 @@
 
 # - prepare datasets using one-hot encoding, noting which visits should be in train or validation sets
 # - train a basic model wihout tuning and score on training and validation sets
-# - tune scale pos weight for imbalanced samples (this is included but not used)
-# - tune number of boosting rounds  
-# - tune tree characteristics: max_depth and min_child_weight, once crudely and then more refined a second time
-# - tune gamma 
-# - recalibrate number of boosting rounds
-# - tune samples and colsamples_bytree, once crudely and then more refined a second time
+# - tune other RF parameters
 
 # For each step the timeslices are handled in loops which iterate through each timeslice in turn
 
@@ -28,17 +23,8 @@ file_date <- "2021-03-29"
 model_features = "alop"
 use_dataset = "Post"
 
-base_model = FALSE
-check_eval_metric =  FALSE
-tune_nr = FALSE
-tune_spw = FALSE
-tune_trees = FALSE
-tune_gamma = FALSE
-recal_nr = TRUE
-tune_samples = TRUE
-tune_alpha = TRUE
-reduce_lr = TRUE
-final_preds = TRUE
+base_model = TRUE
+
 
 
 
@@ -107,34 +93,13 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 # set up parameters
 train_learner <- function(learner, tsk, tsk_train_ids, 
                           # initialise params at default values
-                          eval_metric = "logloss",
-                          nrounds = 1,
-                          max_depth = 6, 
-                          min_child_weight = 1, 
-                          gamma = 0,
-                          subsample = 1,
-                          colsample_bytree = 1,
-                          eta = 0.3, 
-                          scale_pos_weight = 1,
-                          alpha = 0,
-                          lambda = 1,
-                          early_stopping_rounds = 10
+                          num.trees = 500
 ) {
   
   learner$param_set$values = insert_named(
     learner$param_set$values,
     list(
-      "eval_metric" = eval_metric,
-      "nrounds" = nrounds,
-      "max_depth" = max_depth,
-      "min_child_weight" = min_child_weight,
-      "gamma" = gamma, 
-      "subsample" = subsample,
-      "colsample_bytree" = colsample_bytree,
-      "eta" = eta,
-      "scale_pos_weight" = scale_pos_weight,
-      "alpha" = alpha,
-      "lambda" = lambda
+      "num.trees" = num.trees
       
     )
   )
@@ -148,33 +113,15 @@ train_learner <- function(learner, tsk, tsk_train_ids,
 
 tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, scores, model_features,
                          # initialise params at default values
-                         eval_metric = "logloss",
-                         nrounds = 1,
-                         max_depth = 6, 
-                         min_child_weight = 1, 
-                         gamma = 0,
-                         subsample = 1,
-                         colsample_bytree = 1,
-                         eta = 0.3, 
-                         scale_pos_weight = 1,
-                         alpha = 0,
-                         lambda = 1,
-                         early_stopping_rounds = 10) {
+                         num.trees = 500,
+                         num.threads = 8
+                         ) {
   
   learner$param_set$values = insert_named(
     learner$param_set$values,
     list(
-      "eval_metric" = eval_metric,
-      "nrounds" = nrounds,
-      "max_depth" = max_depth,
-      "min_child_weight" = min_child_weight,
-      "gamma" = gamma, 
-      "subsample" = subsample,
-      "colsample_bytree" = colsample_bytree,
-      "eta" = eta,
-      "scale_pos_weight" = scale_pos_weight,
-      "alpha" = alpha,
-      "lambda" = lambda
+      "num.trees" = num.trees,
+      "num.threads" = num.threads,
       
     )
   )
@@ -195,79 +142,18 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
                      fp = rr$aggregate(msr("classif.fp")),
                      fn = rr$aggregate(msr("classif.fn")),
                      tn = rr$aggregate(msr("classif.tn")),
-                     eval_metric = eval_metric,
-                     nrounds = nrounds,
-                     max_depth = max_depth,
-                     min_child_weight = min_child_weight,
-                     gamma = gamma, 
-                     subsample = subsample,
-                     colsample_bytree = colsample_bytree,
-                     eta = eta,
-                     scale_pos_weight = scale_pos_weight,
-                     alpha = alpha,
-                     lambda = lambda,
+                     num.trees = num.trees,
                      dttm = now()
   )
   
   scores <- bind_rows(scores, score)
 }
 
-update_learner <- function(learner, 
-                         eval_metric = NA,
-                         nrounds = NA,
-                         max_depth = NA, 
-                         min_child_weight = NA, 
-                         gamma = NA,
-                         subsample = NA,
-                         colsample_bytree = NA,
-                         eta = NA, 
-                         scale_pos_weight = NA,
-                         alpha = NA,
-                         lambda = NA,
-                         early_stopping_rounds = NA) {
+update_learner <- function(learner
+) {
   
-  if (!is.na(eval_metric)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("eval_metric" = eval_metric))
-  }
-  
-  if (!is.na(nrounds)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("nrounds" = nrounds))
-  }
-  
-  if (!is.na(max_depth)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("max_depth" = max_depth))
-  }
-  
-  if (!is.na(min_child_weight)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("min_child_weight" = min_child_weight))
-  }
-  
-  if (!is.na(gamma)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("gamma" = gamma))
-  }
-  
-  if (!is.na(subsample)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("subsample" = subsample))
-  }
-  
-  if (!is.na(colsample_bytree)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("colsample_bytree" = colsample_bytree))
-  }
-  
-  if (!is.na(eta)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("eta" = eta))
-  }
-  
-  if (!is.na(scale_pos_weight)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("scale_pos_weight" = scale_pos_weight))
-  }
-  
-  if (!is.na(alpha)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("alpha" = alpha))
-  }
-  
-  if (!is.na(lambda)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("lambda" = lambda))
+  if (!is.na(num.trees)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("num.trees" = num.trees))
   }
   
   return(learner)
@@ -329,17 +215,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
                      fp = pred_val$score(msr("classif.fp")),
                      fn = pred_val$score(msr("classif.fn")),
                      tn = pred_val$score(msr("classif.tn")),
-                     eval_metric = learner$param_set$values$eval_metric,
-                     nrounds = learner$param_set$values$nrounds,
-                     max_depth = learner$param_set$values$max_depth,
-                     min_child_weight = learner$param_set$values$min_child_weight,
-                     gamma = learner$param_set$values$gamma, 
-                     subsample = learner$param_set$values$subsample,
-                     colsample_bytree = learner$param_set$values$colsample_bytree,
-                     eta = learner$param_set$values$eta,
-                     scale_pos_weight = learner$param_set$values$scale_pos_weight,
-                     alpha = learner$param_set$values$alpha,
-                     lambda = learner$param_set$values$lambda,
+                     num.trees = num.trees,
                      dttm = now()
   ) 
   
@@ -350,7 +226,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
 
 # Load saved data ----------------------------------------------
 
-scores_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_scores_",today(),".rda")
+scores_file <- paste0("~/EDcrowding/predict-admission/data-output/rf_scores_",today(),".rda")
 
 if (file.exists(scores_file)) {
   load(scores_file)
@@ -358,7 +234,7 @@ if (file.exists(scores_file)) {
   scores <- data.table()
 }
 
-preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_preds_",today(),".rda")
+preds_file <- paste0("~/EDcrowding/predict-admission/data-output/rf_preds_",today(),".rda")
 
 if (file.exists(preds_file)) {
   load(preds_file)
@@ -367,7 +243,7 @@ if (file.exists(preds_file)) {
 }
 
 
-imps_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_imps_",today(),".rda")
+imps_file <- paste0("~/EDcrowding/predict-admission/data-output/rf_imps_",today(),".rda")
 
 if (file.exists(imps_file)) {
   load(imps_file)
@@ -455,7 +331,7 @@ for (ts_ in timeslices) {
 }
 
 # create learner
-learner = lrn("classif.xgboost", predict_type = "prob")
+learner = lrn("classif.ranger", predict_type = "prob")
 
 # Train without and then with cross validation and check against validation set, no tuning -----------------------------------
 
@@ -467,7 +343,6 @@ if (base_model) {
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    learner <- train_learner(learner, tsk, tsk_train_ids)
     scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "base", scores, model_features)
     scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", tuning_round = "base", scores, model_features)
     
@@ -478,9 +353,10 @@ if (base_model) {
 }
 
 
-# Examine eval_metric -----------------------------------
+# Tuning num.trees ----------------------------------------------------------
 
-if (check_eval_metric) {
+
+if (tune_num.trees) {
   
   for (ts_ in timeslices) {
     name_tsk <- paste0("task", ts_)
@@ -488,45 +364,16 @@ if (check_eval_metric) {
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    for(eval_metric in c("logloss", "auc", "error")) {
-      learner <- train_learner(learner, tsk, tsk_train_ids, eval_metric = eval_metric)
-      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "eval_metric", eval_metric = eval_metric, scores, model_features)
-    }
-    
-    # scores %>% 
-    #   pivot_longer(logloss:tn) %>% filter(name %in% c("auc")) %>% 
-    #   ggplot(aes(x = tsk, y = value, colour = tsk_ids, group = tsk_ids)) + geom_line() + facet_grid(. ~ eval_metric)
-    
-    #    scores <- save_results(name_tsk, tsk, learner, tsk_val_ids, tuning_round = "base", scores, model_features)
-    
-  } 
-  
-  save(scores, file = scores_file)
-  
-}
-
-
-# Tuning nrounds ----------------------------------------------------------
-
-
-if (tune_nr) {
-  
-  for (ts_ in timeslices) {
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    for(nrounds in c(5, 10, 15, 30, 40, 50, 60)) {
+    for(num.trees in c(10, 50, 100, 500)) {
 
             # get scores on training set using cross-validation
       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
-                             tuning_round = "nrounds", nrounds = nrounds, 
+                             tuning_round = "num.trees", num.trees = num.trees, 
                              scores, model_features)
       
       # train on full training set and save results on validation set
       scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", 
-                             tuning_round = "nrounds", 
+                             tuning_round = "num.trees", 
                              scores, model_features)
       
       save(scores, file = scores_file) 
@@ -965,7 +812,7 @@ if (reduce_lr) {
                       tuning_round == "alpha",
                     .SD[which.min(logloss)], by = list(timeslice)]
     
-    for (eta in c(0.3, 0.2, 0.1, 0.05)) {
+    for (eta in c(0.3, 0.2, 0.1, 0.5)) {
       
       # get scores on training set using cross-validation
       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
@@ -998,19 +845,19 @@ if (reduce_lr) {
 
 # Looking at improvement on validation set with tuning --------------------
 
-s = data.table(scores[tsk_ids == "val"  & model_features == model_features]  %>%
-  pivot_longer(logloss) %>% select(timeslice, name, value, tuning_round, dttm))
-
-
-s[, .SD[which.max(dttm)], by = list(timeslice, tuning_round)] %>%
-  filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
-  ggplot(aes(x = factor(tuning_round, levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")), y = value,
-             group = "tuning_round")) +
-  geom_line() + geom_point() + facet_grid(. ~ timeslice) +
-  theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(title = "Log loss values after each round of tuning - new approach to train-validation-test split",
-       x = "Tuning round",
-       y = "Log loss value")
+# s = data.table(scores[tsk_ids == "val"  & model_features == model_features]  %>%
+#   pivot_longer(logloss) %>% select(timeslice, name, value, tuning_round, dttm))
+# 
+# 
+# s[, .SD[which.max(dttm)], by = list(timeslice, tuning_round)] %>%
+#   filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>% 
+#   ggplot(aes(x = factor(tuning_round, levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")), y = value,
+#              group = "tuning_round")) +
+#   geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+#   theme(axis.text.x=element_text(angle=45,hjust=1)) +
+#   labs(title = "Log loss values after each round of tuning", 
+#        x = "Tuning round", 
+#        y = "Log loss value")
 
 
 

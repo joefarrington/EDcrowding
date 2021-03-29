@@ -86,15 +86,15 @@ time_pts <- get_random_dttm(min(summ$presentation_time, na.rm = TRUE), min(summ$
 last_pt <- time_pts
 
 while (last_pt + hours(12) < max(summ$presentation_time, na.rm = TRUE)) {
-  next_pt <- get_random_dttm(last_pt, last_pt + hours(12))
+  next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
   time_pts <- c(time_pts, next_pt)
   last_pt <- next_pt
   
 }
 
 # To get probability distribution for time to admission for each timeslice ----------------------------
-
-
+# now using left_ED and first_ED_admission to tighten the distribution
+# summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
 summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(left_ED, first_ED_admission, units = "mins")]
 
 summ[,task000 := 1]
@@ -220,6 +220,27 @@ for (i in (1:length(time_pts))) {
     df = merge(df, tta_prob[tta_hr == 4, .(timeslice, prob_ts_in_4 = cdf)], 
                by = "timeslice")
     
+    
+    # # should it be like this - calculating the probabilities of each within four hours: 
+    # 
+    # for (timeslice_ in unique(in_ED$timeslice)) {
+    #   df = setorder(merge(in_ED[timeslice == timeslice_], preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], 
+    #                       by = c("csn", "timeslice")), prob.1)
+    #   df = merge(df, tta_prob[tta_hr == 4, .(timeslice, prob_ts_in_4 = cdf)], 
+    #              by = "timeslice")
+    #   
+    #   # make an array from 0 admissions to max admissions (ie all patients admitted)
+    #   num_adm = seq(0,nrow(df), 1)
+    #   # the probabilities of each of these numbers being admitted
+    #   pgf = poly_prod(df) 
+    #   
+    #   # the probabilities of each of these numbers being admitted within four hours
+    #   pgf4 = poly_prod(df[, prob.1 := prob.1*prob_ts_in_4]) 
+    #   
+    # }
+    # 
+    
+    
     # for all patients irrespective of timeslice - a calc of likely number of patients
     
     # make an array from 0 admissions to max admissions (ie all patients admitted)
@@ -268,7 +289,7 @@ for (i in 1:nrow(adm_coll)) {
   alpha_increments = 0.05
   
   # all admissions
-  cutoff_cdf_at = as_tibble(seq(alpha_increments,1,alpha_increments)) %>% rename(cutoff = value)
+  cutoff_cdf_at = as_tibble(seq(0,1,alpha_increments)) %>% rename(cutoff = value)
   cutoff_cdf_at$date = adm_coll$sample_time[i]
   cutoff_cdf_at$actual_adm = actual_adm
   cutoff_cdf_at$model_lower_num_adm = NA
@@ -277,7 +298,7 @@ for (i in 1:nrow(adm_coll)) {
   cutoff_cdf_at$model_upper_cdf = NA
   
   # admissions in 4 hours
-  cutoff_cdf_at_4hrs = as_tibble(seq(alpha_increments,1,alpha_increments)) %>% rename(cutoff = value)
+  cutoff_cdf_at_4hrs = as_tibble(seq(0,1,alpha_increments)) %>% rename(cutoff = value)
   cutoff_cdf_at_4hrs$date = adm_coll$sample_time[i]
   cutoff_cdf_at_4hrs$actual_adm = actual_adm4
   cutoff_cdf_at_4hrs$model_lower_num_adm = NA
@@ -306,7 +327,10 @@ for (i in 1:nrow(adm_coll)) {
     
     if (cutoff_cdf_at$model_lower_num_adm[j] != 0) {
       cutoff_cdf_at$model_lower_cdf[j] = distr$cdf[cutoff_cdf_at$model_lower_num_adm[j]] 
+    } else {
+      cutoff_cdf_at$model_lower_cdf[j] = 0
     }
+    
     cutoff_cdf_at$model_upper_cdf[j] = distr$cdf[cutoff_cdf_at$model_upper_num_adm[j]]
     
   }
@@ -425,3 +449,8 @@ cutoff_cdf_normalised_4hrs %>% pivot_longer(model_lower_limits:actual_less_than_
 
 
 
+# Exploring poor predictions ----------------------------------------------
+
+
+c = data.table(cutoff_cdf_at_mult_days %>% group_by(date) %>% summarise(num_rows_less_than_lower = sum(actual_less_than_lower)))
+c[, prop_less_than_lower := num_rows_less_than_lower/20]
