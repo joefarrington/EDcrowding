@@ -29,17 +29,23 @@ load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-03-03.rda")
 load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
 
+# temporarily for old data
+load("~/EDcrowding/data-prep-for-ML/data-raw/edgedf_2021-03-03.rda")
+load("~/EDcrowding/data-prep-for-ML/data-raw/moves_2021-03-03.rda")
+load("~/EDcrowding/data-prep-for-ML/data-raw/summ_2021-03-03.rda")
+
 # Set parameters ----------------------------------------------------------
 
 
 matrix_start_date <- as.POSIXct("2019-05-01 00:00:00")
-matrix_end_date <- as.POSIXct("2021-03-01 00:00:00")
+matrix_end_date <- as.POSIXct('2020-03-19 00:00:00')
 covid_start <- as.POSIXct('2020-03-19 00:00:00')
 
 
 # Pre-process data ----------------------------------------------------
 
 summ = summ[admission_time >= matrix_start_date]
+summ = summ[admission_time < matrix_end_date]
 
 # # to see implications of this cut point as a chart
 # summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
