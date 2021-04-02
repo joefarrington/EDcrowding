@@ -1,10 +1,11 @@
+# Load libraries ----------------------------------------------------------
+
 
 library(dplyr)
 library(tidyverse)
 library(data.table)
 library(lubridate)
 library(polynom)
-
 
 # Create functions --------------------------------------------------------
 
@@ -25,23 +26,25 @@ get_random_dttm <- function(dttm_start, dttm_end) {
   return(dttm_start + increment)
 }
 
-
 # Get probability distribution for number admitted at each time point of interest  
 
 get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
   
   distr_coll = data.table()
   adm_coll = data.table()
+  noone_in_ED = POSIXct()
   
   for (i in (1:length(time_pts))) {
     
     in_ED = summ[first_ED_admission < time_pts[i] & left_ED > time_pts[i], 
-                 .(csn, first_ED_admission, 
+                 .(csn, first_ED_admission, adm, 
                    left_ED,
                    elapsed = difftime(time_pts[i], first_ED_admission, units = "mins"),
-                   elapsed_time_to_adm = difftime(left_ED, time_pts[i], units = "mins"))]
+                   remaining = difftime(left_ED, time_pts[i], units = "mins"))]
     
-    in_ED[, admtime_window := elapsed_time_to_adm < time_window*60]
+    in_ED[, adm_in_time_window := case_when(remaining < time_window*60 & adm %in% c("direct_adm", "indirect_adm") ~ TRUE,
+                                            adm %in% c("direct_adm", "indirect_adm") ~ FALSE,
+                                            TRUE ~ NA)]
     
     in_ED[, timeslice := case_when(elapsed < 15 ~ "task000",
                                    elapsed < 30 ~ "task015",
@@ -55,190 +58,64 @@ get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
                                    elapsed < 480 ~ "task360",
                                    TRUE ~ "task480")]
     
-    if (nrow(in_ED) != 0) {
-      df = setorder(merge(in_ED, preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], 
-                          by = c("csn", "timeslice")), prob.1)
-      df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_ts_in_time_window = cdf)], 
-                 by = "timeslice")
+    if (nrow(in_ED) == 0) {
       
+      noone_in_ED = c(noone_in_ED, time_pts[i])
       
-      # # should it be like this - calculating the probabilities of each within four hours: 
-      # 
-      # for (timeslice_ in unique(in_ED$timeslice)) {
-      #   df = setorder(merge(in_ED[timeslice == timeslice_], preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], 
-      #                       by = c("csn", "timeslice")), prob.1)
-      #   df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_ts_in_time_window = cdf)], 
-      #              by = "timeslice")
-      #   
-      #   # make an array from 0 admissions to max admissions (ie all patients admitted)
-      #   num_adm = seq(0,nrow(df), 1)
-      #   # the probabilities of each of these numbers being admitted
-      #   pgf = poly_prod(df) 
-      #   
-      #   # the probabilities of each of these numbers being admitted within four hours
-      #   pgftime_window = poly_prod(df[, prob.1 := prob.1*prob_ts_in_time_window]) 
-      #   
-      # }
-      # 
+    } else {
       
-      
-      # for all patients irrespective of timeslice - a calc of likely number of patients
-      
-      # make an array from 0 admissions to max admissions (ie all patients admitted)
-      num_adm_ = seq(0,nrow(df), 1)
-      # the probabilities of each of these numbers being admitted
-      pgf = poly_prod(df) 
-      # the probabilities of each of these numbers being admitted within four hours
-      pgftime_window = poly_prod(df[, prob.1 := prob.1*prob_ts_in_time_window]) 
-      
-      distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm_, 
-                        probs = pgf, cdf = cumsum(pgf), 
-                        probtime_window = pgftime_window, cdftime_window = cumsum(pgftime_window))
-      distr_coll = bind_rows(distr_coll, distr)
-      
-      num_adm = bind_cols(sample_time = time_pts[i], num_in_ED = nrow(in_ED), 
-                          num_adm = sum(df$truth == 1), 
-                          num_admtime_window = sum((df$truth == 1)*df$admtime_window, na.rm = TRUE))
-      adm_coll = bind_rows(adm_coll, num_adm)
-    }
-    
-  }
-  
-  return(list(distr_coll, adm_coll))
-  
-}
-
-# Analyse distributions  
-
-get_adm_by_cutoff = function(distr_coll, adm_coll) {
-  
-  
-  cutoff_cdf_at_mult_days = tibble()
-  cutoff_cdf_at_mult_days_time_windowhrs = tibble()
-  
-  
-  for (i in 1:nrow(adm_coll)) {
-    
-    distr = as_tibble(distr_coll[sample_time == adm_coll$sample_time[i]])
-    
-    actual_adm = adm_coll[sample_time == adm_coll$sample_time[i], num_adm]
-    actual_admtime_window = adm_coll[sample_time == adm_coll$sample_time[i], num_admtime_window]
-    
-    alpha_increments = 0.05
-    
-    # all admissions
-    cutoff_cdf_at = as_tibble(seq(0,1,alpha_increments)) %>% rename(cutoff = value)
-    cutoff_cdf_at$date = adm_coll$sample_time[i]
-    cutoff_cdf_at$actual_adm = actual_adm
-    cutoff_cdf_at$model_lower_num_adm = NA
-    cutoff_cdf_at$model_lower_cdf = NA
-    cutoff_cdf_at$model_upper_num_adm = NA
-    cutoff_cdf_at$model_upper_cdf = NA
-    
-    # admissions in time_window hours
-    cutoff_cdf_at_time_windowhrs = as_tibble(seq(0,1,alpha_increments)) %>% rename(cutoff = value)
-    cutoff_cdf_at_time_windowhrs$date = adm_coll$sample_time[i]
-    cutoff_cdf_at_time_windowhrs$actual_adm = actual_admtime_window
-    cutoff_cdf_at_time_windowhrs$model_lower_num_adm = NA
-    cutoff_cdf_at_time_windowhrs$model_lower_cdf = NA
-    cutoff_cdf_at_time_windowhrs$model_upper_num_adm = NA
-    cutoff_cdf_at_time_windowhrs$model_upper_cdf = NA
-    
-    
-    for (j in 1:nrow(cutoff_cdf_at)) {
-      
-      cutoff_cdf_at$model_lower_num_adm[j] = 
-        nrow(distr %>% filter(cdf < cutoff_cdf_at$cutoff[j]))
-      
-      if (j != nrow(cutoff_cdf_at)) {
+      if(is.na(time_window)) {
         
-        cutoff_cdf_at$model_upper_num_adm[j] = cutoff_cdf_at$model_lower_num_adm[j] + 1 # This is correct
-        
-      }      else {
-        cutoff_cdf_at$model_upper_num_adm[j] = 
-          nrow(distr %>% filter(cdf < cutoff_cdf_at$cutoff[j]))
-      }
-      
-      # Enoch also looks up the cdf at the model threshold 
-      # (although note that Enoch adds 1 to i to get the upper threshold, returning the next row in the cdf
-      # rather than setting the higher band at the next alpha threshhold for the cdf
-      
-      if (cutoff_cdf_at$model_lower_num_adm[j] != 0) {
-        cutoff_cdf_at$model_lower_cdf[j] = distr$cdf[cutoff_cdf_at$model_lower_num_adm[j]] 
+        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+                            by = c("csn", "timeslice"), all.x = TRUE)
       } else {
-        cutoff_cdf_at$model_lower_cdf[j] = 0
-      }
-      
-      cutoff_cdf_at$model_upper_cdf[j] = distr$cdf[cutoff_cdf_at$model_upper_num_adm[j]]
-      
-    }
-    
-    for (j in 1:nrow(cutoff_cdf_at_time_windowhrs)) {
-      
-      cutoff_cdf_at_time_windowhrs$model_lower_num_adm[j] = 
-        nrow(distr %>% filter(cdf < cutoff_cdf_at_time_windowhrs$cutoff[j]))
-      
-      if (j != nrow(cutoff_cdf_at_time_windowhrs)) {
         
-        cutoff_cdf_at_time_windowhrs$model_upper_num_adm[j] = cutoff_cdf_at_time_windowhrs$model_lower_num_adm[j] + 1 # This is correct
-        
-      }      else {
-        cutoff_cdf_at_time_windowhrs$model_upper_num_adm[j] = 
-          nrow(distr %>% filter(cdf < cutoff_cdf_at_time_windowhrs$cutoff[j]))
+        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+                            by = c("csn", "timeslice"), all.x = TRUE)
+        df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
+                   by = "timeslice")
+        df[, truth := adm_in_time_window]
+        df[, prob.1 := prob.1 * prob_adm_in_time_window]
       }
-      
-      # Enoch also looks up the cdf at the model threshold 
-      # (although note that Enoch adds 1 to i to get the upper threshold, returning the next row in the cdf
-      # rather than setting the higher band at the next alpha threshhold for the cdf
-      
-      if (cutoff_cdf_at_time_windowhrs$model_lower_num_adm[j] != 0) {
-        cutoff_cdf_at_time_windowhrs$model_lower_cdf[j] = distr$cdf[cutoff_cdf_at_time_windowhrs$model_lower_num_adm[j]] 
-      }
-      cutoff_cdf_at_time_windowhrs$model_upper_cdf[j] = distr$cdf[cutoff_cdf_at_time_windowhrs$model_upper_num_adm[j]]
-      
     }
+
+    # make an array from 0 admissions to max admissions (ie all patients admitted)
+    num_adm_ = seq(0,nrow(df), 1)
+    # the probabilities of each of these numbers being admitted
+    probs = poly_prod(df) 
+
+    distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm_, 
+                      probs = probs, cdf = cumsum(probs))
+    distr_coll = bind_rows(distr_coll, distr)
     
-    cutoff_cdf_at_mult_days <- cutoff_cdf_at_mult_days %>% bind_rows(cutoff_cdf_at)
-    cutoff_cdf_at_mult_days_time_windowhrs <- cutoff_cdf_at_mult_days_time_windowhrs %>% bind_rows(cutoff_cdf_at_time_windowhrs)
+    num_adm = bind_cols(sample_time = time_pts[i], num_in_ED = nrow(in_ED), 
+                        num_adm = sum(df$truth == 1, na.rm = TRUE))
+    adm_coll = bind_rows(adm_coll, num_adm)
   }
   
-  # Get number of days where the actual admission is less than the model threshold limits
-  cutoff_cdf_at_mult_days <- cutoff_cdf_at_mult_days %>% 
-    mutate(actual_less_than_lower = ifelse(actual_adm < model_lower_num_adm, TRUE, FALSE),
-           actual_less_than_upper = ifelse(actual_adm < model_upper_num_adm, TRUE, FALSE))
+  return(list(distr_coll, adm_coll, noone_in_ED))
   
-  cutoff_cdf_at_mult_days_time_windowhrs <- cutoff_cdf_at_mult_days_time_windowhrs %>% 
-    mutate(actual_less_than_lower = ifelse(actual_adm < model_lower_num_adm, TRUE, FALSE),
-           actual_less_than_upper = ifelse(actual_adm < model_upper_num_adm, TRUE, FALSE))
-  
-  return(list(cutoff_cdf_at_mult_days, cutoff_cdf_at_mult_days_time_windowhrs))
 }
-
 
 
 # Load data ---------------------------------------------------------------
 
-# summary  to get minimum and maxium
-
-
+# summary of csns to get minimum and maxium
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-16.rda")
 summ = summ[!is.na(discharge_time)]
+summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
 # added this while using only part of the dataset - need to change it later
 summ = summ[date(presentation_time) >= '2020-03-19']
 
-summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
-
-
-# load predictions (output from ML)
+# load predictions (output from ML) - this loads predictions identified by row_id
 preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_preds_",today(),".rda")
 load(preds_file)
 
-# load("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-03-23.rda")
-
+# load timeslice data in order to match row_ids to csns
+load("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-03-23.rda") # temporarily
 
 timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
-
 file_date = '2021-03-16'
 
 preds_all_ts <- data.table()
@@ -249,45 +126,43 @@ for (ts_ in timeslices) {
   inFile = paste0("~/EDcrowding/predict-admission/data-raw/dm", ts_, "_", file_date, ".rda")
   load(inFile)
   
+  # assign name dt to loaded file temporarily
   name_ts <- paste0("dm", ts_)
   dt = get(name_ts)
-  
   name_tsk <- paste0("task", ts_)
-  
   dt[, row_id := seq_len(nrow(dt))]
   
+  # bind columns to add csns to predictions
   dt_ = bind_cols(dt[, list(csn, adm, row_id)],preds[timeslice == name_tsk & tsk_ids == "all"])
   # check that row ids match
   if (nrow(dt_[row_id...3 != row_id...4]) > 0) {
     print("Row match error")
   }
   
+  # bind all preds into one file
   preds_all_ts = bind_rows(preds_all_ts, dt_)
   
 }
 
 
-
-# Get a sample of time points of interest ---------------------------------
-
-
+# Generate sample of time points of interest ------------------------------
 
 set.seed(17L)
-time_pts <- get_random_dttm(min(summ$presentation_time, na.rm = TRUE), min(summ$presentation_time, na.rm = TRUE) + hours(12))
+time_pts <- get_random_dttm(min(summ$presentation_time, na.rm = TRUE) + hours(12), min(summ$presentation_time, na.rm = TRUE) + hours(24))
 last_pt <- time_pts
 
+# each sample to be more than 12 hours and less than 24 hours after the previous one
 while (last_pt + hours(12) < max(summ$presentation_time, na.rm = TRUE)) {
   next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
   time_pts <- c(time_pts, next_pt)
   last_pt <- next_pt
-  
 }
 
-# To get probability distribution for time to admission for each timeslice ----------------------------
+
+# Get probability distribution for time to admission for each timeslice ----------------------------
 
 # now using left_ED and first_ED_admission to tighten the distribution
-# summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
-summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(left_ED, first_ED_admission, units = "mins")]
+summ[adm %in% c("direct_adm", "indirect_adm"), ED_duration := difftime(left_ED, first_ED_admission, units = "mins")]
 
 summ[,task000 := 1]
 summ[,task015 := if_else(ED_duration > 15, 1, 0)]
@@ -302,21 +177,20 @@ summ[,task360 := if_else(ED_duration > 360, 1, 0)]
 summ[,task480 := if_else(ED_duration > 480, 1, 0)]
 
 # get time to admission after beginning of each timeslice
-tta = data.table(summ %>% filter(!is.na(ED_duration), adm %in% c("direct_adm", "indirect_adm")) %>% 
+tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% 
                    select(csn, task000:task480, ED_duration) %>% 
-                   pivot_longer(task000:task480, names_to = "timeslice"))
-tta = tta[value ==1]
-tta[, tta := case_when(value ==1 ~ as.numeric(ED_duration - as.numeric(gsub("task","", timeslice))),
-                       TRUE ~ NA_real_)]
+                   pivot_longer(task000:task480, names_to = "timeslice", values_to = "in_timeslice"))
+tta = tta[in_timeslice ==1]
+tta[, tta_after_ts_start := as.numeric(ED_duration - as.numeric(gsub("task","", timeslice)))]
 
 # cut this to get whole number of hours until admission (was cutting at floor, now cutting at ceiling)
-tta[, tta_hr := ceiling(tta/60)]
+tta[, tta_hr := ceiling(tta_after_ts_start/60)]
 
 # cut the distribution at 24 hours _ NB not sure this is right but this will increase the probability at earlier points, only very marginal
 tta = tta[tta_hr <= 24]
 
-# generate number of visits in timslice in total
-tta[, num_ts := sum(value), by = timeslice]
+# generate number of visits in timeslice in total
+tta[, num_ts := sum(in_timeslice), by = timeslice]
 
 # generate cumulative probability of being admitted within a number of hours after timeslice
 tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>% 
@@ -325,184 +199,109 @@ tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>%
 tta_prob[, prob := num_with_tta_in_hr/num_ts]
 tta_prob[, cdf := cumsum(prob), by = timeslice]
 
-# # # plot tta after timeslice
-# tta_prob[tta_hr < 24] %>%
-#   mutate(timeslice = as.numeric(gsub("task", "", timeslice))) %>%
-#   ggplot(aes(x = tta_hr, y = prob)) + geom_line() + facet_grid(.~timeslice) +
-#   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
-#        x = "Time to admission (hrs)",
-#        y = "Probability")
-# # 
-# 
-# # plot cdf by timeslice
-# tta_prob[tta_hr < 48] %>% 
-#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
-#   ggplot(aes(x = tta_hr, y = cdf)) + geom_line() + facet_grid(timeslice~.) +
-#   geom_vline(xintercept = 4, colour = "red") +
-#   labs(title = "Cumulative probability distribution for time to admission after beginning of timeslice (up to 48 hours)",
-#        x = "Time to admission (hrs)",
-#        y = "Probability")
-# 
-# 
-# # to see probs as a wider array
-# 
-# tta_prob %>% 
-#   select(timeslice, tta_hr, prob) %>% 
-#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
-#   pivot_wider(names_from = timeslice, values_from = prob)
-# 
-# tta_prob[, timeslice := as.numeric(gsub("timeslice", "", timeslice))]
-# setorder(tta_prob, timeslice)
-# 
-# tta_prob[tta_hr > 24, sum(prob), by = timeslice]
-# tta_prob[tta_hr > 48, sum(prob), by = timeslice]
+
+# Create chart ------------------------------------------------------------
+
+
+time_window = 3
+
+prob_dist = get_prob_dist(NA, time_pts, summ, preds_all_ts, tta_prob)
+
+# collect all predicted distributions for each time point of interest
+distr_coll = prob_dist[[1]]
+
+# now treat the full set of cdfs (all time points) as a single discrete variable
+distr_coll[, upper_M_discrete_value := cdf]
+distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
+distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
+
+# outFile = paste0("EDcrowding/predict-admission/data-output/predicted_distribution_",today(),".csv")
+# write.csv(distr_coll, file = outFile, row.names = FALSE)
+
+
+# for the array of low cdf values (now considered a discrete distribution) work out its cdf
+
+lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
+setorder(lower_M, value)
+lower_M[, cum_weight := cumsum(probs)]
+lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+lower_M[, dist := "model lower"]
+
+# same for high cdf values
+
+upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
+setorder(upper_M, value)
+upper_M[, cum_weight := cumsum(probs)]
+upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+upper_M[, dist := "model upper"]
+
+# same for mid point
+
+mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
+setorder(mid_M, value)
+mid_M[, cum_weight := cumsum(probs)]
+mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+mid_M[, dist := "model mid"]
+
+
+# compare the observed values against their predicted distribution 
+# and find their position on the cdf; combine this into a distribution
+
+adm_coll = prob_dist[[2]]
+
+
+adm_coll = merge(adm_coll, 
+                 distr_coll[, .(sample_time, num_adm = num_adm_pred, 
+                                lower_E = lower_M_discrete_value, 
+                                upper_E = upper_M_discrete_value)], 
+                 by = c("sample_time", "num_adm"))
+
+# To check the cdf of thess
+# p = adm_coll %>% ggplot() + 
+#   stat_ecdf(aes(x = lower_E), geom = "point") +
+#   stat_ecdf(aes(x = upper_E), geom = "point") +
+#   labs(title = "Cumulative distribution functions for E (upper and lower)",
+#        x = "cdf value associated with number of patients admitted in a given instance",
+#        y = "cdf of these values") 
 
 
 
-# Processing --------------------------------------------------------------
+# for the array of low cdf values (now considered a discrete distribution) work out its cdf
 
-prob_dist2 = get_prob_dist(2, time_pts, summ, preds_all_ts, tta_prob)
-prob_dist3 = get_prob_dist(3, time_pts, summ, preds_all_ts, tta_prob)
-prob_dist4 = get_prob_dist(4, time_pts, summ, preds_all_ts, tta_prob)
-prob_dist6 = get_prob_dist(6, time_pts, summ, preds_all_ts, tta_prob)
-prob_dist9 = get_prob_dist(9, time_pts, summ, preds_all_ts, tta_prob)
-prob_dist12 = get_prob_dist(12, time_pts, summ, preds_all_ts, tta_prob)
+lower_E = adm_coll[, .(value = lower_E)]
+setorder(lower_E, value)
+lower_E_prob = lower_E[, .N, by = value]
+lower_E_prob[, cum_weight := N/length(time_pts)]
+lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+lower_E_prob[, dist := "actual lower"]
 
+# same for high cdf values
 
-# plot of sampled time points
-prob_dist4[[2]] %>% pivot_longer(num_in_ED:num_adm) %>%  
-  ggplot(aes(x = sample_time, y = value, col = name, group = sample_time)) + geom_line() + geom_point() +
-  theme(legend.position = "bottom") +
-  labs(title = "Showing range of sample points over time with number in ED and number admitted",
-       y = "Number of patients",
-       x = "sampled time")
+upper_E = adm_coll[, .(value = upper_E)]
+setorder(upper_E, value)
+upper_E_prob = upper_E[, .N, by = value]
+upper_E_prob[, cum_weight := N/length(time_pts)]
+upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+upper_E_prob[, dist := "actual upper"]
 
-cutoff_cdf2 = get_adm_by_cutoff(prob_dist2[[1]], prob_dist2[[2]])
-cutoff_cdf3 = get_adm_by_cutoff(prob_dist3[[1]], prob_dist3[[2]])
-cutoff_cdf4 = get_adm_by_cutoff(prob_dist4[[1]], prob_dist4[[2]])
-cutoff_cdf6 = get_adm_by_cutoff(prob_dist6[[1]], prob_dist6[[2]])
-cutoff_cdf9 = get_adm_by_cutoff(prob_dist9[[1]], prob_dist9[[2]])
-cutoff_cdf12 = get_adm_by_cutoff(prob_dist12[[1]], prob_dist12[[2]])
+# same for mid point
 
-
-# normalise across all days
-cutoff_cdf_normalised <- cutoff_cdf4[[1]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-                                 )
-
-cutoff_cdf_normalised_3hrs <- cutoff_cdf3[[2]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-  )                        
-
-cutoff_cdf_normalised_4hrs <- cutoff_cdf4[[2]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-  )
+mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
+setorder(mid_E, value)
+mid_E_prob = mid_E[, .N, by = value]
+mid_E_prob[, cum_weight := N/length(time_pts)]
+mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+mid_E_prob[, dist := "acutal mid"]
 
 
-cutoff_cdf_normalised_6hrs <- cutoff_cdf6[[2]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-  )
-
-cutoff_cdf_normalised_9hrs <- cutoff_cdf9[[2]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-  )
-
-
-cutoff_cdf_normalised_12hrs <- cutoff_cdf12[[2]] %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-  )
-
-
-# Create charts -----------------------------------------------------------
-
-plot_cdf = function(cutoff_cdf_normalised, time_window) {
-  cutoff_cdf_normalised %>% 
-    pivot_longer(model_lower_limits:actual_less_than_upper_limit, 
-                 names_to = "model", 
-                 values_to = "proportion") %>% 
-    mutate(model = factor(model, levels = c("model_lower_limits", "actual_less_than_lower_limit", "model_upper_limits", "actual_less_than_upper_limit"))) %>% 
-    ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line(size = 1)  +
-    theme_classic(base_size = 18) +
-    scale_x_continuous(breaks = seq(0, 1, .1)) +
-    labs(title = paste0("Admission in next ",time_window, " hours"), 
-         y = "Proportion of x <= X on cdf",
-         # subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
-         # 20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
-         # The distribution generated by the model is used to retrieve what x (the number of admissions) would be at each of these 20 points on the cdf",
-         x = "X",
-         col = "model/actual")  +
-    theme(legend.position = "none") +
-    # scale_color_manual(values = c("#F8766D" , "#FFB2B2","#00BFC4","#99E4E7", guide = NULL, name = NULL)) 
-    scale_color_manual(values = c("darkblue" , "chartreuse4","cadetblue4","deeppink", guide = NULL, name = NULL)) 
-  
-  
-}
-
-# main plot
-cutoff_cdf_normalised %>% pivot_longer(model_lower_limits:actual_less_than_upper_limit, 
-                                       names_to = "model", 
-                                       values_to = "proportion") %>% 
-  mutate(model = factor(model, levels = c("model_lower_limits", "actual_less_than_lower_limit", "model_upper_limits", "actual_less_than_upper_limit"))) %>% 
-  ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line(size = 1)  +
-  theme_classic(base_size = 18) +
-  scale_x_continuous(breaks = seq(0, 1, .05)) +
-  labs(title = paste0("Admission overall: evaluation - based on ", length(time_pts), " randomly sampled time points of interest"), 
-       y = "Proportion of instances <= X on cdf",
-       # subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
-       # 20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
-       # The distribution generated by the model is used to retrieve what x (the number of admissions) would be at each of these 20 points on the cdf",
+plot_data = bind_rows(lower_M, mid_M, upper_M, lower_E_prob, mid_E_prob, upper_E_prob)
+plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geom_point() +
+  labs(title = "Proportion of demand values <= threshold X on predicted cdf",
        x = "X",
-       col = "model/actual")  +
-  theme(legend.position = "bottom") +
-  scale_color_manual(values = c("darkblue" , "chartreuse4","cadetblue4","deeppink", guide = NULL, name = NULL)) 
+       y = NULL) +
+  theme_classic() +
+  scale_color_manual(values = c("deeppink" , "chartreuse4" ,  "lightblue","black","black", "black", guide = NULL, name = NULL)) +
+  theme(legend.position = "none") 
 
 
 
-# other plots
-p3 = plot_cdf(cutoff_cdf_normalised_3hrs, 3)
-
-p6 = plot_cdf(cutoff_cdf_normalised_6hrs, 6)
-p9 = plot_cdf(cutoff_cdf_normalised_9hrs, 9)
-p12 = plot_cdf(cutoff_cdf_normalised_12hrs, 12)
-
-library("gridExtra")
-grid.arrange(p3, p6, p9, p12,
-             ncol = 2, nrow = 2)
-
-
-
-outFile = paste0("EDcrowding/predict-admission/data-output/predicted_distribution_",today(),".csv")
-write.csv(prob_dist3[[1]], file = outFile, row.names = FALSE)
-
-
-outFile = paste0("EDcrowding/predict-admission/data-output/actual_admissions_",today(),".csv")
-write.csv(prob_dist3[[2]], file = outFile, row.names = FALSE)
-
-# Exploring poor predictions ----------------------------------------------
-
-
-c = data.table(cutoff_cdf_at_mult_days %>% group_by(date) %>% summarise(num_rows_less_than_lower = sum(actual_less_than_lower)))
-c[, prop_less_than_lower := num_rows_less_than_lower/20]

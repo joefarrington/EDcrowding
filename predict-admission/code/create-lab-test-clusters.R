@@ -140,3 +140,22 @@ outFile = paste0("EDcrowding/predict-admission/data-raw/cluster_lookup_",today()
 save(cluster_lookup, file = outFile)
 
 
+
+
+# Save tests by cluster ---------------------------------------------------
+
+cluster_summ = data.table()
+
+for (i in unique(cluster_lookup$cluster)) {
+  c = data.table(
+    cluster_lookup[cluster == unique(cluster_lookup$cluster)[i]]
+    %>% pivot_wider(names_from = test_lab_code, values_from = test_lab_code) 
+  )
+  cols = c("cluster", seq(1, ncol(c)-1, 1))
+  colnames(c) <- cols
+  cluster_summ = bind_rows(cluster_summ, c)
+}
+
+
+outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_num_in_location_",today(),".csv")
+write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
