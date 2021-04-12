@@ -345,3 +345,67 @@ lab_test_adj_cl <- mutate(lab_test_adj, cluster = cut_avg)
 count(lab_test_adj_cl,cluster)
 
 
+# Looking at APACHE values ------------------------------------------------
+
+load("~/EDcrowding/predict-admission/data-raw/lab_raw_2021-03-01.rda")
+
+
+# serum sodium
+nrow(lab_raw %>% filter(test_lab_code == "NA"))
+
+lab_raw %>% filter(test_lab_code == "NA", !is.na(abnormal_flag)) %>% 
+  group_by(abnormal_flag) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "NA")))
+
+# Comparing with values in Knaus paper
+nrow(lab_raw %>% filter(test_lab_code == "NA", value_as_real < 130)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "NA"))
+
+nrow(lab_raw %>% filter(test_lab_code == "NA", value_as_real > 149)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "NA"))
+
+# serum potassium
+nrow(lab_raw %>% filter(test_lab_code == "K"))
+
+lab_raw %>% filter(test_lab_code == "K", !is.na(abnormal_flag)) %>% 
+  group_by(abnormal_flag) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "K")))
+
+ # Comparing with values in Knaus paper
+nrow(lab_raw %>% filter(test_lab_code == "K", value_as_real < 3.5)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "K"))
+
+nrow(lab_raw %>% filter(test_lab_code == "K", value_as_real > 5.4)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "K"))
+
+
+# creatinine
+
+
+lab_raw %>% filter(test_lab_code == "CREA", !is.na(abnormal_flag)) %>%  left_join(summ %>% select(csn, sex)) %>% 
+  group_by(abnormal_flag, sex) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "CREA")))
+
+lab_raw = lab_raw %>%  left_join(summ %>% select(csn, sex)) 
+
+# Comparing with values in Knaus paper - not sure how to covert this
+nrow(lab_raw %>% filter(test_lab_code == "CREA", sex == "M", value_as_real < .6 * 100)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "CREA", sex == "M"))
+
+# haemocrit
+
+lab_raw %>% filter(test_lab_code == "HCTU", !is.na(abnormal_flag), sex == "M") %>% 
+  group_by(abnormal_flag) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "HCTU", sex == "M")))
+
+lab_raw %>% filter(test_lab_code == "HCTU", !is.na(abnormal_flag), sex == "F") %>% 
+  group_by(abnormal_flag) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "HCTU", sex == "F")))
+
+# white cell count
+lab_raw %>% filter(test_lab_code == "WCC", !is.na(abnormal_flag)) %>% 
+  group_by(abnormal_flag) %>% summarise(OOR = n()/ nrow(lab_raw %>% filter(test_lab_code == "WCC")))
+
+# Comparing with values in Knaus paper
+nrow(lab_raw %>% filter(test_lab_code == "WCC", value_as_real < 3)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "WCC"))
+
+nrow(lab_raw %>% filter(test_lab_code == "WCC", value_as_real > 14.9)) / 
+  nrow(lab_raw %>% filter(test_lab_code == "WCC"))
+
+
