@@ -1,35 +1,10 @@
 
-# Process Ken's predictions -----------------------------------------------
+# Evaluate distributions created by Joe and Ken -----------------------------------------------
 
 # Take input of predictions of admission numbers from the location level ML
 # and examines the distribution of probabilities
 
-# The input data is a set of probabilities of N patients being admitted in the next 4 hours
-# where N ranges from 0 to 25
 
-# First step is to read data and check that actual ys are the same as Ken was given
-
-# second step is to generate a random sample of timestamps
-
-# Then, for each sample,
-# - find the nearest hour in Ken's matrix of predictions
-# - retrieve the cumulative probabilities and the actual number admitted
-
-# Then for each sampled timestamps in turn, do the following:
-# - for each of 20 points along the cdf from 0 to 1, starting at 0.05, referred to as alpha, do the following:
-# - - find the number of admissions that have a cumulative probability of less than alpha (this is the model's lower number of admissions at that value of alpha)
-# - - add one to this (to get the model's upper number of admissions at that value of alpha)
-# - - record the model's cdf at the model's lower number of admissions 
-# - - record the model's cdf at the model's higher number of admissions (this and the one above lie either side of each alpha)
-# - - record whether the actual number of admissions for that timestamp was less than the model's lower at that value of alpha (True or False)
-# - - record whether the actual number of admissions for that timestamp was more than the model's lower at that value of alpha (True or False)
-
-# Then take the mean for all sample timestamps, by doing the following:
-# - for each of 20 values of alpha
-# - - calculate the mean model's cdf at the model's lower number of admissions below that value of alpha 
-# - - calculate the mean model's cdf at the model's higher number of admissions above that value of alpha 
-# - - calculate the proportion of days when the actual number of admissions for that timestamp was less than the model's lower limit at that level of alpha
-# - - calculate the proportion of days when the actual number of admissions for that timestamp was less than the model's upper limit at that level of alpha
 
 # Functions ---------------------------------------------------------------
 
@@ -95,6 +70,7 @@ joe = FALSE
 
 # for Joe's file
 pred_dist <- fcnn_neg_bin_probs
+pred_dist <- ngboost_normal_probs
 max_predicted <- as.numeric(colnames(pred_dist)[length(colnames(pred_dist))-1])
 seq_nums = seq(0, max_predicted, 1)
 seq_nums = paste0("adm_", seq_nums)
@@ -260,93 +236,94 @@ for (i in (1:length(time_pts))) {
 
 
 
-cutoff_cdf_at_mult_days = tibble()
 
+# now treat the full set of cdfs (all time points) as a single discrete variable
+distr_coll[, upper_M_discrete_value := cdf]
+distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
+distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
 
-for (i in 1:nrow(adm_coll)) {
-  
-  distr = as_tibble(distr_coll[sample_time == adm_coll$sample_time[i]])
-  
-  actual_adm = adm_coll[sample_time == adm_coll$sample_time[i], num_adm]
-  
-  alpha_increments = 0.05
-  cutoff_cdf_at = as_tibble(seq(alpha_increments,1,alpha_increments)) %>% rename(cutoff = value)
-  cutoff_cdf_at$date = adm_coll$sample_time[i]
-  cutoff_cdf_at$actual_adm = actual_adm
-  cutoff_cdf_at$model_lower_num_adm = NA
-  cutoff_cdf_at$model_lower_cdf = NA
-  cutoff_cdf_at$model_upper_num_adm = NA
-  cutoff_cdf_at$model_upper_cdf = NA
-  
-  for (j in 1:nrow(cutoff_cdf_at)) {
-    
-    cutoff_cdf_at$model_lower_num_adm[j] = 
-      nrow(distr %>% filter(cdf < cutoff_cdf_at$cutoff[j]))
-    
-    if (j != nrow(cutoff_cdf_at)) {
-      
-      cutoff_cdf_at$model_upper_num_adm[j] = cutoff_cdf_at$model_lower_num_adm[j] + 1 # This is correct
-      
-    }      else {
-      cutoff_cdf_at$model_upper_num_adm[j] = 
-        nrow(distr %>% filter(cdf < cutoff_cdf_at$cutoff[j]))
-    }
-    
-    # Enoch also looks up the cdf at the model threshold 
-    # (although note that Enoch adds 1 to i to get the upper threshold, returning the next row in the cdf
-    # rather than setting the higher band at the next alpha threshhold for the cdf
-    
-    if (cutoff_cdf_at$model_lower_num_adm[j] != 0) {
-      cutoff_cdf_at$model_lower_cdf[j] = distr$cdf[cutoff_cdf_at$model_lower_num_adm[j]] 
-    }
-    cutoff_cdf_at$model_upper_cdf[j] = distr$cdf[cutoff_cdf_at$model_upper_num_adm[j]]
-    
-  }
-  
-  cutoff_cdf_at_mult_days <- cutoff_cdf_at_mult_days %>% bind_rows(cutoff_cdf_at)
+# for Joe's data add probability back in
+if (joe) {
+  distr_coll[, probs := cdf - lag(cdf), by = sample_time]
+  distr_coll[is.na(probs), probs := cdf]
 }
 
 
-# to check the calculations of model_lower_cdf and model_upper_cdf,
-# they should sum to the number of days covered by the model
-# in today's meeting, Martin said he was apportioning the propabilities for each day 
-# into a line from 0 to 1 - so its sum should be the number of days in the test
-cutoff_cdf_at_mult_days %>% group_by(cutoff) %>% summarise(tot = sum(model_lower_cdf, na.rm = TRUE)) %>%  arrange(desc(tot))
+# for the array of low cdf values (now considered a discrete distribution) work out its cdf
 
-# Enoch's code counts the number of days where the actual admission is less than the model threshold limits
-cutoff_cdf_at_mult_days <- cutoff_cdf_at_mult_days %>% 
-  mutate(actual_less_than_lower = ifelse(actual_adm < model_lower_num_adm, TRUE, FALSE),
-         actual_less_than_upper = ifelse(actual_adm < model_upper_num_adm, TRUE, FALSE))
+lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
+setorder(lower_M, value)
+lower_M[, cum_weight := cumsum(probs)]
+lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+lower_M[, dist := "model lower"]
+
+# same for high cdf values
+
+upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
+setorder(upper_M, value)
+upper_M[, cum_weight := cumsum(probs)]
+upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+upper_M[, dist := "model upper"]
+
+# same for mid point
+
+mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
+setorder(mid_M, value)
+mid_M[, cum_weight := cumsum(probs)]
+mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+mid_M[, dist := "model mid"]
 
 
-# he then divides by the number of days but he's doing this across all days
-# therefore I will create a grouped version across all days
+# compare the observed values against their predicted distribution 
+# and find their position on the cdf; combine this into a distribution
 
-cutoff_cdf_normalised <- cutoff_cdf_at_mult_days %>% 
-  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
-                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
-                                 
-  )
+adm_coll = prob_dist[[2]]
 
 
+adm_coll = merge(adm_coll, 
+                 distr_coll[, .(sample_time, num_adm = num_adm_pred, 
+                                lower_E = lower_M_discrete_value, 
+                                upper_E = upper_M_discrete_value)], 
+                 by = c("sample_time", "num_adm"))
+
+# for the array of low cdf values (now considered a discrete distribution) work out its cdf
+
+lower_E = adm_coll[, .(value = lower_E)]
+setorder(lower_E, value)
+lower_E_prob = lower_E[, .N, by = value]
+lower_E_prob[, cum_weight := N/length(time_pts)]
+lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+lower_E_prob[, dist := "actual lower"]
+
+# same for high cdf values
+
+upper_E = adm_coll[, .(value = upper_E)]
+setorder(upper_E, value)
+upper_E_prob = upper_E[, .N, by = value]
+upper_E_prob[, cum_weight := N/length(time_pts)]
+upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+upper_E_prob[, dist := "actual upper"]
+
+# same for mid point
+
+mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
+setorder(mid_E, value)
+mid_E_prob = mid_E[, .N, by = value]
+mid_E_prob[, cum_weight := N/length(time_pts)]
+mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+mid_E_prob[, dist := "acutal mid"]
 
 
-cutoff_cdf_normalised %>% pivot_longer(model_lower_limits:actual_less_than_upper_limit, 
-                                       names_to = "model", 
-                                       values_to = "proportion") %>% 
-  mutate(model = factor(model, levels = c("model_lower_limits", "actual_less_than_lower_limit", "model_upper_limits", "actual_less_than_upper_limit"))) %>% 
-  ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line()  + theme_classic() +
-  scale_x_continuous(breaks = seq(0, 1, .05)) +
-  labs(title = paste0("Admission probability distribution evaluation - fcnn_neg_bin_probs - based on ", length(time_pts), " randomly sampled time points of interest"), 
-       y = "Proportion of instances <= X on cdf",
-       # subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
-       # 20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
-       # The distribution generated by the model is used to retrieve what x (the number of admissions) would be at each of these 20 points on the cdf",
+
+# Plot chart --------------------------------------------------------------
+
+
+
+plot_data = bind_rows(lower_M, mid_M, upper_M, lower_E_prob, mid_E_prob, upper_E_prob)
+plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geom_point() +
+  labs(title = "Proportion of demand values <= threshold X on predicted cdf - Joe's ngboost_probs",
        x = "X",
-       col = "model/actual")  +
-  theme(legend.position = "bottom") +
-  scale_color_manual(values = c("#F8766D" , "#FFB2B2","#00BFC4","#99E4E7", guide = NULL, name = NULL)) 
-
-
+       y = NULL) +
+  theme_classic() +
+  scale_color_manual(values = c("deeppink" , "chartreuse4" ,  "lightblue","black","black", "black", guide = NULL, name = NULL)) +
+  theme(legend.position = "none") 
