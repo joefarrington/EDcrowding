@@ -98,8 +98,8 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 # hopital visit summary
 
 sqlQuery <- "select m.mrn, hv.encounter as csn, hv.patient_class, hv.presentation_time, hv.admission_time,   hv.discharge_time, hv.arrival_method, hv.discharge_destination, hv.discharge_disposition
-    from star_test.hospital_visit hv,
-      star_test.mrn m
+    from star.hospital_visit hv,
+      star.mrn m
   where hv.mrn_id = m.mrn_id
     order by mrn, csn, admission_time
 "
@@ -112,7 +112,7 @@ rpt(csn_summ)
 
 # patient class history
 
-sqlQuery <- "select encounter as csn, patient_class, valid_from, valid_until from star_test.hospital_visit_audit"
+sqlQuery <- "select encounter as csn, patient_class, valid_from, valid_until from star.hospital_visit_audit"
 sqlQuery <- gsub('\n','',sqlQuery)
 all_patient_class <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
@@ -128,8 +128,8 @@ sqlQuery <- "select mrn,
  date_of_death, 
  alive, 
  sex
- from star_test.core_demographic d,
-  star_test.mrn m
+ from star.core_demographic d,
+  star.mrn m
   where m.mrn_id = d.mrn_id
 "
 
@@ -140,10 +140,10 @@ demog_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 sqlQuery <- "select m.mrn, hv.encounter as csn, lv.hospital_visit_id, l.location_string, 
 lv.admission_time as admission, lv.discharge_time as discharge 
-from star_test.hospital_visit hv, 
-star_test.mrn m,    
-star_test.location_visit lv,
-star_test.location l 
+from star.hospital_visit hv, 
+star.mrn m,    
+star.location_visit lv,
+star.location l 
 where hv.mrn_id = m.mrn_id 
 and hv.patient_class not in ('OUTPATIENT', 'NEW_BORN', 'DAY_CASE', 'SURGICAL_ADMISSION') 
 and lv.hospital_visit_id = hv.hospital_visit_id 
@@ -156,7 +156,7 @@ bed_moves <- as_tibble(dbGetQuery(ctn, sqlQuery))
 # patient class change history 
 
 sqlQuery <- "select encounter as csn, hospital_visit_id, max(valid_until) as max_emerg_class 
-from star_test.hospital_visit_audit
+from star.hospital_visit_audit
   where patient_class = 'EMERGENCY'
   group by encounter, hospital_visit_id"
 
@@ -274,13 +274,24 @@ ED_csn_summ_raw <- ED_csn_summ_raw %>%
     ED_bed_moves_raw %>% filter(ED_row == 1) %>% group_by(csn) %>% summarise(num_ED_rows = n())
   )
 
+
 missing_ED <- ED_csn_summ_raw %>% filter(is.na(num_ED_rows)) %>% select(csn) 
-missing_ED_bed_moves <- missing_ED %>% inner_join(bed_moves)
+
+# find csns thave only have OTF rows
+
+ED_csn_summ_raw <- ED_csn_summ_raw %>% 
+  left_join(
+    ED_bed_moves_raw %>% filter(room == "UCHED OTF POOL") %>% group_by(csn) %>% summarise(num_OTF_rows = n())
+  )
+
+only_OTF <- ED_csn_summ_raw %>% filter(num_ED_rows == num_OTF_rows) %>% select(csn) 
+
 
 # print("Has no ED location data")
 # rpt(missing_ED)
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(missing_ED)
+ED_csn_summ_raw <- ED_csn_summ_raw %>% anti_join(only_OTF)
 ED_bed_moves_raw <- ED_bed_moves_raw  %>%  inner_join(ED_csn_summ_raw %>% select(csn))
 
 print("Has ED location data")
@@ -290,11 +301,11 @@ print(rpt(ED_bed_moves_raw)) # has location info
 
 # select csns that began before the beginning of epic
 
-ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-03-31")
+ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-04-30")
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>%  inner_join(ED_csn_summ_raw %>% select(csn))
 
-print("Admitted on or after 1 April 2019")
+print("Admitted on or after 1 May 2019")
 print(rpt(ED_csn_summ_raw)) 
 print(rpt(ED_bed_moves_raw)) # since beginning of epic
 
@@ -707,6 +718,3 @@ outFile = paste0("EDcrowding/flow-mapping/data-raw/visits_all_",today(),".rda")
 save(visits, file = outFile)
 
 
-# # save missing bed moves data
-# outFile = paste0("EDcrowding/flow-mapping/data-raw/missing_ED_",today(),".rda")
-# save(missing_ED_bed_moves, file = outFile)

@@ -16,9 +16,9 @@ library(readr)
 
 # Load data ---------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-03-01.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-16.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-16.rda")
+load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
 
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 

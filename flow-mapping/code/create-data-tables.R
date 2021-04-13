@@ -22,8 +22,8 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-03-24.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-03-24.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-04-13.rda")
 
 
 moves <- data.table(ED_bed_moves_raw %>% 
@@ -71,70 +71,76 @@ moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
 
 # find rows where OTF is last row
 moves[csn == lag_csn & location == "OTF" & csn != lead_csn, otf_row_to_drop_last_row := TRUE]
-rpt(moves) 
-rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
+# rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
 moves <- moves[is.na(otf_row_to_drop_last_row)]
-rpt(moves) 
+# rpt(moves) 
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
-moves[csn == lag_csn & admission != lag_discharge] # checking - should be zero as only last row was deleted
+# moves[csn == lag_csn & admission != lag_discharge] # checking - should be zero as only last row was deleted
 
 # find rows where OTF is first row - check moves[csn == "1022475707"]
 moves[csn != lag_csn & location == "OTF" & csn == lead_csn, otf_row_to_drop_first_row := TRUE]
-rpt(moves) 
-rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
+# rpt(moves) 
+# rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
 moves <- moves[is.na(otf_row_to_drop_first_row)]
 rpt(moves) 
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
-moves[csn == lead_csn & lead_admission != discharge] # checking - should be zero as only first row was deleted
+# moves[csn == lead_csn & lead_admission != discharge] # checking - should be zero as only first row was deleted
 
-# drop whole csns if they have outrageously long OTF rows
-# calc row duration
-moves[, "row_duration_temp" := difftime(discharge, admission, units = "hours")]
-# moves[row_duration_temp > 4 & location == "OTF"] %>% ggplot(aes(x = row_duration_temp, y = reorder(csn, row_duration_temp), fill = lead_department)) +
-#   geom_bar(stat = "identity") +
-#   labs(title = "Duration of OTF rows with more than 4 hours duration, with next location",
-#        x = "Duration of OTF row (hours)",
-#        fill = "Next location",
-#        y = "csn") +
-#   scale_x_continuous(breaks = seq(0,180, 20))
-
-moves[, problematic_duration := row_duration_temp > 10 & location == "OTF"]
-moves[, drop_csn := sum(problematic_duration) > 0, by = csn]
-moves = moves[!(drop_csn)]
-rpt(moves)
+# code to drop whole csns if they have outrageously long OTF rows - commented out for now
+# # calc row duration
+# moves[, "row_duration_temp" := difftime(discharge, admission, units = "hours")]
+# # moves[row_duration_temp > 4 & location == "OTF"] %>% ggplot(aes(x = row_duration_temp, y = reorder(csn, row_duration_temp), fill = lead_department)) +
+# #   geom_bar(stat = "identity") +
+# #   labs(title = "Duration of OTF rows with more than 4 hours duration, with next location",
+# #        x = "Duration of OTF row (hours)",
+# #        fill = "Next location",
+# #        y = "csn") +
+# #   scale_x_continuous(breaks = seq(0,180, 20))
+# 
+# moves[, problematic_duration := row_duration_temp > 10 & location == "OTF"]
+# moves[, drop_csn := sum(problematic_duration) > 0, by = csn]
+# moves = moves[!(drop_csn)]
+# rpt(moves)
 
 # find other rows with OTF 
 moves[csn == lag_csn & location == "OTF", otf_row_to_drop := TRUE]
-rpt(moves) 
-rpt(moves[(otf_row_to_drop)])
+# rpt(moves) 
+# rpt(moves[(otf_row_to_drop)])
 # remove OTF rows
 moves <- moves[is.na(otf_row_to_drop)]
-rpt(moves)
+
 
 # update admission date of the remaining rows
 moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
 moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
 moves[csn == lag_csn & admission != lag_discharge, amend_row := TRUE] 
-rpt(moves[(amend_row)])
+# rpt(moves[(amend_row)])
 moves[csn == lag_csn & admission != lag_discharge, admission := lag_discharge]
 
 # redo first and last row checks in case there were repeated OTF rows at beginning or end
 # find rows where OTF is last row
 moves[csn == lag_csn & location == "OTF" & csn != lead_csn, otf_row_to_drop_last_row := TRUE]
-rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
+# rpt(moves[(otf_row_to_drop_last_row)]) # this is number of csns where a row will be dropped
 moves <- moves[is.na(otf_row_to_drop_last_row)]
 
 # find rows where OTF is first row - check moves[csn == "1022475707"]
 moves[csn != lag_csn & location == "OTF" & csn == lead_csn, otf_row_to_drop_first_row := TRUE]
-rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
+# rpt(moves[(otf_row_to_drop_first_row)]) # this is number of csns where a row will be dropped
 moves <- moves[is.na(otf_row_to_drop_first_row)]
-rpt(moves) 
+# rpt(moves) 
+
+print("Checking number of rows is still as before")
+rpt(moves)
+
+# remove csns where only location was OTF
+
 
 # remove any lag and lead rows for avoidance of error
 set(moves, NULL , c("otf_row_to_drop", "otf_row_to_drop_last_row", "otf_row_to_drop_first_row", "num_OTF", "otf",
-                    "amend_row", "drop_csn", "row_duration_temp", "problematic_duration", 
+                    "amend_row", "row_duration_temp",
+                    # "drop_csn",  "problematic_duration", 
                     "lag_csn", "lag_location", "lag_department", "lag_admission", "lag_discharge",  
                     "lead_csn", "lead_location", "lead_department", "lead_admission", "lead_discharge"), NULL)
 

@@ -25,8 +25,8 @@ model_features = "alop"
 use_dataset = "Post"
 
 base_model = FALSE
-tune_num.trees = TRUE
-tune_mtry = FALSE
+tune_num.trees = FALSE
+tune_mtry = TRUE
 
 
 
@@ -96,7 +96,8 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 # set up parameters
 train_learner <- function(learner, tsk, tsk_train_ids, 
                           # initialise params at default values
-                          num.trees = 500
+                          num.trees = 500,
+                          mtry = NA
 ) {
   
   learner$param_set$values = insert_named(
@@ -106,6 +107,16 @@ train_learner <- function(learner, tsk, tsk_train_ids,
       
     )
   )
+  
+  if (!is.na(mtry)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,
+      list(
+        "mtry" = mtry
+      )
+    )
+    
+  }
   
   # train learner on training set
   set.seed(17L)
@@ -117,7 +128,8 @@ train_learner <- function(learner, tsk, tsk_train_ids,
 tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, scores, model_features,
                          # initialise params at default values
                          num.trees = 500,
-                         num.threads = 8
+                         num.threads = 8,
+                         mtry = NA
                          ) {
   
   learner$param_set$values = insert_named(
@@ -128,6 +140,15 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
       
     )
   )
+  
+  if (!is.na(mtry)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,
+      list(
+        "mtry" = mtry
+      )
+    )
+  }
   
   set.seed(17L)
   rr = resample(tsk, learner, rsmp("cv"), store_models = TRUE)
@@ -146,6 +167,7 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
                      fn = rr$aggregate(msr("classif.fn")),
                      tn = rr$aggregate(msr("classif.tn")),
                      num.trees = num.trees,
+                     mtry = mtry,
                      dttm = now()
   )
   
@@ -158,6 +180,11 @@ update_learner <- function(learner
   if (!is.na(num.trees)) {
     learner$param_set$values = insert_named(learner$param_set$values, list("num.trees" = num.trees))
   }
+  
+  if (!is.na(mtry)) {
+    learner$param_set$values = insert_named(learner$param_set$values, list("mtry" = mtry))
+  }
+  
   
   return(learner)
 }
@@ -219,6 +246,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
                      fn = pred_val$score(msr("classif.fn")),
                      tn = pred_val$score(msr("classif.tn")),
                      num.trees = learner$param_set$values$num.trees,
+                     mtry = learner$param_set$values$mtry,
                      dttm = now()
   ) 
   
@@ -372,10 +400,10 @@ if (tune_num.trees) {
     print(paste0("Tuning trees ", name_tsk))
     
     for (num.trees in c(10, 50, 100)) {
-      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "base",
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, tuning_round = "num.trees",
                              num.trees = num.trees,
                              scores, model_features)
-      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", tuning_round = "base", 
+      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", tuning_round = "num.trees", 
                              scores, model_features)
     }
 
@@ -384,6 +412,16 @@ if (tune_num.trees) {
   
   save(scores, file = scores_file)
   
+  print ("Best results:")
+  scores <- data.table(scores)
+  print(scores[tsk_ids == "val" & tuning_round == "base" & model_features == model_features
+               , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, num.trees)])
+
+  scores[tsk_ids == "val" & tuning_round == "base" & model_features == model_features] %>%
+    pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+    ggplot(aes(x = num.trees, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+    labs(y = "logloss", title = "Results of tuning num.trees of RF for each timeslice - logloss scores")
+
 }
 # Tuning mtry ----------------------------------------------------------
 
@@ -396,25 +434,28 @@ if (tune_mtry) {
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
     
-    for(num.trees in c(10, 50, 100, 500)) {
+    for(mtry in c(as.integer(sqrt(length(tsk$feature_names))), 
+                  as.integer(0.2 * length(tsk$feature_names)), 
+                  length(tsk$feature_names))) {
 
             # get scores on training set using cross-validation
       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
-                             tuning_round = "num.trees", num.trees = num.trees, 
+                             tuning_round = "mtry", 
+                             # setting number of trees to be 100 based on tuning done on 2021-03-30
+                             num.trees = 100, 
+                             mtry = mtry,
                              scores, model_features)
       
       # train on full training set and save results on validation set
       scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", 
-                             tuning_round = "num.trees", 
+                             tuning_round = "mtry", 
                              scores, model_features)
       
       save(scores, file = scores_file) 
     }
   } 
   
-  best_param_val = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & 
-                                       tuning_round == "nrounds",
-                                     .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)])
+
   # print ("Best results:")
   # scores <- data.table(scores)
   # print(scores[tsk_ids == "val" & tuning_round == "nrounds" & model_features == model_features

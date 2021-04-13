@@ -9,7 +9,7 @@ Flow schema tables are materialised database tables derived from a one-off extra
 
 ### 1. Retrieve data
 
-get-ED-data-from-Star_a.R
+get-ED-data-from-Star.R
 
 These two files retrieve and process data from the relevant schema.  
 
