@@ -16,10 +16,10 @@ library(readr)
 
 # Load data ---------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-raw/lab_orders_raw_2021-04-13.rda")
-load("~/EDcrowding/predict-admission/data-raw/lab_results_raw_2021-04-13.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_orders_raw_2021-04-14.rda")
+load("~/EDcrowding/predict-admission/data-raw/lab_results_raw_2021-04-14.rda")
 load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
 
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
@@ -58,8 +58,6 @@ lab_results_real <- lab_results_real[elapsed_mins >= -120]
 
 
 # Transform data ----------------------------------------------------------
-
-
 
 # create out of range values
 lab_results_real <- lab_results_real %>% 

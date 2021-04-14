@@ -301,7 +301,7 @@ print(rpt(ED_bed_moves_raw)) # has location info
 
 # select csns that began before the beginning of epic
 
-ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-04-30")
+ED_csn_summ_raw <- ED_csn_summ_raw %>% filter(admission_time > "2019-05-01 00:00:00") 
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>%  inner_join(ED_csn_summ_raw %>% select(csn))
 

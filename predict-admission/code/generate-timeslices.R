@@ -65,10 +65,10 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   obs_cutoff <- obs_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
   
   # add number of observation measurements up to cutoff
-  obs_cutoff[, o_num_all := .N, by = csn]
+  obs_cutoff[, o_num_meas := .N, by = csn]
   
   # add number of types of results by csn
-  obs_cutoff_csn <- merge(unique(obs_cutoff[, .(csn, o_num_all)]), 
+  obs_cutoff_csn <- merge(unique(obs_cutoff[, .(csn, o_num_meas)]), 
                           obs_cutoff[, .(o_num_types = uniqueN(obs_name)), by = csn], by = "csn")
   
   # add number of observation events per csn
@@ -79,14 +79,14 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   # obs_cutoff_csn[, o_num := o_num - o_num_Bloodpressure_sys]
   obs_cutoff_csn[, o_has := 1] # this will be 1 for all csns currently; zeros added later
 
-  
+
   # add count of times when O2 sat dropped below 90 or 95
 
-  sat_lt90 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 90, .N, by = .(csn)] 
+  sat_lt90 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 90, .N, by = .(csn)]
   setnames(sat_lt90, "N", "o_num_o2sat_lt90")
-  sat_lt95 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 95, .N, by = .(csn)] 
+  sat_lt95 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 95, .N, by = .(csn)]
   setnames(sat_lt95, "N", "o_num_o2sat_lt95")
-  
+
   obs_cutoff_csn <- merge(obs_cutoff_csn, sat_lt90, all.x = TRUE, by = "csn")
   obs_cutoff_csn <- merge(obs_cutoff_csn, sat_lt95, all.x = TRUE, by = "csn")
     
@@ -112,91 +112,63 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   
   obs_cutoff_csn <- merge(obs_cutoff_csn, GCS_lt9, all.x = TRUE, by = "csn")
   
-  # generate counts of obs meas by csn
+  # generate counts of each observation by csn
   obs_cutoff_csn_w <- obs_cutoff[, .N, by = .(csn, obs_name)] %>%
     pivot_wider(names_from = obs_name, names_prefix = "o_num_", values_from = N, values_fill = 0)
+  
+  obs_cutoff_csn_w <- obs_cutoff_csn_w %>% select(-o_num_Bloodpressure_dia)
+  obs_cutoff_csn_w <- obs_cutoff_csn_w %>% rename(o_num_Bloodpressure = o_num_Bloodpressure_sys)
+  
   obs_cutoff_csn <- data.table(merge(obs_cutoff_csn, obs_cutoff_csn_w))
-  # 
-  # 
-  # print("Processing observation values")
-  # # Note - this uses a different table due to handling of NA values later on
-  # 
-  # # add min for each measurement
-  # obs_cutoff_csn_val <- data.table(
-  #   obs_cutoff[!is.na(value_as_real),  min(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
-  #   pivot_wider(names_from = obs_name, names_prefix = "o_min_", values_from = V1)
-  # )
-  # 
-  # # add max score for each measurement
-  # obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
-  #   obs_cutoff[!is.na(value_as_real),  max(value_as_real, na.rm = TRUE), by = .(csn, obs_name)] %>% 
-  #     pivot_wider(names_from = obs_name, names_prefix = "o_max_", values_from = V1)
-  # ))
-  # 
-  # # add latest score for each measurement
-  # obs_cutoff_csn_val <- merge(obs_cutoff_csn_val, data.table(
-  #     obs_cutoff %>% 
-  #       group_by(csn, obs_name) %>% 
-  #       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
-  #       # using max allows for possibility of two measurements in same minute
-  #       summarise(latest_obs_name = max(value_as_real, na.rm = TRUE))  %>%  
-  #       pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_obs_name)    
-  #   ))
+  
+  # add valued obs data
+  obs_cutoff_csn_val <- data.table(
+    obs_cutoff %>% 
+      filter(obs_name %in% c("TempinCelsius", "Heartrate","MAPnoninvasive", "Respiratoryrate", "FiO2" )) %>% 
+      group_by(csn, obs_name) %>%
+      filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
+      # using max allows for possibility of two measurements in same minute
+      summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%
+      pivot_wider(names_from = obs_name, names_prefix = "p_latest_", values_from = latest_value)
+  )
+    
   # 
   # add lab data
   
   print("Processing lab numbers")
   
   # select for cutoff
-  lab_cutoff <- lab_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
+  lab_orders_cutoff <- lab_orders_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
+  lab_results_cutoff <- lab_results_real[elapsed_mins < cutoff + (nextcutoff - cutoff)/2]
   
-  # # add number of observation measurements up to cutoff
-  # lab_cutoff[, p_num := .N, by = csn]
-  # 
-  # add number of types of results by csn
-  # lab_cutoff_csn <- lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn]
-  
-  # lab_cutoff_csn <- merge(unique(lab_cutoff[, .(csn, p_num)]), 
-  #                         lab_cutoff[, .(p_num_types = uniqueN(test_lab_code)), by = csn], by = "csn")
-  
-  # add number of lab events per csn
-  lab_cutoff_csn <- lab_cutoff[, .(p_num_events = uniqueN(elapsed_mins)), by = csn]
+  # # add number of lab orders up to cutoff
+  # lab_cutoff[, p_num_orders := .N, by = csn]
+
+  # add number of types of orders by csn
+  lab_cutoff_csn <- lab_orders_cutoff[, .(p_num_battery = uniqueN(battery_code)), by = csn]
   
   # add number of lab results that are out of range high and low
-  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn])
-  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn])
-  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn])
+  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn])
+  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn])
+  lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn])
   
   # add whether each cluster was requested
   
-  lab_cutoff = setorder(lab_cutoff, cluster)
-  lab_cutoff_csn_cluster = lab_cutoff[!is.na(cluster), (N =.N > 0), by = .(csn, cluster)] %>% 
-       pivot_wider(names_from = cluster, names_prefix = "p_req_cluster", values_from = V1, values_fill = 0)
+  lab_cutoff_csn_battery = lab_orders_cutoff[, (N =.N > 0), by = .(csn, battery_code)] %>% 
+       pivot_wider(names_from = battery_code, names_prefix = "p_req_battery_", values_from = V1, values_fill = 0)
   
-  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_cluster))
+  lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
   
-  # # generate counts of obs meas by csn
-  # lab_cutoff_csn_w <- lab_cutoff[, .N, by = .(csn, test_lab_code)] %>% 
-  #   pivot_wider(names_from = test_lab_code, names_prefix = "p_num_", values_from = N, values_fill = 0)
-  # lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_w))
-  
-
-  # # generate abnormal results by lab test - note that this treats people without a lab test
-  # # the same as people with a lab test result returned as normal
-  # lab_cutoff_csn_abnormal <- lab_cutoff[(abnormal), .(N = .N >0), by = .(csn, test_lab_code)] %>% 
-  #   pivot_wider(names_from = test_lab_code, names_prefix = "p_abnormal_", values_from = N, values_fill = NA)
-  # lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_abnormal))
-  # 
-  # 
-  # # add latest score for each lab
-  # lab_cutoff_csn_val <- data.table(
-  #   lab_cutoff %>% 
-  #     group_by(csn, test_lab_code) %>% 
-  #     filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>% 
-  #     # using max allows for possibility of two measurements in same minute
-  #     summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%  
-  #     pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)    
-  # )
+  # add score for each lab test in APACHE
+  lab_cutoff_csn_val <- data.table(
+    lab_results_cutoff %>%
+      filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")) %>% 
+      group_by(csn, test_lab_code) %>%
+      filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
+      # using max allows for possibility of two measurements in same minute
+      summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%
+      pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)
+  )
   
 
   
@@ -219,8 +191,8 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   
   # add other info where there may be genuine NAs
   matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff], by = c("csn", "adm")) 
-  # matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, all.x = TRUE) 
-  # matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, all.x = TRUE) 
+  matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, by = "csn", all.x = TRUE) 
+  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, by = "csn", all.x = TRUE)
   matrix_cutoff[, duration := NULL]
   
   return(matrix_cutoff)
@@ -232,24 +204,27 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
 # load data
 # =========
 
-file_date = '2021-03-16'
+file_date = '2021-04-13'
 
 load(paste0("~/EDcrowding/flow-mapping/data-raw/moves_", file_date,".rda"))
 load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
+load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
 
-file_date = '2021-03-16'
+
 
 # observation data
+file_date = '2021-04-14'
 load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda"))
 
-file_date = '2021-03-16'
+
 # lab data
-load(paste0("~/EDcrowding/predict-admission/data-raw/lab_real_", file_date,".rda"))
+file_date = '2021-04-14'
+load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
+load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 
-file_date = '2021-03-01'
-
-# prior visit info
-load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
+# keep only lab orders that are used more than 50 times
+battery_count = lab_orders_real[, .N, by = battery_code]
+lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
 
 
 
@@ -395,9 +370,7 @@ save(dm030, file = paste0("EDcrowding/predict-admission/data-raw/dm030_",today()
 save(dm060, file = paste0("EDcrowding/predict-admission/data-raw/dm060_",today(),".rda"))
 save(dm090, file = paste0("EDcrowding/predict-admission/data-raw/dm090_",today(),".rda"))
 save(dm120, file = paste0("EDcrowding/predict-admission/data-raw/dm120_",today(),".rda"))
-# save(dm150, file = paste0("EDcrowding/predict-admission/data-raw/dm150_",today(),".rda"))
 save(dm180, file = paste0("EDcrowding/predict-admission/data-raw/dm180_",today(),".rda"))
-# save(dm210, file = paste0("EDcrowding/predict-admission/data-raw/dm210_",today(),".rda"))
 save(dm240, file = paste0("EDcrowding/predict-admission/data-raw/dm240_",today(),".rda"))
 save(dm300, file = paste0("EDcrowding/predict-admission/data-raw/dm300_",today(),".rda"))
 save(dm360, file = paste0("EDcrowding/predict-admission/data-raw/dm360_",today(),".rda"))

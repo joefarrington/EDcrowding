@@ -16,7 +16,7 @@ library(readr)
 
 # Load data ---------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-04-13.rda")
+load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-04-14.rda")
 load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
 
@@ -32,15 +32,9 @@ vo_mapping = vo_mapping[,.(`Friendly name`, `epic id`)]
 setnames(vo_mapping, "Friendly name", "obs_name")
 setnames(vo_mapping, "epic id", "id_in_application")
 
-vo_type <- read_delim("~/expdata visit_obervation_type.csv", 
-                      ";", escape_double = FALSE, trim_ws = TRUE) %>% data.table()
-
-setnames(vo_type, "visit_observation_type", "visit_observation_type_id")
-vo_mapping = unique(merge(vo_mapping, vo_type[,.(visit_observation_type_id, id_in_application)], by = "id_in_application"))
-
 # these 5 types have multiple mappings
-vo_mapping[,.N, by = visit_observation_type_id][N>1]
-vo_mapping = unique(vo_mapping[, obs_name := max(obs_name), by = visit_observation_type_id])
+vo_mapping[,.N, by = id_in_application][N>1]
+vo_mapping = unique(vo_mapping[, obs_name := max(obs_name), by = id_in_application])
 vo_mapping[, obs_name := gsub(" ", "", obs_name)]
 
 # Process data ------------------------------------------------------------
@@ -64,25 +58,40 @@ obs_real <- obs_real[elapsed_mins >= -120]
 
 
 # add obs description
-obs_real[, visit_observation_type_id := as.character(visit_observation_type_id)]
-vo_mapping[, visit_observation_type_id := as.character(visit_observation_type_id)]
+obs_real[, id_in_application := as.numeric(id_in_application)]
 
-obs_real = merge(obs_real, vo_mapping, by = "visit_observation_type_id", allow.cartesian=TRUE, all.x = TRUE)
+obs_real = merge(obs_real, vo_mapping, by = "id_in_application", allow.cartesian=TRUE, all.x = TRUE)
 
 # remove rows where there is no obs_name - ie not in mapping
 obs_real = obs_real[(!is.na(obs_name))]
 
-# remove observations whare are used less than 50 times
+# remove observations whare are used less than 500 times
 obs_real[, times_used := .N, by = obs_name]
-obs_real = obs_real[times_used > 50]
+obs_real = obs_real[times_used > 500]
 
 # remove reported symptoms as this is free text and not widely used (only 1825 csns from Jan 2020 to end Feb 2021)
 obs_real = obs_real[obs_name != "Reportedsymptomsonadmission"]
 
 # Transform data ----------------------------------------------------------
 
+# Temperature measured in both celcius and farenheit
+# Note that making a manual conversion will generate a different values to the original temp value
+obs_real[obs_name == "Temperature", value_as_real := (value_as_real - 32) * 5/9]
+obs_real[obs_name %in% c("Temperature", "Temp(inCelsius)"), num_temp_in_dttm := .N, by = .(csn, observation_datetime)]
+obs_real[num_temp_in_dttm == 2 & obs_name == "Temperature", delete_row := TRUE]
+obs_real = obs_real[is.na(delete_row)]
+obs_real[obs_name == "Temperature", obs_name := "Temp(inCelsius)"]
 
-# convert ACVPU
+# remove duplicate measurements (there are still a bunch with multiple temp measurements in one obs event)
+obs_real[obs_name %in% c("Temperature", "Temp(inCelsius)"), num_temp_in_dttm := .N, by = .(csn, observation_datetime)]
+obs_real[num_temp_in_dttm > 1]
+
+# first delete cols id_in_application and visit_observation_type_id as these have diff values for celcius and f meas
+obs_real[, id_in_application := NULL]
+obs_real[, visit_observation_type_id := NULL]
+obs_real = unique(obs_real)
+
+# convert ACVPU to numeric
 obs_real[, value_as_real := case_when(obs_name == "ACVPU" & value_as_text == "A" ~ 1,
                                  obs_name == "ACVPU" & value_as_text == "C" ~ 2,
                                  obs_name == "ACVPU" & value_as_text == "V" ~ 3,
@@ -91,7 +100,7 @@ obs_real[, value_as_real := case_when(obs_name == "ACVPU" & value_as_text == "A"
                                  TRUE ~ value_as_real
                                                     )]
                                
-# convert Bloodpressure
+# convert Bloodpressure to numeric
 
 Bloodpressure <- as_tibble(obs_real[obs_name == "Bloodpressure"]) %>% select(-value_as_real, -obs_name) %>% 
   separate(value_as_text, into = c("Bloodpressure_sys","Bloodpressure_dia"), sep = "/") %>% 
@@ -120,21 +129,9 @@ obs_real[obs_name == "Painscore-verbalonmovement", value_as_real := as.numeric(v
 
 # remove outliers
 obs_real <- obs_real %>%
-  mutate(value_as_real = case_when(value_as_real >115 & obs_name == "Temperature" ~ NA_real_,
+  mutate(value_as_real = case_when(value_as_real >46 & obs_name == "Temp(inCelsius)" ~ NA_real_,
                                     TRUE ~ value_as_real))
 
-# # convert factors
-# 
-# for (obs_name_ in names(table(obs_real[is.na(value_as_real), obs_name]))) {
-#   print(obs_name_)
-#   print(table(obs_real[obs_name == obs_name_, value_as_text]))
-#  # obs_real[obs_name == obs_name_, value_as_factor := factor(value_as_text)]
-# }
-# 
-# obs_real[is.na(value_as_real), value_as_factor := factor(value_as_text)]
-# 
-# obs_real <- obs_real %>%
-#   filter(!is.na(value_as_real))
 
 # Save data ---------------------------------------------------------------
 

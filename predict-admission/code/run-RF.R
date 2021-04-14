@@ -26,7 +26,9 @@ use_dataset = "Post"
 
 base_model = FALSE
 tune_num.trees = FALSE
-tune_mtry = TRUE
+tune_mtry = FALSE
+tune_sample.fraction = TRUE
+tune_class.weights = FALSE
 
 
 
@@ -97,26 +99,36 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 train_learner <- function(learner, tsk, tsk_train_ids, 
                           # initialise params at default values
                           num.trees = 500,
-                          mtry = NA
+                          mtry = NA,
+                          class.weights = NA,
+                          sample.fraction = NA
 ) {
   
   learner$param_set$values = insert_named(
-    learner$param_set$values,
+    learner$param_set$values, 
     list(
       "num.trees" = num.trees
-      
     )
   )
   
   if (!is.na(mtry)) {
     learner$param_set$values = insert_named(
-      learner$param_set$values,
-      list(
-        "mtry" = mtry
+      learner$param_set$values, list("mtry" = mtry))
+  }
+  
+  if (!is.na(class.weights)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,list("class.weights" = class.weights
       )
     )
-    
   }
+  if (!is.na(sample.fraction)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,list("sample.fraction" = sample.fraction
+      )
+    )
+  }
+  
   
   # train learner on training set
   set.seed(17L)
@@ -129,11 +141,13 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
                          # initialise params at default values
                          num.trees = 500,
                          num.threads = 8,
-                         mtry = NA
+                         mtry = NA,
+                         class.weights = NA, 
+                         sample.fraction = NA
                          ) {
   
   learner$param_set$values = insert_named(
-    learner$param_set$values,
+    learner$param_set$values, 
     list(
       "num.trees" = num.trees,
       "num.threads" = num.threads
@@ -143,9 +157,18 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
   
   if (!is.na(mtry)) {
     learner$param_set$values = insert_named(
-      learner$param_set$values,
-      list(
-        "mtry" = mtry
+      learner$param_set$values, list("mtry" = mtry))
+  }
+  
+  if (!is.na(class.weights)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,list("class.weights" = class.weights
+      )
+    )
+  }
+  if (!is.na(sample.fraction)) {
+    learner$param_set$values = insert_named(
+      learner$param_set$values,list("sample.fraction" = sample.fraction
       )
     )
   }
@@ -168,26 +191,14 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
                      tn = rr$aggregate(msr("classif.tn")),
                      num.trees = num.trees,
                      mtry = mtry,
+                     class.weights = class.weights,
+                     sample.fraction = sample.fraction, 
                      dttm = now()
   )
   
   scores <- bind_rows(scores, score)
 }
 
-update_learner <- function(learner
-) {
-  
-  if (!is.na(num.trees)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("num.trees" = num.trees))
-  }
-  
-  if (!is.na(mtry)) {
-    learner$param_set$values = insert_named(learner$param_set$values, list("mtry" = mtry))
-  }
-  
-  
-  return(learner)
-}
 
 get_preds <- function(name_tsk, tsk, learner, train_or_val_ids, tsk_ids, tuning_round, param_value, preds, model_features) {
   pred_values = learner$predict(tsk, row_ids = train_or_val_ids)
@@ -247,6 +258,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
                      tn = pred_val$score(msr("classif.tn")),
                      num.trees = learner$param_set$values$num.trees,
                      mtry = learner$param_set$values$mtry,
+                     sample.fraction = learner$param_set$values$sample.fraction,
                      dttm = now()
   ) 
   
@@ -456,17 +468,117 @@ if (tune_mtry) {
   } 
   
 
-  # print ("Best results:")
-  # scores <- data.table(scores)
-  # print(scores[tsk_ids == "val" & tuning_round == "nrounds" & model_features == model_features
-  #              , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, nrounds)])
-  # 
-  # scores[tsk_ids == "val" & tuning_round == "nrounds" & model_features == model_features] %>%
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
-  #   labs(y = "logloss", title = "Results of tuning nrounds of XGBoost for each timeslice - logloss scores")
-  # 
+  print ("Best results:")
+  scores <- data.table(scores)
+  print(scores[tsk_ids == "val" & tuning_round == "mtry" & model_features == model_features
+               , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, mtry)])
+
+  scores[tsk_ids == "val" & tuning_round == "mtry" & model_features == model_features] %>%
+    pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+    ggplot(aes(x = mtry, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+    labs(y = "logloss", title = "Results of tuning nrounds of mtry for each timeslice - logloss scores")
+
 
 }
 
+
+# Tune sample fraction
+# https://stats.stackexchange.com/questions/400591/what-is-the-underlying-reasoning-behind-sample-fraction-or-nsamp-option-in-range
+
+if (tune_sample.fraction) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    
+    mtry = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & 
+                                  tuning_round == "mtry",
+                                .SD[which.min(logloss)], by = list(timeslice)][,.(mtry)])
+
+    for(sample.fraction in c(0.25, 0.5, .75, 1)) {
+      
+      # get scores on training set using cross-validation
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "sample.fraction", 
+                             # setting number of trees to be 100 based on tuning done on 2021-03-30
+                             num.trees = 50, 
+                             mtry = mtry,
+                             sample.fraction = sample.fraction,
+                             scores, model_features)
+      
+      # train on full training set and save results on validation set
+      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", 
+                             tuning_round = "sample.fraction", 
+                             scores, model_features)
+      
+      save(scores, file = scores_file) 
+    }
+  } 
+  
+
+  print ("Best results:")
+  scores <- data.table(scores)
+  print(scores[tsk_ids == "val" & tuning_round == "sample.fraction" & model_features == model_features
+               , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, sample.fraction)])
+
+  scores[tsk_ids == "val" & tuning_round == "sample.fraction" & model_features == model_features] %>%
+    pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+    ggplot(aes(x = sample.fraction, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+    labs(y = "logloss", title = "Results of tuning nrounds of sample.fraction for each timeslice - logloss scores")
+
+  
+}
+
+# Tune class weight -------------------------------------------------------
+
+
+if (tune_class.weights) {
+  
+  for (ts_ in timeslices) {
+    name_tsk <- paste0("task", ts_)
+    tsk = get(name_tsk)
+    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+    
+    
+    mtry = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & 
+                               tuning_round == "mtry",
+                             .SD[which.min(logloss)], by = list(timeslice)][,.(mtry)])
+    
+    for(class.weights in c(0.5, 2)) {
+      
+      # get scores on training set using cross-validation
+      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+                             tuning_round = "class.weights", 
+                             # setting number of trees to be 100 based on tuning done on 2021-03-30
+                             num.trees = 50, 
+                             mtry = mtry,
+                             class.weights = class.weights,
+                             scores, model_features)
+      
+      # train on full training set and save results on validation set
+      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val", 
+                             tuning_round = "class.weights", 
+                             scores, model_features)
+      
+      save(scores, file = scores_file) 
+    }
+  } 
+  
+  # 
+  # print ("Best results:")
+  # scores <- data.table(scores)
+  # print(scores[tsk_ids == "val" & tuning_round == "class.weights" & model_features == model_features
+  #              , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, mtry)])
+  # 
+  # scores[tsk_ids == "val" & tuning_round == "mtry" & model_features == model_features] %>%
+  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+  #   ggplot(aes(x = mtry, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+  #   labs(y = "logloss", title = "Results of tuning nrounds of mtry for each timeslice - logloss scores")
+  # 
+  
+}
 
