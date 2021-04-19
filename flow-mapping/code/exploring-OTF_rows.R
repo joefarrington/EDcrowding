@@ -1,4 +1,10 @@
 
+# About this file ---------------------------------------------------------
+
+# thiS looks at whether people in OTF are still physically in ED
+# if someone arrives in the location previously occupied by someone
+# now marked at OTF, that suggests that these people are not still
+# occupying a location
 
 # Investigating OTF -------------------------------------------------------
 

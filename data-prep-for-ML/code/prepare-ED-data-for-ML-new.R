@@ -25,54 +25,70 @@ rpt <- function(dataframe) {
 # Load data ---------------------------------------------------------------
 
 
-load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-01-27.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-01-27.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-27.rda")
+load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
+
+# temporarily for old data
+load("~/EDcrowding/data-prep-for-ML/data-raw/edgedf_2021-03-03.rda")
+load("~/EDcrowding/data-prep-for-ML/data-raw/moves_2021-03-03.rda")
+load("~/EDcrowding/data-prep-for-ML/data-raw/summ_2021-03-03.rda")
 
 # Set parameters ----------------------------------------------------------
 
 
 matrix_start_date <- as.POSIXct("2019-05-01 00:00:00")
-matrix_end_date <- as.POSIXct("2021-01-25 00:00:00")
+matrix_end_date <- as.POSIXct('2020-03-19 00:00:00')
 covid_start <- as.POSIXct('2020-03-19 00:00:00')
 
 
 # Pre-process data ----------------------------------------------------
 
 summ = summ[admission_time >= matrix_start_date]
+summ = summ[admission_time < matrix_end_date]
 
-# to see implications of this cut point as a chart
-summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
-summ[presentation_time > '2020-02-01' & presentation_time < '2020-06-01', .N, by = list(date(presentation_time), adm)] %>% 
-  ggplot(aes(x = date, y = N, fill = as.character(adm))) +
-  scale_x_date(date_breaks = "weeks" , date_labels = "%m/%d") +
-  geom_bar(stat = "identity") +
-  labs(title = paste0("Number of admissions and discharges from 1 Feb to 31 May 2020 showing Covid cut point of ",date(covid_start)),
-       fill = "Admitted (1 = True)") +
-  theme(legend.position = "bottom") +
-  geom_vline(xintercept = date(covid_start), linetype = "dashed")
-rpt(summ)
+# # to see implications of this cut point as a chart
+# summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
+# summ[presentation_time > '2020-02-01' & presentation_time < '2020-06-01', .N, by = list(date(presentation_time), adm)] %>% 
+#   ggplot(aes(x = date, y = N, fill = as.character(adm))) +
+#   scale_x_date(date_breaks = "weeks" , date_labels = "%m/%d") +
+#   geom_bar(stat = "identity") +
+#   labs(title = paste0("Number of admissions and discharges from 1 Feb to 31 May 2020 showing Covid cut point of ",date(covid_start)),
+#        fill = "Admitted (1 = True)") +
+#   theme(legend.position = "bottom") +
+#   geom_vline(xintercept = date(covid_start), linetype = "dashed")
+# rpt(summ)
 
 
 # remove minority locations
 edgedf[, from := case_when(from == "OTF POOL" ~ "OTF",
                            from %in% c("PAEDS", "SAA") ~ "Other",
                            from == "UCHT00CDU" ~ "CDU",
+                           from == "WR_POOL" ~ "Waiting",
                            TRUE ~ from)]
 
 edgedf[, to := case_when(to == "OTF POOL" ~ "OTF",
                            to %in% c("PAEDS", "SAA") ~ "Other",
                            to == "UCHT00CDU" ~ "CDU",
+                           to == "WR_POOL" ~ "Waiting",
+                         
                            TRUE ~ to)]
 
 moves[, location := case_when(location == "OTF POOL" ~ "OTF",
                               location %in% c("PAEDS", "SAA") ~ "Other",
                               location == "DIAGNOSTICS" & admission > date(covid_start) ~ "Other",
                               location == "UCHT00CDU" ~ "CDU",
+                              location == "WR_POOL" ~ "Waiting",
+                              
                               TRUE ~ location)]
 
 
-
+# # I considered merging wtih summ to get first outside ED exit; this is to avoid double counting of cases where there is more than one exit
+# # but then we lose people with first outside admission prior to ED - commenting this out for now
+# rpt(moves[num_ED_exit > 1]) 
+# edgedf = merge(edgedf, summ[,.(csn, adm, first_outside_proper_admission)], by = "csn")
+# edgedf[, drop_row := (adm %in% c("indirect_adm", "direct_adm") & dttm > first_outside_proper_admission)]
+# edgedf = edgedf[!(drop_row)]
 
 # Create adjacency matrix for the two epochs ------------------------------
 
@@ -184,6 +200,9 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   for (i in 2:length(date_range)) {
     adm = data.table(edgedf[from_dept %in% c("ED", "UCHT00CDU") & !(to_dept %in% c("ED", "UCHT00CDU") | is.na(to_dept)) & dttm > date_range[i-1] & dttm <= date_range[i], .N])
     adm$DateTime = date_range[i] 
+    # adm$i = i
+    # adm$first_outside_prop = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
+    # adm$first_inside_exit = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
     adm_during_hour = bind_rows(adm_during_hour, adm)
   }
   

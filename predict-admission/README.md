@@ -4,7 +4,7 @@ This is a series of files to extract data from Star and predict admissions from 
 
 ## Order to run files in
 
-### 1. get-obs-lab-data-from-star_a.R
+### 1. get-obs-lab-data-from-star.R
 
 Output
 - obs_raw 
@@ -19,14 +19,13 @@ Cleans non-numeric fields to make them numeric (e.g. separates blood pressure in
 Names of flowsheet measurements are cleaned
 
 Input
-- fs_raw 
-- ED_csn_summ (to get presentation and discharge from ED time)
+- obs_raw 
+- summ (to get presentation and discharge from ED time)
 
 Output
-- fs_real - all data from selected flowsheet measurements in long matrix
-- fs_num - one row per csn with zeroes for all non-existent measurements
+- obs_real - all data from selected flowsheet measurements in long matrix
 
-Note that both of these files exclude any csns that did not have flowsheet measurements
+Note that this excludes any csns that did not have obs measurements
 
 
 ### 3. clean_lab_data.R
@@ -34,17 +33,13 @@ Note that both of these files exclude any csns that did not have flowsheet measu
 Takes lab data and removes any csns that are not included in ED_bed_moves. Includes some processing to map the csns in labs to revised csns that were generated in the process of cleaning/creating ED_bed_mvoes. Uses foreign and primary keys on bed_moves to do this.
 
 Input
-- lab_raw - including those retrieved from both Star and flow 
-- ED_bed_moves
-- ED_csn_summ
-- excluded_csns
+- lab_orders_raw 
+- lab_results_raw
+- summ
 
 Output
-- lab_raw_exluded_csns - all data from labs in long matrix
-- lab_real - all numeric data from labs in long matrix
-- lab_num_results - (long matrix) for each mrn, csn, fk_bed_moves and local_code, a count of the number of results
-- lab_num_results_with_zero (wide matrix; one row per csn and fk_bed_moves (location) with NAs replaced with zeroes for all non-existent lab results at that location)
-- lab_num_results_with_zero_csn_level (wide matrix; one row per csn with NAs replaced with zeroes for all non-existent lab results)
+- lab_orders_real
+- lab_results_real
 
 Note that all of these files exclude any csns that did not have lab measurements
 

@@ -6,7 +6,119 @@
 # in a material way
 
 
+
+# Functions ---------------------------------------------------------------
+
+
+rpt <- function(dataframe) {
+  print(dataframe %>% select(csn) %>% n_distinct())
+}
+
+# Load libraries ----------------------------------------------------------
+
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(data.table)
+
+
+
+# Load data ----------------------------------------------------------------
+
+# newest data
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-24.rda")
+summ_new = summ
+rpt(summ_new)
+max(summ_new$presentation_time)
+
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-25.rda")
+summ_old = summ
+summ_old = summ_old[presentation_time > '2019-05-01 00:00:00']
+min(summ_old$presentation_time)
+
+summ_old = summ_old[!csn %in% summ_new$csn]
+rpt(summ_old)
+
+
+summ = bind_rows(summ_old, summ_new)
+rpt(summ)
+
+# Mark pre and post COVID -------------------------------------------------
+
+summ[, COVID := case_when(presentation_time < '2020-03-19 00:00:00' ~ "Pre",
+                         TRUE ~ "Post")]
+
 # Do train-test-val split  -----------------------------------------------------------------
+
+summ[, set_ := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
+                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
+                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
+                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
+                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
+                         TRUE ~ "Test",)]
+
+summ[, set_ := factor(set_, levels = c("Train", "Val", "Test"))]
+
+summ[, adm := if_else(adm %in% c("direct_dis", "indirect_dis"), "Discharged", "Admitted")]
+
+# number of arrivals
+summ[, .N, by = .(date(presentation_time), set_)] %>% ggplot(aes(x = date, y = N, fill = set_)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Number of visits by day",
+       x = "Date", 
+       y = "Number of visits",
+       fill = "Set") +
+  geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) 
+
+
+# Raw nuumbers 
+summ[, .N, by = .(COVID, set_)] %>% ggplot(aes(x = fct_rev(COVID), y = N, fill = set_)) + geom_bar(stat = "identity") +
+  labs(title = "Numbers in each set during each period",
+       x = "COVID period", 
+       y = "Number of visits",
+       fill = "Set") 
+
+# Raw nuumbers to get counts on the plot
+summ %>%  ggplot(aes(x = fct_rev(COVID), fill = set_)) + geom_bar(stat = "count") +
+  labs(title = "Number of visits in each set during each period",
+       x = "COVID period", 
+       y = "Number of visits",
+       fill = "Set") + 
+  stat_count(geom = "text", colour = "black", size = 3.5,
+             aes(label = ..count..),position=position_stack(vjust=0.5))
+  
+
+
+
+
+
+# Proportions 
+summ[, .N, by = .(COVID, set_)] %>% ggplot(aes(x = fct_rev(COVID), y = N, fill = set_)) + geom_bar(stat = "identity", position = "fill") +
+  labs(title = "Proportions in each set during each period",
+       x = "COVID period", 
+       y = "Number of visits",
+       fill = "Set") 
+
+
+
+# number of admissions with lines
+summ[, .N, by = .(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = fct_rev(adm))) + 
+  geom_bar(stat = "identity") +
+  geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) +
+  labs(title = "Number of admissions and discharges by day",
+       x = "Date", 
+       y = "Number of visits",
+       fill = "Disposition") 
+
+# proportion of admissions with lines
+summ[, .N, by = .(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = fct_rev(adm))) + 
+  geom_bar(stat = "identity", position = "fill") +
+  geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) +
+  labs(title = "Proportion of admissions and discharges by day",
+       x = "Date", 
+       y = "Number of visits",
+       fill = "Disposition") 
+
 
 
 # I first did this - but note this does not stratify using the dependent variable
@@ -34,7 +146,7 @@ dm = merge(dm, row_ids, by = "row_id")
 
 
 
-timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
+timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
 
 adm_summ <- data.table()
 set_summ <- data.table()

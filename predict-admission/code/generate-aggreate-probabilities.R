@@ -38,10 +38,11 @@ summ = summ[!is.na(discharge_time)]
 
 # added this while using only part of the dataset - need to change it later
 summ = summ[date(presentation_time) > '2020-04-01']
+summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
 
 # load predictions (output from ML)
-preds_file <- paste0("~/EDcrowding/predict-admission/data-output/preds_",today(),".rda")
+load("~/EDcrowding/predict-admission/data-output/preds_2021-02-23.rda")
 load(preds_file)
 
 timeslices <- c("000", "015", "030", "060", "120", "180", "240", "300", "360")
@@ -91,44 +92,153 @@ while (last_pt + hours(12) < max(summ$presentation_time, na.rm = TRUE)) {
   
 }
 
+# To get probability distribution for time to admission for each timeslice ----------------------------
 
-# Get probability distribution for all patients together -------------------------------------
+
+summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
+
+summ[,task000 := 1]
+summ[,task015 := if_else(ED_duration > 15, 1, 0)]
+summ[,task030 := if_else(ED_duration > 30, 1, 0)]
+summ[,task060 := if_else(ED_duration > 60, 1, 0)]
+summ[,task120 := if_else(ED_duration > 120, 1, 0)]
+summ[,task180 := if_else(ED_duration > 180, 1, 0)]
+summ[,task240 := if_else(ED_duration > 240, 1, 0)]
+summ[,task300 := if_else(ED_duration > 300, 1, 0)]
+summ[,task360 := if_else(ED_duration > 360, 1, 0)]
+
+# get time to admission after beginning of each timeslice
+tta = data.table(summ %>% filter(!is.na(ED_duration), adm %in% c("direct_adm", "indirect_adm")) %>% 
+                   select(csn, task000:task360, ED_duration) %>% 
+                   pivot_longer(task000:task360, names_to = "timeslice"))
+tta = tta[value ==1]
+tta[, tta := case_when(value ==1 ~ as.numeric(ED_duration - as.numeric(gsub("task","", timeslice))),
+                       TRUE ~ NA_real_)]
+
+# cut this to get whole number of hours until admission (cut at floor)
+tta[, tta_hr := floor(tta/60)]
+
+# generate number of visits in timslice in total
+tta[, num_ts := sum(value), by = timeslice]
+
+# generate cumulative probability of being admitted within a number of hours after timeslice
+tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>% 
+                        group_by(timeslice, num_ts, tta_hr) %>% 
+                        summarise(num_with_tta_in_hr = n()))
+tta_prob[, prob := num_with_tta_in_hr/num_ts]
+tta_prob[, cdf := cumsum(prob), by = timeslice]
+
+# # plot tta after timeslice
+# tta_prob[tta_hr < 24] %>% 
+#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
+#   ggplot(aes(x = tta_hr, y = prob)) + geom_line() + facet_grid(.~timeslice) +
+#   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
+#        x = "Time to admission (hrs)",
+#        y = "Probability")
+# 
+# 
+# # plot cdf by timeslice
+# tta_prob[tta_hr < 48] %>% 
+#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
+#   ggplot(aes(x = tta_hr, y = cdf)) + geom_line() + facet_grid(timeslice~.) +
+#   geom_vline(xintercept = 4, colour = "red") +
+#   labs(title = "Cumulative probability distribution for time to admission after beginning of timeslice (up to 48 hours)",
+#        x = "Time to admission (hrs)",
+#        y = "Probability")
+# 
+# 
+# # to see probs as a wider array
+# 
+# tta_prob %>% 
+#   select(timeslice, tta_hr, prob) %>% 
+#   mutate(timeslice = as.numeric(gsub("timeslice", "", timeslice))) %>% 
+#   pivot_wider(names_from = timeslice, values_from = prob)
+# 
+# tta_prob[, timeslice := as.numeric(gsub("timeslice", "", timeslice))]
+# setorder(tta_prob, timeslice)
+# 
+# tta_prob[tta_hr > 24, sum(prob), by = timeslice]
+# tta_prob[tta_hr > 48, sum(prob), by = timeslice]
+
+
+# # Looking at 360 timeslice ------------------------------------------------
+# 
+# 
+# summ[, los := difftime(last_ED_discharge, presentation_time, units = "hours")]
+# summ[los > 6 & los < 8, .N, by = adm2]
+# summ[los >= 48, .N]
+# 
+# summ[,adm2 := adm %in% c("direct_adm", "indirect_adm")]
+# summ[los > 6 & los < 48] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
+#   labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 48 hours of total length of stay",
+#        x = "Length of stay beyond 6 hours (hours)") +
+#   facet_grid(adm2 ~ .) +
+#   geom_vline(xintercept = 1.5)
+# 
+# 
+# summ[los > 6 & los < 24*30] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
+#   labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 30 days of total length of stay",
+#        x = "Length of stay beyond 6 hours (hours)") +
+#   facet_grid(adm2 ~ .)
+
+
+# Get probability distribution for number admitted at each time point of interest  -------------------------------------
 
 distr_coll = data.table()
 adm_coll = data.table()
 
 for (i in (1:length(time_pts))) {
   
-  in_ED = summ[presentation_time < time_pts[i] &
-          last_ED_discharge > time_pts[i], .(csn, presentation_time, elapsed = difftime(time_pts[i], presentation_time, units = "mins"))]
+  in_ED = summ[first_ED_admission < time_pts[i] & left_ED > time_pts[i], 
+               .(csn, first_ED_admission, 
+               first_outside_proper_admission,
+               elapsed = difftime(time_pts[i], first_ED_admission, units = "mins"),
+               elapsed_time_to_adm = difftime(first_outside_proper_admission, time_pts[i], units = "mins"))]
+
+  in_ED[, adm4 := elapsed_time_to_adm < 4*60]
   
-  in_ED[, timeslice := case_when(elapsed < 15 ~ "timeslice000",
-                                 elapsed < 30 ~ "timeslice015",
-                                 elapsed < 60 ~ "timeslice030",
-                                 elapsed < 120 ~ "timeslice060",
-                                 elapsed < 180 ~ "timeslice120",
-                                 elapsed < 240 ~ "timeslice180",
-                                 elapsed < 300 ~ "timeslice240",
-                                 elapsed < 360 ~ "timeslice300",
-                                 TRUE ~ "timeslice360")]
+  in_ED[, timeslice := case_when(elapsed < 15 ~ "task000",
+                                 elapsed < 30 ~ "task015",
+                                 elapsed < 60 ~ "task030",
+                                 elapsed < 120 ~ "task060",
+                                 elapsed < 180 ~ "task120",
+                                 elapsed < 240 ~ "task180",
+                                 elapsed < 300 ~ "task240",
+                                 elapsed < 360 ~ "task300",
+                                 TRUE ~ "task360")]
   
-  df = setorder(merge(in_ED, preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], by = c("csn", "timeslice")), prob.1)
+  df = setorder(merge(in_ED, preds_all_ts[,.(csn, truth, response, prob.1, prob.0, timeslice)], 
+                      by = c("csn", "timeslice")), prob.1)
+  df = merge(df, tta_prob[tta_hr == 4, .(timeslice, prob_ts_in_4 = cdf)], 
+             by = "timeslice")
   
   # for all patients irrespective of timeslice - a calc of likely number of patients
   
-  num_adm = seq(0,nrow(df), 1)# make an array from 0 admissions to max admissions (ie all patients admitted)
-  pgf = poly_prod(df) # the probabilities of each of these
+  # make an array from 0 admissions to max admissions (ie all patients admitted)
+  num_adm = seq(0,nrow(df), 1)
+  # the probabilities of each of these numbers being admitted
+  pgf = poly_prod(df) 
+  # the probabilities of each of these numbers being admitted within four hours
+  pgf4 = poly_prod(df[, prob.1 := prob.1*prob_ts_in_4]) 
   
-  distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm, probs = pgf, cdf = cumsum(pgf))
-  
+  distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm, 
+                    probs = pgf, cdf = cumsum(pgf), 
+                    prob4 = pgf4, cdf4 = cumsum(pgf4))
   distr_coll = bind_rows(distr_coll, distr)
   
-  adm = sum(df$truth == 1)
-  num_adm = bind_cols(sample_time = time_pts[i], num_adm = adm)
-  
+  num_adm = bind_cols(sample_time = time_pts[i], num_in_ED = nrow(in_ED), 
+                      num_adm = sum(df$truth == 1), 
+                      num_adm4 = sum((df$truth == 1)*df$adm4, na.rm = TRUE))
   adm_coll = bind_rows(adm_coll, num_adm)
 
 }
+
+adm_coll %>% pivot_longer(num_in_ED:num_adm) %>%  
+  ggplot(aes(x = sample_time, y = value, col = name, group = sample_time)) + geom_line() + geom_point() +
+  theme(legend.position = "bottom") +
+  labs(title = "Showing range of sample points over time with number in ED and number admitted",
+       y = "Number of patients",
+       x = "sampled time")
 
 # Create chart showing distributions --------------------------------------
 
@@ -196,24 +306,31 @@ cutoff_cdf_at_mult_days <- cutoff_cdf_at_mult_days %>%
 # therefore I will create a grouped version across all days
 
 cutoff_cdf_normalised <- cutoff_cdf_at_mult_days %>% 
-  group_by(cutoff) %>% summarise(actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
-                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
+  group_by(cutoff) %>% summarise(model_lower_limits = mean(model_lower_cdf, na.rm = TRUE),
+                                 actual_less_than_lower_limit = mean(actual_less_than_lower, na.rm = TRUE),
                                  model_upper_limits = mean(model_upper_cdf, na.rm = TRUE),
-                                 model_lower_limits = mean(model_lower_cdf, na.rm = TRUE))
+                                 actual_less_than_upper_limit = mean(actual_less_than_upper, na.rm = TRUE),
+                                 
+                                 )
 
 
-cutoff_cdf_normalised %>% pivot_longer(actual_less_than_lower_limit:model_lower_limits, 
+
+
+cutoff_cdf_normalised %>% pivot_longer(model_lower_limits:actual_less_than_upper_limit, 
                                        names_to = "model", 
                                        values_to = "proportion") %>% 
+  mutate(model = factor(model, levels = c("model_lower_limits", "actual_less_than_lower_limit", "model_upper_limits", "actual_less_than_upper_limit"))) %>% 
   ggplot(aes(x = cutoff, y = proportion, col = model)) + geom_point() + geom_line()  + theme_classic() +
   scale_x_continuous(breaks = seq(0, 1, .05)) +
   labs(title = paste0("Admission probability distribution evaluation - based on ", length(time_pts), " randomly sampled time points of interest"), 
        y = "Proportion of instances <= X on cdf",
-       subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
-       20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
-       The distribution generated by the model is used to retrieve what x (the number of admissions) would be at each of these 20 points on the cdf",
-       x = "X")  +
-  theme(legend.position = "bottom")
+       # subtitle = "At each time point of interest, probability of admission is calculated for each patient in ED. These probabilities are converted into a cumulative probability distribution.\n
+       # 20 equally spaced points on the cdf are chosen (shown on the X axis); these are the probability that the number of admissions is less than or equal to a number x \n
+       # The distribution generated by the model is used to retrieve what x (the number of admissions) would be at each of these 20 points on the cdf",
+       x = "X",
+       col = "model/actual")  +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("#F8766D" , "#FFB2B2","#00BFC4","#99E4E7", guide = NULL, name = NULL)) 
 
 
 
@@ -222,85 +339,6 @@ cutoff_cdf_normalised %>% pivot_longer(actual_less_than_lower_limit:model_lower_
                 
 
 
-# To get probability distribution for time to admission for each timeslice ----------------------------
-# each of the probs in the resulting tta_prob is a prob that can be put into a Bernouilli trial
-# to get the number of successes (patients) needing a bed in that number of hours
-# should this be a cumulative 
-
-
-
-summ[adm %in% c("direct_adm", "indirect_adm"),ED_duration := difftime(last_ED_discharge, presentation_time, units = "mins")]
-
-summ[,timeslice000 := 1]
-summ[,timeslice015 := if_else(ED_duration > 15, 1, 0)]
-summ[,timeslice030 := if_else(ED_duration > 30, 1, 0)]
-summ[,timeslice060 := if_else(ED_duration > 60, 1, 0)]
-summ[,timeslice120 := if_else(ED_duration > 120, 1, 0)]
-summ[,timeslice180 := if_else(ED_duration > 180, 1, 0)]
-summ[,timeslice240 := if_else(ED_duration > 240, 1, 0)]
-summ[,timeslice300 := if_else(ED_duration > 300, 1, 0)]
-summ[,timeslice360 := if_else(ED_duration > 360, 1, 0)]
-
-# get time to admission after beginning of each timeslice
-tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% select(csn, timeslice000:timeslice360, ED_duration) %>% 
-  pivot_longer(timeslice000:timeslice360, names_to = "in_timeslice"))
-tta = tta[value ==1]
-tta[, tta := case_when(value ==1 ~ as.numeric(ED_duration - as.numeric(gsub("timeslice","", in_timeslice))),
-                       TRUE ~ NA_real_)]
-
-# cut this to get whole number of hours until admission (cut at floor)
-tta[, tta_hr := floor(tta/60)]
-
-# generate number of visits in timslice in total
-tta[, num_ts := sum(value), by = in_timeslice]
-
-# generate propability of being admitted 
-tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>% 
-                        group_by(in_timeslice, num_ts, tta_hr) %>% 
-                        summarise(num_with_tta_in_hr = n()))
-tta_prob[, prob := num_with_tta_in_hr/num_ts]
-
-# plot tta after timeslice
-tta_prob[tta_hr < 24] %>% 
-  mutate(in_timeslice = as.numeric(gsub("timeslice", "", in_timeslice))) %>% 
-  ggplot(aes(x = tta_hr, y = prob.1)) + geom_line() + facet_grid(.~in_timeslice) +
-  labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
-       x = "Time to admission (hrs)",
-       y = "Probability")
-
-# to see probs as a wider array
-               
-tta_prob %>% 
-  select(in_timeslice, tta_hr, prob) %>% 
-  mutate(in_timeslice = as.numeric(gsub("timeslice", "", in_timeslice))) %>% 
-  pivot_wider(names_from = in_timeslice, values_from = prob)
-
-tta_prob[, in_timeslice := as.numeric(gsub("timeslice", "", in_timeslice))]
-setorder(tta_prob, in_timeslice)
-
-tta_prob[tta_hr > 24, sum(prob), by = in_timeslice]
-tta_prob[tta_hr > 48, sum(prob), by = in_timeslice]
-
-
-# Looking at 360 timeslice ------------------------------------------------
-
-
-summ[, los := difftime(last_ED_discharge, presentation_time, units = "hours")]
-summ[los > 6 & los < 8, .N, by = adm2]
-summ[los >= 48, .N]
-
-summ[,adm2 := adm %in% c("direct_adm", "indirect_adm")]
-summ[los > 6 & los < 48] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
-  labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 48 hours of total length of stay",
-       x = "Length of stay beyond 6 hours (hours)") +
-  facet_grid(adm2 ~ .) +
-  geom_vline(xintercept = 1.5)
-
-
-summ[los > 6 & los < 24*30] %>% ggplot(aes(x = los - 6)) + geom_histogram(binwidth = 1) +
-  labs(title = "Length of stay for patients with duration > 6 hours (by whether admitted) - up to 30 days of total length of stay",
-       x = "Length of stay beyond 6 hours (hours)") +
-  facet_grid(adm2 ~ .)
 
 
 # Now taking timeslices into account -------------------------------------------------
@@ -315,8 +353,8 @@ distry_all = data.table()
 for (ts_ in timeslices) {
   name_ts = paste0("timeslice", ts_)
   
-  pgfy = poly_prod(tta_prob[in_timeslice == name_ts])
-  num_hr = seq(0, nrow(tta_prob[in_timeslice == name_ts]), 1)
+  pgfy = poly_prod(tta_prob[timeslice == name_ts])
+  num_hr = seq(0, nrow(tta_prob[timeslice == name_ts]), 1)
   
   distry = bind_cols(timeslice = name_ts, num_hr = num_hr, prob = pgfy, cdf = cumsum(pgfy))
   distry_all = bind_rows(distry_all, distry)
@@ -325,7 +363,7 @@ for (ts_ in timeslices) {
 distry_all %>%  ggplot(aes(x = num_hr, y = prob)) + geom_point() + facet_grid((timeslice ~ .))
 
 # or something much simpler 
-distry_4hr = tta_prob[tta_hr <=4, sum(prob.1), by = in_timeslice]
+distry_4hr = tta_prob[tta_hr <=4, sum(prob.1), by = timeslice]
 
 distrx_coll = data.table()
 
@@ -353,7 +391,7 @@ for (i in (1:length(time_pts))) {
       
       num_adm = seq(0,nrow(dfx), 1) # number of patients in timeslice at sample time
       pgfx = poly_prod(dfx) # the probabilities of each of these being admitted
-      bernoulli_prob = distry_4hr[in_timeslice == name_ts, V1] # the probability of this being within four hours
+      bernoulli_prob = distry_4hr[timeslice == name_ts, V1] # the probability of this being within four hours
       
       for (j in 1:length(num_adm)) {
         
