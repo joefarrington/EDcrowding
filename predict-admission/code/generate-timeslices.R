@@ -218,7 +218,7 @@ load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda
 
 
 # lab data
-file_date = '2021-04-14'
+file_date = '2021-04-19'
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 

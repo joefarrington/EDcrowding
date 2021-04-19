@@ -21,23 +21,23 @@
 
 # set date of file to include
 
-file_date <- "2021-04-14"
+file_date <- "2021-04-19"
 
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
 use_dataset = "Post"
 
-base_model = TRUE
+base_model = FALSE
 check_eval_metric =  FALSE # keep eval_metric as log_loss
-tune_nr = TRUE
+tune_nr = FALSE
 tune_trees = FALSE
 tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
 recal_nr = FALSE
 tune_samples = FALSE
 tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
 reduce_lr = FALSE
-final_preds = FALSE
+final_preds = TRUE
 
 
 
@@ -1003,7 +1003,7 @@ if (reduce_lr) {
       # get scores on training set using cross-validation
       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
                              tuning_round = "reduce_lr", 
-                             nrounds = params$nrounds*(.3 / eta),
+                             nrounds = as.integer(params$nrounds*(.3 / eta)),
                              max_depth = params$max_depth, 
                              min_child_weight = params$min_child_weight, 
                              # gamma = params$gamma, 
@@ -1035,13 +1035,13 @@ s = data.table(scores[tsk_ids == "val"  & model_features == model_features & dat
 
 s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
   filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
-  ggplot(aes(x = factor(tuning_round, 
-                        levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")), 
+  ggplot(aes(x = factor(tuning_round,
+                        levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
              y = logloss,
              group = "tuning_round")) +
   geom_line() + geom_point() + facet_grid(. ~ timeslice) +
   theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(title = "Log loss values after each round of tuning - new approach to train-validation-test split",
+  labs(title = "XGBoost Log loss values after each round of tuning (scores on validation set)",
        x = "Tuning round",
        y = "Log loss value")
 
@@ -1084,18 +1084,18 @@ if (final_preds) {
     scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
                            tuning_round = "alpha", scores, model_features, use_dataset)
 
-    name_ts <- paste0("dm", ts_)
-    dt = get(name_ts)
-    
-    dt[, row_id := seq_len(nrow(dt))]
-    
-    # get predictions on validation set
-    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = dt$row_id, tsk_ids = "all", tuning_round = "final_preds", 
-                       param_value = "final_preds",
-                       preds, model_features, use_dataset)   
-    
-    
-    save(preds, file = preds_file)
+    # name_ts <- paste0("dm", ts_)
+    # dt = get(name_ts)
+    # 
+    # dt[, row_id := seq_len(nrow(dt))]
+    # 
+    # # get predictions on validation set
+    # preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = dt$row_id, tsk_ids = "all", tuning_round = "final_preds",
+    #                    param_value = "final_preds",
+    #                    preds, model_features, use_dataset)
+    # 
+    # 
+    # save(preds, file = preds_file)
     
     imps <- get_imps(name_tsk, learner, tsk_ids = "all", tuning_round = "final_preds", 
                        param_value = "final_preds",
@@ -1104,7 +1104,7 @@ if (final_preds) {
     
     save(imps, file = imps_file)
     
-    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/learner_name_tsk_",today(),".rda")
+    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/learner_",name_tsk,"_",today(),".rda")
     save(learner, file = learner_file)
     
   } 
@@ -1112,3 +1112,51 @@ if (final_preds) {
   
   
 }
+
+
+# Plot importances --------------------------------------------------------
+
+imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                                    "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       importance > 0.005] %>% 
+  ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances by timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature")
+
+
+p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       timeslice == "task030"  &
+       importance > 0.01] %>% 
+  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances for 30  min timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature") +
+  theme(legend.position = "bottom")
+
+
+p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       timeslice == "task120"  &
+       importance > 0.01] %>% 
+  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances for 120  min timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature") +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(0,0.25))
+
+library(gridExtra)
+grid.arrange(p1, p2,
+             ncol = 2, nrow = 1)
+~

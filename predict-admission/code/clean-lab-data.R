@@ -39,14 +39,14 @@ setkey(lab_results_real, csn)
 # remove labs that are returned after ED
 
 lab_orders_real <- merge(lab_orders_real, summ[,.(csn, first_ED_admission, left_ED)]) 
-lab_orders_real <- lab_orders_real[order_datetime <= left_ED]
+lab_orders_real <- lab_orders_real[request_datetime <= left_ED]
 
 lab_results_real <- merge(lab_results_real, summ[,.(csn, first_ED_admission, left_ED)]) 
 lab_results_real <- lab_results_real[result_last_modified_time <= left_ED]
 
 
 # add elapsed time
-lab_orders_real[, elapsed_mins := as.numeric(difftime(order_datetime, first_ED_admission, units = "mins"))]
+lab_orders_real[, elapsed_mins := as.numeric(difftime(request_datetime, first_ED_admission, units = "mins"))]
 lab_results_real[, elapsed_mins := as.numeric(difftime(result_last_modified_time, first_ED_admission, units = "mins"))]
 
 
@@ -76,7 +76,7 @@ lab_results_real[, lab_results_real := case_when(is.na(value_as_real) & abnormal
 
 
 # create final dataset of orders
-lab_orders_real <- lab_orders_real[, .(csn, order_datetime, battery_code, elapsed_mins)]
+lab_orders_real <- lab_orders_real[, .(csn, request_datetime, battery_code, elapsed_mins)]
 
 outFile = paste0("EDcrowding/predict-admission/data-raw/lab_orders_real_",today(),".rda")
 save(lab_orders_real, file = outFile)

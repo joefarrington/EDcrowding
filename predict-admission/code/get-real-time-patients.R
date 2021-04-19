@@ -75,8 +75,8 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 # all patients with emergency class now
 
 sqlQuery <- "select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient_class, hv.presentation_time, hv.admission_time,  hv.arrival_method
-    from star_a.hospital_visit hv,
-      star_a.mrn m
+    from star.hospital_visit hv,
+      star.mrn m
   where hv.mrn_id = m.mrn_id
   and patient_class = 'EMERGENCY'
   and hv.discharge_time is NULL
@@ -93,10 +93,10 @@ class_e_now <- class_e_now %>% mutate(time_since_arrival = difftime(Sys.time(), 
 # all patients in ED now
 
 sqlQuery <- "select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient_class, hv.presentation_time, hv.admission_time,  hv.arrival_method, lv.admission_time as admission, lv.discharge_time as discharge, l.location_string
-    from star_a.hospital_visit hv,
-      star_a.mrn m,    
-      star_a.location_visit lv,
-      star_a.location l 
+    from star.hospital_visit hv,
+      star.mrn m,    
+      star.location_visit lv,
+      star.location l 
   where hv.mrn_id = m.mrn_id
   and hv.discharge_time is NULL
   and hv.admission_time is not NULL
@@ -115,16 +115,16 @@ in_ED_now <- in_ED_now %>% mutate(time_since_arrival = difftime(Sys.time(), pres
 
 
 sqlQuery <- "   select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient_class, hv.presentation_time, hv.admission_time,  hv.arrival_method, lv.admission_time as admission, lv.discharge_time as discharge, l.location_string    
-    from star_a.hospital_visit hv,
-      star_a.mrn m,    
-      star_a.location_visit lv,
-      star_a.location l
+    from star.hospital_visit hv,
+      star.mrn m,    
+      star.location_visit lv,
+      star.location l
       where lv.hospital_visit_id in 
             (
             select hv.hospital_visit_id
-            from star_a.hospital_visit hv,
-              star_a.location_visit lv,
-              star_a.location l 
+            from star.hospital_visit hv,
+              star.location_visit lv,
+              star.location l 
           where hv.discharge_time is NULL
           and hv.admission_time is not NULL
           and lv.hospital_visit_id = hv.hospital_visit_id 
@@ -167,7 +167,7 @@ moves_now %>% filter(is.na(discharge)) %>%
   mutate(room = gsub("[0-9]{2}", "", room)) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival), y = room)) + geom_point(size = 4) +
   labs(y = "Current location", x = "Minutes since arrival",
-       title = "Patients in ED at 2021-03-23 16:55:00") + 
+       title = "Patients in ED at 2021-04-19 16:45:00") + 
   theme_grey(base_size = 18) +
   geom_vline(xintercept = timeslices) +
   scale_x_continuous(breaks = c(timeslices, seq(240, 24*60, 120))) + theme(panel.grid.minor = element_blank())
@@ -205,16 +205,16 @@ rm(outFile)
 
 
 sqlQuery <- "   select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient_class, hv.presentation_time, hv.admission_time, hv.discharge_time,  hv.arrival_method, lv.admission_time as admission, lv.discharge_time as discharge, l.location_string    
-    from star_a.hospital_visit hv,
-      star_a.mrn m,    
-      star_a.location_visit lv,
-      star_a.location l
+    from star.hospital_visit hv,
+      star.mrn m,    
+      star.location_visit lv,
+      star.location l
       where lv.hospital_visit_id in 
             (
             select hv.hospital_visit_id
-            from star_a.hospital_visit hv,
-              star_a.location_visit lv,
-              star_a.location l 
+            from star.hospital_visit hv,
+              star.location_visit lv,
+              star.location l 
           where hv.admission_time is not NULL
           and lv.hospital_visit_id = hv.hospital_visit_id 
           and l.location_id = lv.location_id 

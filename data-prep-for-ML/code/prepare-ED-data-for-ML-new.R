@@ -25,20 +25,20 @@ rpt <- function(dataframe) {
 # Load data ---------------------------------------------------------------
 
 
-load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-03-03.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-03-03.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-03.rda")
+load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
 
-# temporarily for old data
-load("~/EDcrowding/data-prep-for-ML/data-raw/edgedf_2021-03-03.rda")
-load("~/EDcrowding/data-prep-for-ML/data-raw/moves_2021-03-03.rda")
-load("~/EDcrowding/data-prep-for-ML/data-raw/summ_2021-03-03.rda")
+# # temporarily for old data
+# load("~/EDcrowding/data-prep-for-ML/data-raw/edgedf_2021-03-03.rda")
+# load("~/EDcrowding/data-prep-for-ML/data-raw/moves_2021-03-03.rda")
+# load("~/EDcrowding/data-prep-for-ML/data-raw/summ_2021-03-03.rda")
 
 # Set parameters ----------------------------------------------------------
 
 
 matrix_start_date <- as.POSIXct("2019-05-01 00:00:00")
-matrix_end_date <- as.POSIXct('2020-03-19 00:00:00')
+matrix_end_date <- as.POSIXct('2021-04-13 00:00:00')
 covid_start <- as.POSIXct('2020-03-19 00:00:00')
 
 
@@ -47,40 +47,17 @@ covid_start <- as.POSIXct('2020-03-19 00:00:00')
 summ = summ[admission_time >= matrix_start_date]
 summ = summ[admission_time < matrix_end_date]
 
-# # to see implications of this cut point as a chart
-# summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
-# summ[presentation_time > '2020-02-01' & presentation_time < '2020-06-01', .N, by = list(date(presentation_time), adm)] %>% 
-#   ggplot(aes(x = date, y = N, fill = as.character(adm))) +
-#   scale_x_date(date_breaks = "weeks" , date_labels = "%m/%d") +
-#   geom_bar(stat = "identity") +
-#   labs(title = paste0("Number of admissions and discharges from 1 Feb to 31 May 2020 showing Covid cut point of ",date(covid_start)),
-#        fill = "Admitted (1 = True)") +
-#   theme(legend.position = "bottom") +
-#   geom_vline(xintercept = date(covid_start), linetype = "dashed")
-# rpt(summ)
-
-
-# remove minority locations
-edgedf[, from := case_when(from == "OTF POOL" ~ "OTF",
-                           from %in% c("PAEDS", "SAA") ~ "Other",
-                           from == "UCHT00CDU" ~ "CDU",
-                           from == "WR_POOL" ~ "Waiting",
-                           TRUE ~ from)]
-
-edgedf[, to := case_when(to == "OTF POOL" ~ "OTF",
-                           to %in% c("PAEDS", "SAA") ~ "Other",
-                           to == "UCHT00CDU" ~ "CDU",
-                           to == "WR_POOL" ~ "Waiting",
-                         
-                           TRUE ~ to)]
-
-moves[, location := case_when(location == "OTF POOL" ~ "OTF",
-                              location %in% c("PAEDS", "SAA") ~ "Other",
-                              location == "DIAGNOSTICS" & admission > date(covid_start) ~ "Other",
-                              location == "UCHT00CDU" ~ "CDU",
-                              location == "WR_POOL" ~ "Waiting",
-                              
-                              TRUE ~ location)]
+# to see implications of this cut point as a chart
+summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
+summ[, .N, by = list(date(presentation_time), adm)] %>%
+  ggplot(aes(x = date, y = N, fill = as.character(adm))) +
+  scale_x_date(date_breaks = "3 months" , date_labels = "%Y-%m") +
+  geom_bar(stat = "identity") +
+  labs(title = paste0("Number of daily admissions and discharges showing Covid cut point of ",date(covid_start)),
+       fill = "Admitted (1 = True)") +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept = date(covid_start), linetype = "dashed")
+rpt(summ)
 
 
 # # I considered merging wtih summ to get first outside ED exit; this is to avoid double counting of cases where there is more than one exit
@@ -98,9 +75,13 @@ rpt(edgedf)
 
 # identify moves where patient is admitted from ED
 edgedf[from_dept %in% c("ED", "UCHT00CDU") & !(to_dept %in% c("ED", "UCHT00CDU") | is.na(to_dept)), adm := "Admitted"]
+# checking - missing 29 csns all look like prior inpatient then discharged
+summ[adm ==1 & !(csn %in% edgedf[adm == "Admitted",csn])]
 
 # identify moves where patient is discharged from ED
 edgedf[from_dept %in% c("ED", "UCHT00CDU") & is.na(to_dept), adm := "Discharged"]
+# checking
+summ[adm == 0 & !(csn %in% edgedf[adm == "Discharged",csn])]
 
 # update "to" column with admitted or discharged
 edgedf[from_dept %in% c("ED", "UCHT00CDU"), to_new := case_when(!is.na(adm) ~ adm,
@@ -170,7 +151,7 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   
   
   for (i in 2:length(date_range)) {
-    if (i %% 500 == 0) {
+    if (i %% 100 == 0) {
       print(paste("Processed",i,"datetimes"))
     }
     
@@ -199,14 +180,23 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   adm_during_hour = data.table()
   for (i in 2:length(date_range)) {
     adm = data.table(edgedf[from_dept %in% c("ED", "UCHT00CDU") & !(to_dept %in% c("ED", "UCHT00CDU") | is.na(to_dept)) & dttm > date_range[i-1] & dttm <= date_range[i], .N])
+    setnames(adm, "V1", "adm")
+    wait = data.table(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i], 
+               .(csn, wait = as.integer(floor(difftime(first_outside_proper_admission, first_ED_admission, units = "hours"))))] %>% 
+      group_by(wait) %>% summarise(N = n() , .groups = 'drop'))
+    wait[wait > 12, wait := 12]
+    wait = as_tibble(wait) %>% pivot_wider(names_from = wait, names_prefix = "adm_wait", values_from = N)
+    if (nrow(wait) > 0) {
+      adm = bind_cols(adm, wait)
+    }
+    
     adm$DateTime = date_range[i] 
-    # adm$i = i
     # adm$first_outside_prop = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
     # adm$first_inside_exit = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
     adm_during_hour = bind_rows(adm_during_hour, adm)
   }
   
-  setnames(adm_during_hour, "V1", "adm")
+  a = data.table(adm_during_hour)
   
   # pivot to wide matrix and add columns
   
@@ -219,7 +209,7 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   moved_from_location[, day_of_week := wday(DateTime)]
   
   moved_w <- moved_from_location %>% pivot_wider(names_from = location, values_from = N, values_fill = 0) %>% 
-    left_join(adm_during_hour)
+    left_join(adm_during_hour) %>% replace_na(0)
   
   # NA rows are created if noone moved during a time slot; these become NA column after pivot
   if (sum(grepl("NA", colnames(moved_w)))>0) {
