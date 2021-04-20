@@ -26,18 +26,18 @@ file_date <- "2021-04-19"
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
-use_dataset = "Post"
+use_dataset = "Pre"
 
-base_model = FALSE
+base_model = TRUE
 check_eval_metric =  FALSE # keep eval_metric as log_loss
-tune_nr = FALSE
+tune_nr = TRUE
 tune_trees = FALSE
 tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
 recal_nr = FALSE
 tune_samples = FALSE
 tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
 reduce_lr = FALSE
-final_preds = TRUE
+final_preds = FALSE
 
 
 

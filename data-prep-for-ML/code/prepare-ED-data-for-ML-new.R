@@ -179,27 +179,44 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   
   adm_during_hour = data.table()
   for (i in 2:length(date_range)) {
-    adm = data.table(edgedf[from_dept %in% c("ED", "UCHT00CDU") & !(to_dept %in% c("ED", "UCHT00CDU") | is.na(to_dept)) & dttm > date_range[i-1] & dttm <= date_range[i], .N])
-    setnames(adm, "V1", "adm")
+    
+    # get hours between presentation and admission for each person admitted in hour
     wait = data.table(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i], 
-               .(csn, wait = as.integer(floor(difftime(first_outside_proper_admission, first_ED_admission, units = "hours"))))] %>% 
-      group_by(wait) %>% summarise(N = n() , .groups = 'drop'))
-    wait[wait > 12, wait := 12]
-    wait = as_tibble(wait) %>% pivot_wider(names_from = wait, names_prefix = "adm_wait", values_from = N)
-    if (nrow(wait) > 0) {
-      adm = bind_cols(adm, wait)
+                           .(csn, wait = as.integer(floor(difftime(first_outside_proper_admission, first_ED_admission, units = "hours"))))] %>% 
+                        group_by(wait) %>% summarise(N = n() , .groups = 'drop'))
+    
+    if (nrow(wait) == 0) {
+      
+      wait = data.table(adm = 0)
+      wait[, DateTime := date_range[i]]
+      
+    } else {
+      wait[, adm := sum(N)]
+      wait[, DateTime := date_range[i]]
+      
+      # the row below will convert any who waited more than 12 hours to 12
+      wait[wait > 12, wait := 12]
+      # this results in multiple rows per date time if more than one person had a (different length) wait of more than 12 hours
+      # so summarise by datetime
+      wait = unique(wait[, N := sum(N), by = .(wait, DateTime)])
+      
     }
     
-    adm$DateTime = date_range[i] 
-    # adm$first_outside_prop = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
-    # adm$first_inside_exit = nrow(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i]])
-    adm_during_hour = bind_rows(adm_during_hour, adm)
+
+    adm_during_hour = bind_rows(adm_during_hour, wait)    
+
   }
   
-  a = data.table(adm_during_hour)
+  # in case there are empty cells in the array of adm_wait (noone was admitted after that number of hours)
+  nums_in_array = unique(adm_during_hour[!is.na(wait), wait])
+  nums_in_array = nums_in_array[order(nums_in_array)]
   
-  # pivot to wide matrix and add columns
-  
+  # select cols in the correct order
+  cols = c("adm", "DateTime", paste0("adm_wait", nums_in_array))
+  adm_during_hour = adm_during_hour %>% pivot_wider(names_from = wait, names_prefix = "adm_wait", values_from = N, values_fill = 0) %>% 
+    select(all_of(cols))
+
+  # pivot num_in_location to wide array
   num_in_location[, time_of_day := hour(DateTime)]
   num_in_location[, month := month(DateTime)]
   num_in_location[, day_of_week := wday(DateTime)]
@@ -208,34 +225,28 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   moved_from_location[, month := month(DateTime)]
   moved_from_location[, day_of_week := wday(DateTime)]
   
-  moved_w <- moved_from_location %>% pivot_wider(names_from = location, values_from = N, values_fill = 0) %>% 
-    left_join(adm_during_hour) %>% replace_na(0)
-  
+  # add admission array
+  moved_w <- moved_from_location %>% pivot_wider(names_from = location, values_from = N, values_fill = 0) 
+  moved_w <-moved_w %>% 
+    # reorder colnames
+    select(DateTime:day_of_week, colnames(moved_w)[5:(ncol(moved_w))][order(colnames(moved_w)[5:(ncol(moved_w))])]) %>% 
+    left_join(adm_during_hour) 
   # NA rows are created if noone moved during a time slot; these become NA column after pivot
   if (sum(grepl("NA", colnames(moved_w)))>0) {
     moved_w <- moved_w %>% select(-`NA`)
   }
 
   
-  num_w <- num_in_location %>% pivot_wider(names_from = location, values_from = N, values_fill = 0)  %>% 
-    left_join(adm_during_hour)
-  # NA rows are created if noone was in any location during a time slot; these become NA column after pivot
-  
+  # add admission array
+  num_w <- num_in_location  %>% pivot_wider(names_from = location, values_from = N, values_fill = 0) 
+  num_w <-num_w %>% 
+    # reorder colnames
+    select(DateTime:day_of_week, colnames(num_w)[5:(ncol(num_w))][order(colnames(num_w)[5:(ncol(num_w))])]) %>% 
+    left_join(adm_during_hour) 
+  # NA rows are created if noone moved during a time slot; these become NA column after pivot
   if (sum(grepl("NA", colnames(num_w)))>0) {
     num_w <- num_w %>% select(-`NA`)
   }
-  
-  moved_w <- moved_w %>% 
-    # reorder colnames
-    select(DateTime:day_of_week, colnames(moved_w)[5:(ncol(moved_w)-1)][order(colnames(moved_w)[5:(ncol(moved_w)-1)])],
-           adm)
-  
-  num_w <- num_w %>% 
-    # reorder colnames
-    select(DateTime:day_of_week, colnames(num_w)[5:(ncol(num_w)-1)][order(colnames(num_w)[5:(ncol(num_w)-1)])],
-           adm)
-  
-  
   
   output <- list(moved_w, num_w)
   
@@ -244,16 +255,15 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
 }
 
 
-# before Covid started
-date_range <- seq(matrix_start_date - hours(1), covid_start, by = "hours")
-before_covid <- get_nums_by_dttm(date_range, moves, edgedf_before_covid)
-
-outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_moved_from_location_",today(),".csv")
-write.csv(before_covid[[1]], file = outFile, row.names = FALSE)
-
-outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_num_in_location_",today(),".csv")
-write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
-
+# # before Covid started
+# date_range <- seq(matrix_start_date - hours(1), covid_start, by = "hours")
+# before_covid <- get_nums_by_dttm(date_range, moves, edgedf_before_covid) # couldn't get the function to work
+# 
+# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_moved_from_location_",today(),".csv")
+# write.csv(before_covid[[1]], file = outFile, row.names = FALSE)
+# 
+# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_num_in_location_",today(),".csv")
+# write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
 
 # after Covid started
 date_range <- seq(covid_start - hours(1), matrix_end_date, by = "hours")
@@ -268,6 +278,32 @@ write.csv(after_covid[[2]], file = outFile, row.names = FALSE)
 
 
 
+# Calc number of admissions to predict ------------------------------------
+
+library(readr)
+after_covid <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/after_covid_moved_from_location_2021-04-20.csv")
+before_covid <- read_csv("~/EDcrowding/data-prep-for-ML/data-output/before_covid_moved_from_location_2021-04-20.csv")
+
+
+
+for (dataset_ in list(before_covid, after_covid)) {
+  
+  all_adm = data.table(dataset_ %>% select(DateTime, adm))
+  all_adm[, in2hr := adm + lead(adm, 1)]
+  all_adm[, in3hr := in2hr + lead(adm, 2)]
+  all_adm[, in4hr := in3hr + lead(adm, 3)]
+  all_adm[, in6hr := in4hr + lead(adm, 4) +  lead(adm, 5)]
+  all_adm[, in8hr := in6hr + lead(adm, 6) +  lead(adm, 7)]
+  all_adm[, in12hr := in6hr + lead(adm, 8) +  lead(adm, 9) + lead(adm, 10) + lead(adm, 11)]
+  print("Max admissions")
+  print(paste("In 2 hours: ", max(all_adm$in2hr, na.rm = TRUE)))
+  print(paste("In 3 hours: ", max(all_adm$in3hr, na.rm = TRUE)))
+  print(paste("In 4 hours: ", max(all_adm$in4hr, na.rm = TRUE)))
+  print(paste("In 6 hours: ", max(all_adm$in6hr, na.rm = TRUE)))
+  print(paste("In 8 hours: ", max(all_adm$in8hr, na.rm = TRUE)))
+  print(paste("In 12 hours: ", max(all_adm$in12hr, na.rm = TRUE)))
+  
+}
 
 
 # Code for debugging ------------------------------------------------------

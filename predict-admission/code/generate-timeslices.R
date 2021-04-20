@@ -129,7 +129,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
       # using max allows for possibility of two measurements in same minute
       summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%
-      pivot_wider(names_from = obs_name, names_prefix = "p_latest_", values_from = latest_value)
+      pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_value)
   )
     
   # 
