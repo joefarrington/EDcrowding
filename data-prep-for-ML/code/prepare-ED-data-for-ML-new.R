@@ -258,26 +258,26 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
 }
 
 
-# # before Covid started
-# date_range <- seq(matrix_start_date - hours(1), covid_start, by = "hours")
-# before_covid <- get_nums_by_dttm(date_range, moves, edgedf_before_covid) # couldn't get the function to work
+# before Covid started
+date_range <- seq(matrix_start_date - hours(1), covid_start, by = "hours")
+before_covid <- get_nums_by_dttm(date_range, moves, edgedf_before_covid) # couldn't get the function to work
+
+outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_moved_from_location_",today(),".csv")
+write.csv(before_covid[[1]], file = outFile, row.names = FALSE)
+
+outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_num_in_location_",today(),".csv")
+write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
+
+# # after Covid started
+# date_range <- seq(covid_start - hours(1), matrix_end_date, by = "hours")
+# after_covid <- get_nums_by_dttm(date_range, moves, edgedf_after_covid)
 # 
-# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_moved_from_location_",today(),".csv")
-# write.csv(before_covid[[1]], file = outFile, row.names = FALSE)
 # 
-# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/before_covid_num_in_location_",today(),".csv")
-# write.csv(before_covid[[2]], file = outFile, row.names = FALSE)
-
-# after Covid started
-date_range <- seq(covid_start - hours(1), matrix_end_date, by = "hours")
-after_covid <- get_nums_by_dttm(date_range, moves, edgedf_after_covid)
-
-
-outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_moved_from_location_",today(),".csv")
-write.csv(after_covid[[1]], file = outFile, row.names = FALSE)
-
-outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_num_in_location_",today(),".csv")
-write.csv(after_covid[[2]], file = outFile, row.names = FALSE)
+# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_moved_from_location_",today(),".csv")
+# write.csv(after_covid[[1]], file = outFile, row.names = FALSE)
+# 
+# outFile = paste0("EDcrowding/data-prep-for-ML/data-output/after_covid_num_in_location_",today(),".csv")
+# write.csv(after_covid[[2]], file = outFile, row.names = FALSE)
 
 
 
