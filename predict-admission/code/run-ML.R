@@ -17,7 +17,6 @@
 # For each step the timeslices are handled in loops which iterate through each timeslice in turn
 
 
-# Set programme instructions ----------------------------------------------
 
 # set date of file to include
 
@@ -26,18 +25,18 @@ file_date <- "2021-04-19"
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
-use_dataset = "Pre"
+use_dataset = "Post"
 
-base_model = TRUE
+base_model = FALSE
 check_eval_metric =  FALSE # keep eval_metric as log_loss
-tune_nr = TRUE
+tune_nr = FALSE
 tune_trees = FALSE
 tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
 recal_nr = FALSE
 tune_samples = FALSE
 tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
 reduce_lr = FALSE
-final_preds = FALSE
+final_preds = TRUE
 
 
 
@@ -274,7 +273,7 @@ update_learner <- function(learner,
 
 get_preds <- function(name_tsk, tsk, learner, train_or_val_ids, tsk_ids, tuning_round, param_value, preds, model_features, dataset) {
   pred_values = learner$predict(tsk, row_ids = train_or_val_ids)
-  
+
   pred <- as.data.table(pred_values)
   pred[, dataset := dataset]
   pred[, model_features := model_features]
@@ -286,7 +285,7 @@ get_preds <- function(name_tsk, tsk, learner, train_or_val_ids, tsk_ids, tuning_
 
   preds <- bind_rows(preds, pred)
   return(preds)
-  
+
 }
 
 get_imps <- function(name_tsk, learner, tsk_ids, tuning_round, param_value, imps, model_features, dataset) {
@@ -1060,52 +1059,56 @@ if (final_preds) {
     tsk = get(name_tsk)
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
+
+    params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset &
                       tuning_round == "reduce_lr",
                     .SD[which.min(logloss)], by = list(timeslice)]
-    
-    learner <- update_learner(learner, 
+
+    learner <- update_learner(learner,
                               nrounds = params$nrounds,
-                              max_depth = params$max_depth, 
-                              min_child_weight = params$min_child_weight, 
+                              max_depth = params$max_depth,
+                              min_child_weight = params$min_child_weight,
                               gamma = params$gamma,
                               subsample = params$subsample,
                               colsample_bytree = params$colsample_bytree,
-                              eta = params$eta, 
+                              eta = params$eta,
                               scale_pos_weight = params$scale_pos_weight,
                               alpha = params$alpha,
                               lambda = params$lambda,
                               early_stopping_rounds = params$early_stopping_rounds)
-    
+
     set.seed(17L)
-    
+
     # train on full training set and save results on validation set
     scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
-                           tuning_round = "alpha", scores, model_features, use_dataset)
-
-    # name_ts <- paste0("dm", ts_)
-    # dt = get(name_ts)
-    # 
-    # dt[, row_id := seq_len(nrow(dt))]
-    # 
-    # # get predictions on validation set
-    # preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = dt$row_id, tsk_ids = "all", tuning_round = "final_preds",
-    #                    param_value = "final_preds",
-    #                    preds, model_features, use_dataset)
-    # 
-    # 
-    # save(preds, file = preds_file)
+                           tuning_round = "final_preds", scores, model_features, use_dataset)
     
-    imps <- get_imps(name_tsk, learner, tsk_ids = "all", tuning_round = "final_preds", 
+    # get predictions on validation set
+    preds <- get_preds(name_tsk, tsk, learner, train_or_val_ids = dt$row_id, tsk_ids = "all", tuning_round = "final_preds",
                        param_value = "final_preds",
-                       imps, model_features, use_dataset)   
-    
-    
+                       preds, model_features, use_dataset)
+
+
+    save(preds, file = preds_file)
+
+    imps <- get_imps(name_tsk, learner, tsk_ids = "all", tuning_round = "final_preds",
+                       param_value = "final_preds",
+                       imps, model_features, use_dataset)
     save(imps, file = imps_file)
-    
+
+    # save learner data for future prediction
+
     learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/learner_",name_tsk,"_",today(),".rda")
     save(learner, file = learner_file)
+
+    #assign to named data table
+    name_tsp <- paste0("dm", ts_, "p")
+    ts = get(name_tsp)
+    
+    features_file <- paste0("~/EDcrowding/predict-admission/data-output/features_",name_tsk,"_",today(), ".rda")
+    feature_list <- colnames(ts)
+    
+    save(feature_list, file =features_file)
     
   } 
   
@@ -1114,49 +1117,49 @@ if (final_preds) {
 }
 
 
-# Plot importances --------------------------------------------------------
-
-imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                                    "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       importance > 0.005] %>% 
-  ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances by timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature")
-
-
-p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       timeslice == "task030"  &
-       importance > 0.01] %>% 
-  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances for 30  min timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature") +
-  theme(legend.position = "bottom")
-
-
-p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       timeslice == "task120"  &
-       importance > 0.01] %>% 
-  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances for 120  min timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature") +
-  theme(legend.position = "bottom") +
-  scale_x_continuous(limits = c(0,0.25))
-
-library(gridExtra)
-grid.arrange(p1, p2,
-             ncol = 2, nrow = 1)
-~
+# # Plot importances --------------------------------------------------------
+# 
+# imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                                     "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        importance > 0.005] %>% 
+#   ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances by timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature")
+# 
+# 
+# p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        timeslice == "task030"  &
+#        importance > 0.01] %>% 
+#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances for 30  min timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature") +
+#   theme(legend.position = "bottom")
+# 
+# 
+# p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        timeslice == "task120"  &
+#        importance > 0.01] %>% 
+#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances for 120  min timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature") +
+#   theme(legend.position = "bottom") +
+#   scale_x_continuous(limits = c(0,0.25))
+# 
+# library(gridExtra)
+# grid.arrange(p1, p2,
+#              ncol = 2, nrow = 1)
+# ~

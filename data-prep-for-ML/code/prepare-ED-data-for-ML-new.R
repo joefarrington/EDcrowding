@@ -182,7 +182,10 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
     
     # get hours between presentation and admission for each person admitted in hour
     wait = data.table(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i], 
-                           .(csn, wait = as.integer(floor(difftime(first_outside_proper_admission, first_ED_admission, units = "hours"))))] %>% 
+                           # .(csn, wait = as.integer(floor(difftime(first_outside_proper_admission, first_ED_admission, units = "hours"))))] %>%
+                        .(csn, wait = as.integer(floor_date(first_outside_proper_admission, "hour") -
+                                                   floor_date(first_ED_admission, "hour")))] %>% 
+  
                         group_by(wait) %>% summarise(N = n() , .groups = 'drop'))
     
     if (nrow(wait) == 0) {

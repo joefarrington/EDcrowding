@@ -7,6 +7,20 @@ library(data.table)
 library(lubridate)
 library(polynom)
 
+# for mlr3
+library(mlr3)
+library(mlr3learners)
+library(mlr3proba)
+
+# for shapley plot
+
+# library(GGally)
+# library(precrec)
+# library(paradox)
+# library(mlr3tuning)
+library(mlr3fselect)
+library(mlr3misc)
+
 # Create functions --------------------------------------------------------
 
 
@@ -26,88 +40,78 @@ get_random_dttm <- function(dttm_start, dttm_end) {
   return(dttm_start + increment)
 }
 
-# Get probability distribution for number admitted at each time point of interest  
+one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
+  
+  if(cols[1] == "auto") cols <- colnames(dt)[which(sapply(dt, function(x) is.factor(x) & !is.ordered(x)))]
+  
+  if(length(cols) == 0) {
+    return(dt) }
+  else {
+    
+    # Build tempDT containing and ID column and 'cols' columns
+    tempDT <- dt[, cols, with=FALSE]
+    tempDT[, ID := .I]
+    setcolorder(tempDT, unique(c("ID", colnames(tempDT))))
+    for(col in cols) set(tempDT, j=col, value=factor(paste(col, tempDT[[col]], sep="_"), levels=paste(col, levels(tempDT[[col]]), sep="_")))
+    
+    # One-hot-encode
+    if(dropUnusedLevels == TRUE){
+      newCols <- dcast(melt(tempDT, id = 'ID', value.factor = T), ID ~ value, drop = T, fun = length)
+    } else{
+      newCols <- dcast(melt(tempDT, id = 'ID', value.factor = T), ID ~ value, drop = F, fun = length)
+    }
+    
+    # Combine binarized columns with the original dataset
+    result <- cbind(dt, newCols[, !"ID"])
+    
+    # If dropCols = TRUE, remove the original factor columns
+    if(dropCols == TRUE){
+      result <- result[, !cols, with=FALSE]
+    }
+    
+    return(result)
+  }
+}
 
-get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
+
+get_prob_dist = function(time_window, time_pts, in_ED_all, preds_all_ts, tta_prob) {
   
   distr_coll = data.table()
   adm_coll = data.table()
   noone_in_ED = POSIXct()
   
-  for (i in (1:length(time_pts))) {
-    
-    in_ED = summ[first_ED_admission < time_pts[i] & left_ED > time_pts[i], 
-                 .(csn, first_ED_admission, adm, 
-                   left_ED,
-                   elapsed = difftime(time_pts[i], first_ED_admission, units = "mins"),
-                   remaining = difftime(left_ED, time_pts[i], units = "mins"))]
-    
-    in_ED[, adm_in_time_window := case_when(remaining < time_window*60 & adm %in% c("direct_adm", "indirect_adm") ~ TRUE,
-                                            adm %in% c("direct_adm", "indirect_adm") ~ FALSE,
-                                            TRUE ~ NA)]
-    
-    in_ED[, timeslice := case_when(elapsed < 15 ~ "task000",
-                                   elapsed < 30 ~ "task015",
-                                   elapsed < 60 ~ "task030",
-                                   elapsed < 90 ~ "task060",
-                                   elapsed < 120 ~ "task090",
-                                   elapsed < 180 ~ "task120",
-                                   elapsed < 240 ~ "task180",
-                                   elapsed < 300 ~ "task240",
-                                   elapsed < 360 ~ "task300",
-                                   elapsed < 480 ~ "task360",
-                                   TRUE ~ "task480")]
-    
-    if (nrow(in_ED) == 0) {
+  in_ED_all[, adm_in_time_window := case_when(remaining < time_window*60 & adm %in% c("direct_adm", "indirect_adm") ~ TRUE,
+                                              adm %in% c("direct_adm", "indirect_adm") ~ FALSE,
+                                              TRUE ~ NA)]
+    for (i in (1:length(time_pts))) {
       
-      noone_in_ED = c(noone_in_ED, time_pts[i])
-      
-    } else {
-      
-      for (ts_ in unique(in_ED$timeslice)) {
-        
-        name_tsk <- paste0("task", ts_)
-        tsk = get(name_tsk)
-        tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-        tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-        
-        ts = dm120[csn %in% in_ED$csn]
-        name_ts <- paste0("dm", ts_, "p")
-        
-        
+      in_ED = in_ED_all[time_pt == time_pts[i]]
 
-        # create task
-        tsk = TaskClassif$new(id = name_ts, backend = ts ,target="adm") 
-        tsk$col_roles$name = "csn"
-        tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
-        tsk$positive = "1" # tell mlr3 which is the positive class
-        name_tsk <- paste0("task", ts_)
-        assign(name_tsk, tsk)
+      if (nrow(in_ED) == 0) {
+        noone_in_ED = c(noone_in_ED, time_pts[i])
         
-        pred_values = learner120$predict(tsk)
-        
-      }
-      
-      if(is.na(time_window)) {
-        
-        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
-                            by = c("csn", "timeslice"), all.x = TRUE)
       } else {
         
-        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
-                            by = c("csn", "timeslice"), all.x = TRUE)
-        df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
-                   by = "timeslice")
-        df[, truth := adm_in_time_window]
-        df[, prob.1 := prob.1 * prob_adm_in_time_window]
+        if(is.na(time_window)) {
+  
+          df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+                     by = c("csn", "timeslice"), all.x = TRUE)
+        } else {
+          
+          df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+                     by = c("csn", "timeslice"), all.x = TRUE)
+          df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
+                     by = "timeslice")
+          df[, truth := adm_in_time_window]
+          df[, prob.1 := prob.1 * prob_adm_in_time_window]
+        }
       }
-    }
-
+      
     # make an array from 0 admissions to max admissions (ie all patients admitted)
     num_adm_ = seq(0,nrow(df), 1)
     # the probabilities of each of these numbers being admitted
     probs = poly_prod(df) 
-
+    
     distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm_, 
                       probs = probs, cdf = cumsum(probs))
     distr_coll = bind_rows(distr_coll, distr)
@@ -122,6 +126,7 @@ get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
 }
 
 
+
 # Load data ---------------------------------------------------------------
 
 # summary of csns to get minimum and maxium
@@ -132,51 +137,11 @@ summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge
 # added this while using only part of the dataset - need to change it later
 summ = summ[date(presentation_time) >= '2020-03-19']
 
-timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
-file_date = '2021-04-19'
-model_date = '2021-04-19'
-
-preds_all_ts <- data.table()
-
-for (ts_ in timeslices) {
-  
-  name_ts <- paste0("dm", ts_, "p")
-  ts = get(name_ts)
-  
-  # create task
-  tsk = TaskClassif$new(id = name_ts, backend = ts ,target="adm") 
-  tsk$col_roles$name = "csn"
-  tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
-  tsk$positive = "1" # tell mlr3 which is the positive class
-  name_tsk <- paste0("task", ts_)
-  assign(name_tsk, tsk)
-  
-}
-  
-for (ts_ in timeslices) {
-  
-  # load timeslice 
-  inFile = paste0("~/EDcrowding/predict-admission/data-raw/dm", ts_, "_", file_date, ".rda")
-  load(inFile)
-  
-  # assign name dt to loaded file temporarily
-  name_ts <- paste0("dm", ts_)
-  dt = get(name_ts)
-  name_tsk <- paste0("task", ts_)
-  dt[, row_id := seq_len(nrow(dt))]
-  
-  inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
-  load(inFile)
-  
-  assign(paste0("learner", ts_), learner)
-}
-
-
 # Generate sample of time points of interest ------------------------------
 
 set.seed(17L)
 #  using validation set for post COVID
-time_pts <- get_random_dttm(as.POSIXct('2020-12-01 00:00:00') + hours(12), as.POSIXct('2020-12-01 00:00:00') + hours(24))
+time_pts <- get_random_dttm(as.POSIXct('2020-03-19 00:00:00') + hours(12), as.POSIXct('2020-12-01 00:00:00') + hours(24))
 last_pt <- time_pts
 
 # each sample to be more than 12 hours and less than 24 hours after the previous one
@@ -186,6 +151,138 @@ while (last_pt + hours(12) < as.POSIXct('2020-12-29 00:00:00')) {
   last_pt <- next_pt
 }
 
+
+
+# Get everyone in ED ------------------------------------------------------
+
+
+
+in_ED_all = data.table()
+
+# get relevant timeslice for all in ED at that time point of interest
+
+for (i in (1:length(time_pts))) {
+  
+  in_ED = summ[first_ED_admission < time_pts[i] & left_ED > time_pts[i], 
+               .(csn, first_ED_admission, adm, 
+                 left_ED,
+                 elapsed = difftime(time_pts[i], first_ED_admission, units = "mins"),
+                 remaining = difftime(left_ED, time_pts[i], units = "mins"))]
+  
+  in_ED[, timeslice := case_when(elapsed < 15 ~ "task000",
+                                 elapsed < 30 ~ "task015",
+                                 elapsed < 60 ~ "task030",
+                                 elapsed < 90 ~ "task060",
+                                 elapsed < 120 ~ "task090",
+                                 elapsed < 180 ~ "task120",
+                                 elapsed < 240 ~ "task180",
+                                 elapsed < 300 ~ "task240",
+                                 elapsed < 360 ~ "task300",
+                                 elapsed < 480 ~ "task360",
+                                 TRUE ~ "task480")]
+  
+  in_ED[, time_pt := time_pts[i]]
+  
+  in_ED_all = bind_rows(in_ED_all, in_ED)
+}
+
+
+
+# Get data to provide to model --------------------------------------------
+
+timeslices <- gsub("task", "", unique(in_ED_all$timeslice))
+file_date = '2021-04-19'
+model_date = '2021-04-19'
+model_features = "alop"
+use_dataset = "Post"
+
+preds_all_ts <- data.table()
+
+for (ts_ in timeslices) {
+  
+  # load timeslice 
+  inFile = paste0("~/EDcrowding/predict-admission/data-raw/dm", ts_, "_", file_date, ".rda")
+  load(inFile)
+  
+  name_ts <- paste0("dm", ts_)
+  dt = get(name_ts)
+  
+  #  select dataset (pre or post covid or both if use_dataset is null)
+  if (!is.null(use_dataset)) {
+    dt = dt[a_epoch == use_dataset]
+    dt[, a_epoch := NULL]
+  }
+  
+  # select csns of interest
+  dt = dt[csn %in% in_ED_all[timeslice == paste0("task", ts_), csn]]
+  csns <- dt$csn
+  dt[, row_id := seq_len(nrow(dt))]
+  
+  # create vectors identifying test ids
+  assign(paste0("task", ts_, "_ids"), dt$row_id)
+  
+  # remove train-val-test label and row_id so not included in features
+  dt[, in_set := NULL]
+  dt[, row_id := NULL]
+
+  # remove features not wanted in model
+  if (model_features != "alop") {
+    if (!grepl("p", model_features)) {
+      dt[, colnames(dt)[grep("^p_", colnames(dt))] := NULL]
+    }
+    if (!grepl("a", model_features)) {
+      dt[, colnames(dt)[grep("^a_", colnames(dt))] := NULL]
+    }
+    if (!grepl("l", model_features)) {
+      dt[, colnames(dt)[grep("^l_", colnames(dt))] := NULL]
+    }
+    if (!grepl("o", model_features)) {
+      dt[, colnames(dt)[grep("^o_", colnames(dt))] := NULL]
+    }
+  }
+  
+  # encode factors
+  ts <- one_hot(cols = "auto", dt = as.data.table(dt),  dropUnusedLevels=TRUE)
+  ts[,adm:=as.factor(adm)] 
+  
+  name_tsk <- paste0("task", ts_)
+
+  
+  # add other features that might be missing
+  inFile = paste0("~/EDcrowding/predict-admission/data-output/features_", name_tsk, "_", file_date, ".rda")
+  load(inFile)
+  
+  ts_cols = colnames(ts)
+  missing_features = feature_list[!feature_list %in% ts_cols] # load this from file later
+  
+  missing_cols <- data.table(matrix(0, nrow = nrow(ts), ncol = length(missing_features)))
+  ts = bind_cols(ts, missing_cols)
+  colnames(ts) = c(ts_cols, missing_features)
+  
+  # # assign to named data table
+  # name_tsp <- paste0("dm", ts_, "p")
+  # assign(name_tsp, ts)
+  # 
+  # create task
+  tsk = TaskClassif$new(id = name_ts, backend = ts, target="adm") 
+  tsk$col_roles$name = "csn"
+  tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
+  tsk$positive = "1" # tell mlr3 which is the positive class
+  assign(name_tsk, tsk)
+
+  
+  # load learner
+  inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
+  load(inFile)
+  
+  # get predictions
+  pred_values = as.data.table(learner$predict(tsk, row_ids = dt$row_id))
+  pred_values$timeslice = name_tsk
+  pred_values$csn = csns
+  
+  preds_all_ts <- bind_rows(preds_all_ts, pred_values)
+}
+  
 
 # Get probability distribution for time to admission for each timeslice ----------------------------
 
@@ -233,7 +330,7 @@ tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 time_window = 3
 
-prob_dist = get_prob_dist(NA, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(NA, time_pts, in_ED_all, preds_all_ts, tta_prob)
 
 # collect all predicted distributions for each time point of interest
 distr_coll = prob_dist[[1]]
