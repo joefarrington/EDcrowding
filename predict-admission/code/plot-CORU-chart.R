@@ -101,7 +101,7 @@ get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
 # Load data ---------------------------------------------------------------
 
 # summary of csns to get minimum and maxium
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-16.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
 summ = summ[!is.na(discharge_time)]
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
@@ -116,7 +116,7 @@ load(preds_file)
 load("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-03-23.rda") # temporarily
 
 timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
-file_date = '2021-03-16'
+file_date = '2021-04-19'
 
 preds_all_ts <- data.table()
 
@@ -130,7 +130,9 @@ for (ts_ in timeslices) {
   name_ts <- paste0("dm", ts_)
   dt = get(name_ts)
   name_tsk <- paste0("task", ts_)
+  dt = dt[a_epoch == "Post"]
   dt[, row_id := seq_len(nrow(dt))]
+  
   
   # bind columns to add csns to predictions
   dt_ = bind_cols(dt[, list(csn, adm, row_id)],preds[timeslice == name_tsk & tsk_ids == "all"])
@@ -205,10 +207,14 @@ tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 time_window = 3
 
-prob_dist = get_prob_dist(NA, time_pts, summ, preds_all_ts, tta_prob)
-
+prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts, tta_prob)
 # collect all predicted distributions for each time point of interest
-distr_coll = prob_dist[[1]]
+distr_coll_8 = prob_dist[[1]]
+
+prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts, tta_prob)
+# collect all predicted distributions for each time point of interest
+distr_coll_4 = prob_dist[[1]]
+
 
 # now treat the full set of cdfs (all time points) as a single discrete variable
 distr_coll[, upper_M_discrete_value := cdf]
@@ -304,4 +310,120 @@ plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geo
   theme(legend.position = "none") 
 
 
+
+
+# Example output for Craig ----------------------------------------------------------
+
+prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts, tta_prob)
+# collect all predicted distributions for each time point of interest
+distr_coll_8 = prob_dist[[1]]
+
+prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts, tta_prob)
+# collect all predicted distributions for each time point of interest
+distr_coll_4 = prob_dist[[1]]
+
+
+prob_dist = get_prob_dist(12, time_pts, summ, preds_all_ts, tta_prob)
+# collect all predicted distributions for each time point of interest
+distr_coll_12 = prob_dist[[1]]
+
+# choose a time point with a large number of patients as per the timepoint I chose for Craig (see get-real-time-patients.R)
+
+distr_coll[sample_time == "2021-04-07 16:22:01"] # for some reason this doesn't work
+distr_coll[sample_time == distr_coll$sample_time[12527]]
+dist_eg_8 = distr_coll_8[sample_time == distr_coll$sample_time[12527]]
+dist_eg_8[, N := case_when(num_adm_pred > 30 ~ "> 30",
+                         num_adm_pred < 5 ~ "< 5",
+                          TRUE ~ as.character(num_adm_pred))]
+dist_eg_8[, N := factor(N, levels = c("< 5", as.character(seq(5, 30, 1)), "> 30"))]
+
+p8 = dist_eg_8 %>% ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="red")   + theme(axis.title.y=element_blank(),
+                                                       axis.text.y=element_blank(),
+                                                       axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions in next 8 hours - patients in ED now") +
+  theme(legend.position = "null")
+
+
+dist_eg_4 = distr_coll_4[sample_time == distr_coll$sample_time[12527]]
+dist_eg_4[, N := case_when(num_adm_pred > 30 ~ "> 30",
+                           num_adm_pred < 5 ~ "< 5",
+                           TRUE ~ as.character(num_adm_pred))]
+dist_eg_4[, N := factor(N, levels = c("< 5", as.character(seq(5, 30, 1)), "> 30"))]
+
+p4 = dist_eg_4 %>% ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="red")   + theme(axis.title.y=element_blank(),
+                                                         axis.text.y=element_blank(),
+                                                         axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions in next 4 hours - patients in ED now") +
+  theme(legend.position = "null")
+
+dist_eg_12 = distr_coll_12[sample_time == distr_coll$sample_time[12527]]
+dist_eg_12[, N := case_when(num_adm_pred > 30 ~ "> 30",
+                           num_adm_pred < 5 ~ "< 5",
+                           TRUE ~ as.character(num_adm_pred))]
+dist_eg_12[, N := factor(N, levels = c("< 5", as.character(seq(5, 30, 1)), "> 30"))]
+
+p12 = dist_eg_12 %>% ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="red")   + theme(axis.title.y=element_blank(),
+                                                         axis.text.y=element_blank(),
+                                                         axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions in next 12 hours") +
+  theme(legend.position = "null")
+
+
+library(gridExtra)
+grid.arrange(p4, p8, p12,
+             ncol = 1, nrow = 3)
+
+
+# using Poisson distribution (ruj explore-not-yet-arrived.R to get not_in_ED_yet_all)
+
+poisson_8 = fitdist(not_in_ED_yet_all[time_window == 8, N], 'pois', method = 'mle')
+pdist_8 = data.table(num_adm_pred = 1:nrow(dist_eg_8), 
+                     probs= dpois(1:nrow(dist_eg_8), lambda = poisson_8$estimate)) # probability mass function for this number of 
+pdist_8[, probs := probs* nrow(dist_eg_8)]
+
+pdist_8[, N := case_when(num_adm_pred > 15 ~ "> 15",
+                         TRUE ~ as.character(num_adm_pred))]
+pdist_8[, N := factor(N, levels = c(as.character(seq(0, 15, 1)), "> 15"))]
+
+p8b = pdist_8 %>% ggplot(aes(x = N, y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="blue")   + theme(axis.title.y=element_blank(),
+                                                         axis.text.y=element_blank(),
+                                                         axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions in next 8 hours - patients not yet arrived") +
+  theme(legend.position = "null")
+
+
+poisson_12 = fitdist(not_in_ED_yet_all[time_window == 12, N], 'pois', method = 'mle')
+pdist_12 = data.table(num_adm_pred = 1:nrow(dist_eg_12), 
+                     probs= dpois(1:nrow(dist_eg_12), lambda = poisson_12$estimate)) # probability mass function for this number of 
+pdist_12[, probs := probs* nrow(dist_eg_12)]
+
+pdist_12[, N := case_when(num_adm_pred > 15 ~ "> 15",
+                         TRUE ~ as.character(num_adm_pred))]
+pdist_12[, N := factor(N, levels = c(as.character(seq(0, 15, 1)), "> 15"))]
+
+p12b = pdist_12 %>% ggplot(aes(x = N, y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="blue")   + theme(axis.title.y=element_blank(),
+                                                          axis.text.y=element_blank(),
+                                                          axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions in next 8 hours - patients not yet arrived") +
+  theme(legend.position = "null")
+
+
+library(gridExtra)
+grid.arrange(p4, p8, p8b,
+             ncol = 1, nrow = 3)
 

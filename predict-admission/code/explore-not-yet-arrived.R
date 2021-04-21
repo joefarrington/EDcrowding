@@ -119,3 +119,18 @@ not_in_ED_yet_all_pre %>% ggplot(aes(x = N)) + geom_histogram(binwidth = 1) + fa
   labs(title = "Frequency distributions for patients who have not yet arrived and who are admitted within various time windows",
        subtitle = paste("Based on", length(time_pts), "randomly sampled time points (not less than 4 hours apart) in the pre COVID era"),
        x = "Number of patients admitted")
+
+
+# Fit distribution --------------------------------------------------------
+
+library(fitdistrplus)
+
+poisson = fitdist(not_in_ED_yet_all[time_window == 8, N], 'pois', method = 'mle')
+pdist = dpois(1:21, lambda = poisson$estimate)
+pdist = pdist*length(time_pts)
+
+not_in_ED_yet_all[time_window == 8] %>% ggplot() + geom_histogram(aes(x = N), binwidth = 1) + geom_line(aes(x = N, y = pdist))
+
+
+# sample from poisson distribution
+rpois(1, lambda = poisson$estimate)
