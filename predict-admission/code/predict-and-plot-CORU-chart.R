@@ -268,10 +268,100 @@ get_prob_dist = function(time_window, time_pts, in_ED_all, preds_all_ts, tta_pro
 }
 
 
+
+# Get prob dist with not-yet-arrived --------------------------------------
+
+
+
+get_prob_dist_inc_not_yet_arrived = function(time_window, time_pts, in_ED_all, preds_all_ts, tta_prob, summ) {
+  
+  distr_coll = data.table()
+  adm_coll = data.table()
+  noone_in_ED = POSIXct()
+  
+  if(!is.na(time_window)) {
+    in_ED_all[, adm_in_time_window := case_when(remaining < time_window*60 & adm %in% c("direct_adm", "indirect_adm") ~ TRUE,
+                                                adm %in% c("direct_adm", "indirect_adm") ~ FALSE,
+                                                TRUE ~ NA)]
+  }
+  
+  for (i in (1:length(time_pts))) {
+    
+    in_ED = in_ED_all[time_pt == time_pts[i]]
+    
+    if (nrow(in_ED) == 0) {
+      noone_in_ED = c(noone_in_ED, time_pts[i])
+      
+      # need to add something here
+      
+    } else {
+        
+      df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+                 by = c("csn", "timeslice"), all.x = TRUE)
+      df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
+                 by = "timeslice")
+      df[, truth := adm_in_time_window]
+      df[, prob.1 := prob.1 * prob_adm_in_time_window]
+    }
+    
+    # 
+    # For the pre-COVID dataset, 
+    # [1] "Max admissions"
+    # [1] "In 2 hours:  17"
+    # [1] "In 3 hours:  22"
+    # [1] "In 4 hours:  27"
+    # [1] "In 6 hours:  36"
+    # [1] "In 8 hours:  45"
+    # [1] "In 12 hours:  47"
+    # 
+    # For the post-COVID dataset
+    # [1] "Max admissions"
+    # [1] "In 2 hours:  14"
+    # [1] "In 3 hours:  20"
+    # [1] "In 4 hours:  26"
+    # [1] "In 6 hours:  33"
+    # [1] "In 8 hours:  38"
+    # [1] "In 12 hours:  39"
+    
+    # > not_in_ED_yet_all[, mean(N), by = time_window]
+    # time_window          V1
+    # 1:           2  0.06873185
+    # 2:           3  0.28073572
+    # 3:           4  0.89545015
+    # 4:           6  3.18005808
+    # 5:           8  5.83059051
+    # 6:          12 11.73959342
+    # 
+    # make an array from 0 admissions to max possible number of admissions (ie all patients admitted)
+    num_adm_ = seq(0, nrow(df) + 20, 1)
+    # the probabilities of each of these numbers being admitted
+    probs_in_ED = poly_prod(df)
+    probs_in_ED = c(probs_in_ED, rep(0, nrow(df) + 20-length(probs_in_ED)))
+    probs_not_yet_arrived = dpois(num_adm_, lambda = 5.83059051)
+    probs = rowSums(outer(probs_not_yet_arrived, probs_in_ED, "*"))
+    
+    
+    distr = bind_cols(sample_time = time_pts[i], num_adm_pred = num_adm_, 
+                      probs = probs, cdf = cumsum(probs))
+    distr_coll = bind_rows(distr_coll, distr)
+    
+    num_adm_all = summ[adm %in% c("indirect_adm", "direct_adm") & 
+                       first_outside_proper_admission > time_pts[i] &
+                         first_outside_proper_admission < time_pts[i] + hours(time_window), .N]
+    
+    num_adm = bind_cols(sample_time = time_pts[i], num_in_ED = nrow(in_ED), 
+                        num_adm = num_adm_all)
+    adm_coll = bind_rows(adm_coll, num_adm)
+  }
+  
+  return(list(distr_coll, adm_coll, noone_in_ED))
+  
+}
+
 # Plot chart --------------------------------------------------------------
 
 
-plot_chart = function(time_window, prob_dist, subtitle) {
+plot_CORU_chart = function(time_window, time_pts, prob_dist, subtitle) {
   
   # collect all predicted distributions for each time point of interest
   distr_coll = prob_dist[[1]]
@@ -363,7 +453,7 @@ plot_chart = function(time_window, prob_dist, subtitle) {
   plot_data = bind_rows(lower_M, mid_M, upper_M, lower_E_prob, mid_E_prob, upper_E_prob)
   p = plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geom_point() +
     labs(title = "Proportion of demand values <= threshold X on predicted cdf",
-         subtitle = subtitle,
+         # subtitle = subtitle,
          x = "X",
          y = NULL) +
     theme_classic() +
@@ -372,6 +462,48 @@ plot_chart = function(time_window, prob_dist, subtitle) {
   
   return(p)
 }
+
+
+# Plot Czado chart --------------------------------------------------------
+
+
+
+czado_nonrandomized_pit_buckets = function(predicted_distribution, n_buckets) {
+  
+  quantiles = seq(0,1,1/n_buckets)  
+  
+  cumulative_output = czado_nonrandomized_pit_cumulative(predicted_distribution$upper_E, 
+                                                         predicted_distribution$lower_E,
+                                                         quantiles)
+  return(diff(cumulative_output))
+}
+
+czado_nonrandomized_pit_cumulative = function(upper = adm_coll$upper_E, 
+                                              lower = adm_coll$lower_E, 
+                                              quantiles){
+  
+  output = as.numeric()
+  for (u in quantiles) { 
+    
+    # Eq(2) and Eq(3) from Czado et al (2009)
+    # implemented in Python as:
+    # output.append(((u - lower) / (upper - lower)).clip(0, 1).mean()
+    
+    ratio = ((u - lower) / (upper - lower))
+    
+    # R doesn't seem to have a clip function
+    ratio = case_when(ratio < 0 ~ 0, 
+                      ratio > 1 ~ 1,
+                      TRUE ~ ratio)
+    
+    output = c(output, mean(ratio))
+    
+    
+  } 
+  
+  return(output)
+}
+
 
 # Load data ---------------------------------------------------------------
 
@@ -425,31 +557,48 @@ tta_prob[, prob := num_with_tta_in_hr/num_ts]
 tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 
-# All training data - no time window ------------------------------------------------------------
+# CORU plots for training data ------------------------------------------------------------
 
 set.seed(17L)
 start_of_set = as.POSIXct('2020-03-19 00:00:00')
 end_of_set = as.POSIXct('2020-12-01 00:00:00')
 #  find the first random date
-time_pts <- get_random_dttm(start_of_set + hours(12), 
-                            start_of_set + hours(24)) # NB don't change this to end of time period
-last_pt <- time_pts 
+time_pts_train <- get_random_dttm(start_of_set + hours(12), 
+                            start_of_set + hours(24))
+last_pt <- time_pts_train 
 
 # each sample to be more than 12 hours and less than 24 hours after the previous one
 while (last_pt + hours(12) < end_of_set) {
   next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
-  time_pts <- c(time_pts, next_pt)
+  time_pts_train <- c(time_pts_train, next_pt)
   last_pt <- next_pt
 }
 
-preds = make_predictions(time_pts, summ)
-# preds returns two datasets: in_ED_all and preds_ts_all
+preds_train = make_predictions(time_pts_train, summ)
+# make_predictions returns two datasets: in_ED_all and preds_all_ts
 # input these to chart
 
 time_window = NA
-prob_dist = get_prob_dist(time_window, time_pts, preds[[1]], preds[[2]], tta_prob)
-p_train_NA = plot_chart(time_window, prob_dist, 
-                        paste0("Post COVID training set; random sample of ", length(time_pts), " time points"))
+prob_dist_train_NA = get_prob_dist(time_window, time_pts_train, preds_train[[1]], preds_train[[2]], tta_prob)
+p_train_NA = plot_CORU_chart(time_window, time_pts_train, prob_dist_train_NA, 
+                        paste0("Post COVID training set; random sample of ", length(time_pts_train), " time points"))
+
+# plots for various time windows
+for (time_window in c(2, 3, 4, 6, 8, 12)) {
+  prob_dist_train = get_prob_dist(time_window, time_pts_train, preds_train[[1]], preds_train[[2]], tta_prob)
+  p_train = plot_CORU_chart(time_window, time_pts_train, prob_dist_train, 
+                          paste0(time_window, " hour time window"))
+  p_train = p_train + labs(title =  paste0(time_window, " hour time window"),
+                           subtitle = paste0("Post COVID training set; ", length(time_pts_train), " time points"))
+  plot_name = paste0("p_train_", get("time_window"))
+  assign(plot_name, p_train)
+}
+
+library(gridExtra)
+grid.arrange(p_train_2, p_train_3, p_train_4, p_train_6, p_train_8, p_train_12, ncol = 3, nrow = 2)
+
+
+
 
 
 # Validation data - no time window ----------------------------------------
@@ -459,204 +608,172 @@ set.seed(17L)
 start_of_set = as.POSIXct('2020-12-01 00:00:00')
 end_of_set = as.POSIXct('2020-12-29 00:00:00')
 #  find the first random date
-time_pts <- get_random_dttm(start_of_set + hours(12), 
-                            start_of_set + hours(24)) # NB don't change this to end of time period
-last_pt <- time_pts 
+time_pts_val <- get_random_dttm(start_of_set + hours(4), 
+                            start_of_set + hours(8)) 
+last_pt <- time_pts_val 
 
 # each sample to be more than 12 hours and less than 24 hours after the previous one
 while (last_pt + hours(12) < end_of_set) {
-  next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
-  time_pts <- c(time_pts, next_pt)
+  next_pt <- get_random_dttm(last_pt + hours(4), last_pt + hours(8))
+  time_pts_val <- c(time_pts_val, next_pt)
   last_pt <- next_pt
 }
 
-preds = make_predictions(time_pts, summ)
+preds_val = make_predictions(time_pts_val, summ)
 # preds returns two datasets: in_ED_all and preds_ts_all
 # input these to chart
 
 time_window = NA
-prob_dist = get_prob_dist(time_window, time_pts, preds[[1]], preds[[2]], tta_prob)
-p_val_NA = plot_chart(time_window, prob_dist, 
-                        paste0("Post COVID validation set; random sample of ", length(time_pts), " time points"))
+prob_dist = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
+p_val_NA = plot_CORU_chart(time_window, prob_dist, 
+                        paste0("Post COVID validation set; random sample of ", length(time_pts_val), " time points"))
 
 
 
+# plot comparing training and validation set
+library(gridExtra)
+grid.arrange(p_train_NA, p_val_NA, ncol = 2, nrow = 1)
 
-
-# collect all predicted distributions for each time point of interest
-distr_coll = prob_dist[[1]]
-
-# now treat the full set of cdfs (all time points) as a single discrete variable
-distr_coll[, upper_M_discrete_value := cdf]
-distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
-distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
-
-# outFile = paste0("EDcrowding/predict-admission/data-output/predicted_distribution_",today(),".csv")
-# write.csv(distr_coll, file = outFile, row.names = FALSE)
-
-
-# for the array of low cdf values (now considered a discrete distribution) work out its cdf
-
-lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
-setorder(lower_M, value)
-lower_M[, cum_weight := cumsum(probs)]
-lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
-lower_M[, dist := "model lower"]
-
-# same for high cdf values
-
-upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
-setorder(upper_M, value)
-upper_M[, cum_weight := cumsum(probs)]
-upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
-upper_M[, dist := "model upper"]
-
-# same for mid point
-
-mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
-setorder(mid_M, value)
-mid_M[, cum_weight := cumsum(probs)]
-mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
-mid_M[, dist := "model mid"]
-
-
-# compare the observed values against their predicted distribution 
-# and find their position on the cdf; combine this into a distribution
-
-adm_coll = prob_dist[[2]]
-
-
-adm_coll = merge(adm_coll, 
-                 distr_coll[, .(sample_time, num_adm = num_adm_pred, 
-                                lower_E = lower_M_discrete_value, 
-                                upper_E = upper_M_discrete_value)], 
-                 by = c("sample_time", "num_adm"))
-
-
-# for the array of low cdf values (now considered a discrete distribution) work out its cdf
-
-lower_E = adm_coll[, .(value = lower_E)]
-setorder(lower_E, value)
-lower_E_prob = lower_E[, .N, by = value]
-lower_E_prob[, cum_weight := N/length(time_pts)]
-lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
-lower_E_prob[, dist := "actual lower"]
-
-# same for high cdf values
-
-upper_E = adm_coll[, .(value = upper_E)]
-setorder(upper_E, value)
-upper_E_prob = upper_E[, .N, by = value]
-upper_E_prob[, cum_weight := N/length(time_pts)]
-upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
-upper_E_prob[, dist := "actual upper"]
-
-# same for mid point
-
-mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
-setorder(mid_E, value)
-mid_E_prob = mid_E[, .N, by = value]
-mid_E_prob[, cum_weight := N/length(time_pts)]
-mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
-mid_E_prob[, dist := "actual mid"]
-
-
-
-# Experimenting with Joe's methods ----------------------------------------
-# see https://github.com/joefarrington/ed_patient_flow/blob/main/ed_patient_flow/probability_utils.py
-
-# trying Joe's plots
-quantiles = seq(0,1,0.05)
-output = as.numeric()
-for (q in quantiles) {
-  mean(adm_coll$lower_E < .05)
-  output = c(output, mean(adm_coll$lower_E < q))
-}
-plotdata = bind_cols(expected = quantiles, output = output, distribution = "observed") %>% 
-  bind_rows(bind_cols(expected = quantiles, output = quantiles, distribution = "expected"))
-plotdata %>% ggplot(aes(x = expected, y = output, col = distribution)) + geom_line() + geom_point() +
-  labs(x = "Expected fraction in quantile", 
-       y = "Observed fraction in quantile",
-       title = "Calibration plot for post-COVID validation set using XGBoost") +
-  theme_classic() +
-  scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1)) +
-  scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1))
-
-
-labels = prob_dist[[2]]$num_adm
-labels = labels[order(labels)]
-
-
-
-czado_nonrandomized_pit_cumulative = function(upper = adm_coll$upper_E, 
-                                              lower = adm_coll$lower_E, 
-                                              quantiles){
-
-  output = as.numeric()
-  for (u in quantiles) { 
-    
-    # Eq(2) and Eq(3) from Czado et al (2009)
-    # implemented in Python as:
-    # output.append(((u - lower) / (upper - lower)).clip(0, 1).mean()
-    
-    ratio = ((u - lower) / (upper - lower))
-
-    # R doesn't seem to have a clip function
-    ratio = case_when(ratio < 0 ~ 0, 
-                   ratio > 1 ~ 1,
-                   TRUE ~ ratio)
-    
-    output = c(output, mean(ratio))
-    
-    
-  } 
+# plots for various time windows
+for (time_window in c(2, 3, 4, 6, 8, 12)) {
+  prob_dist_val = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
+  p_val = plot_CORU_chart(time_window, time_pts_val, prob_dist_val, 
+                     paste0(time_window, " hour time window"))
+  p_val = p_val + labs(title =  paste0(time_window, " hour time window"),
+                       subtitle = paste0("Post COVID validation set; ", length(time_pts_val), " time points"))
   
-  return(output)
+  plot_name = paste0("p_val_", get("time_window"))
+  assign(plot_name, p_val)
 }
 
-output_c = czado_nonrandomized_pit_cumulative(adm_coll$upper_E, adm_coll$lower_E, quantiles)
+grid.arrange(p_val_2, p_val_3, p_val_4, p_val_6, p_val_8, p_val_12, ncol = 3, nrow = 2)
 
-plotdata = bind_cols(expected = quantiles, output_c = output_c, distribution = "observed") %>% 
-  bind_rows(bind_cols(expected = quantiles, output_c = quantiles, distribution = "expected"))
-plotdata %>% ggplot(aes(x = expected, y = output_c, col = distribution)) + geom_line() + geom_point() +
-  labs(x = "Expected fraction in quantile", 
-       y = "Observed fraction in quantile",
-       title = "Calibration plot for post-COVID XGBoost model") +
-  theme_classic() +
-  scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1)) +
-  scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1)) +
-  theme(legend.position = "none")
+# Other exploration -------------------------------------------------------
 
-
-# PIT plot 
-
-# def czado_nonrandomized_pit_buckets(predicted_distribution, labels, n_buckets):
-#   
-#   quantiles = np.linspace(0, 1, n_buckets + 1)
-# cumulative_output = czado_nonrandomized_pit_cumulative(
-#   predicted_distribution, labels, quantiles
-# )
-# output = np.diff(cumulative_output)
-# return output
-
-
-czado_nonrandomized_pit_buckets = function(predicted_distribution, n_buckets) {
+plot_Czado_chart = function(time_pts, prob_dist, subtitle) {
   
-  quantiles = seq(0,1,1/n_buckets)  
   
-  cumulative_output = czado_nonrandomized_pit_cumulative(predicted_distribution$upper_E, 
-                                                predicted_distribution$lower_E,
-                                                quantiles)
-  return(diff(cumulative_output))
+  # collect all predicted distributions for each time point of interest
+  distr_coll = prob_dist[[1]]
+  
+  # now treat the full set of cdfs (all time points) as a single discrete variable
+  distr_coll[, upper_M_discrete_value := cdf]
+  distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
+  distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
+  
+  # outFile = paste0("EDcrowding/predict-admission/data-output/predicted_distribution_",today(),".csv")
+  # write.csv(distr_coll, file = outFile, row.names = FALSE)
+  
+  
+  # for the array of low cdf values (now considered a discrete distribution) work out its cdf
+  
+  lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
+  setorder(lower_M, value)
+  lower_M[, cum_weight := cumsum(probs)]
+  lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  lower_M[, dist := "model lower"]
+  
+  # same for high cdf values
+  
+  upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
+  setorder(upper_M, value)
+  upper_M[, cum_weight := cumsum(probs)]
+  upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  upper_M[, dist := "model upper"]
+  
+  # same for mid point
+  
+  mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
+  setorder(mid_M, value)
+  mid_M[, cum_weight := cumsum(probs)]
+  mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  mid_M[, dist := "model mid"]
+  
+  
+  # compare the observed values against their predicted distribution 
+  # and find their position on the cdf; combine this into a distribution
+  
+  adm_coll = prob_dist[[2]]
+  
+  
+  adm_coll = merge(adm_coll, 
+                   distr_coll[, .(sample_time, num_adm = num_adm_pred, 
+                                  lower_E = lower_M_discrete_value, 
+                                  upper_E = upper_M_discrete_value)], 
+                   by = c("sample_time", "num_adm"))
+  
+  
+  # for the array of low cdf values (now considered a discrete distribution) work out its cdf
+  
+  lower_E = adm_coll[, .(value = lower_E)]
+  setorder(lower_E, value)
+  lower_E_prob = lower_E[, .N, by = value]
+  lower_E_prob[, cum_weight := N/length(time_pts)]
+  lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  lower_E_prob[, dist := "actual lower"]
+  
+  # same for high cdf values
+  
+  upper_E = adm_coll[, .(value = upper_E)]
+  setorder(upper_E, value)
+  upper_E_prob = upper_E[, .N, by = value]
+  upper_E_prob[, cum_weight := N/length(time_pts)]
+  upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  upper_E_prob[, dist := "actual upper"]
+  
+  # same for mid point
+  
+  mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
+  setorder(mid_E, value)
+  mid_E_prob = mid_E[, .N, by = value]
+  mid_E_prob[, cum_weight := N/length(time_pts)]
+  mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  mid_E_prob[, dist := "actual mid"]
+  
+  output_c = czado_nonrandomized_pit_cumulative(adm_coll$upper_E, adm_coll$lower_E, quantiles)
+  
+  plotdata = bind_cols(expected = quantiles, output_c = output_c, distribution = "observed") %>% 
+    bind_rows(bind_cols(expected = quantiles, output_c = quantiles, distribution = "expected"))
+  czado_cum = plotdata %>% ggplot(aes(x = expected, y = output_c, col = distribution)) + geom_line() + geom_point() +
+    labs(x = "Expected fraction in quantile", 
+         y = "Observed fraction in quantile",
+         title = "Calibration plot for post-COVID XGBoost model",
+         subtitle = subtitle) +
+    theme_classic() +
+    scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1)) +
+    scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0,1)) +
+    theme(legend.position = "none")
+  
+ 
+  czado_pit = bind_cols(rel_freq = czado_nonrandomized_pit_buckets(adm_coll, 20), 
+                        # pit = as.character(sprintf("%.2f", quantiles[1:length(quantiles)-1]))) %>%
+                        pit = quantiles[1:length(quantiles)-1]) %>%
+    ggplot(aes(x = pit+0.025, y = rel_freq)) + geom_bar(stat = "identity", fill = "#00BFC4") +
+    labs(x = "Probability integral transform", 
+         y = "Relative frequency",
+         title = "Calibration plot for post-COVID XGBoost model",
+         subtitle = subtitle) +
+    theme_classic() +
+    geom_hline(yintercept = 0.05, linetype = "dashed", col = "#F8766D" ) +
+    scale_x_continuous(breaks = seq(0, 1, 0.05), limits = c(0,1)) +
+    theme(legend.position = "none")
+  
+  return(list(czado_cum, czado_pit))
+  
+  
 }
 
+cz = plot_Czado_chart(time_pts_train, prob_dist_train, subtitle = "Training set")
+grid.arrange(cz[[1]], cz[[2]], ncol = 2, nrow = 1)
 
-bind_cols(rel_freq = czado_nonrandomized_pit_buckets(adm_coll, 20), pit = quantiles[1:length(quantiles)-1]) %>%
-  ggplot(aes(x = pit, y = rel_freq)) + geom_bar(stat = "identity") +
-  labs(x = "Expected fraction in quantile", 
-       y = "Observed fraction in quantile",
-       title = "Calibration plot for post-COVID XGBoost model") +
-  theme_classic() +
-  geom_hline(yintercept = 0.05, linetype = "dashed", col = "orange") +
-  scale_x_continuous(breaks = seq(0, 1, 0.05), limits = c(0,1)) +
-  theme(legend.position = "none")
+cz = plot_Czado_chart(time_pts_val, prob_dist_val, subtitle = "Validation set")
+grid.arrange(cz[[1]], cz[[2]], ncol = 2, nrow = 1)
+
+
+
+# Including people not yet arrived ----------------------------------------
+
+
+prob_dist_inc = get_prob_dist_inc_not_yet_arrived(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob, summ)
+p_val_8_inc = plot_chart(time_window, time_pts_val, prob_dist_inc, 
+                           paste0("Post COVID validation set; random sample of ", length(time_pts_val), " time points"))

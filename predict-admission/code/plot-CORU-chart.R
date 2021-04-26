@@ -28,7 +28,7 @@ get_random_dttm <- function(dttm_start, dttm_end) {
 
 # Get probability distribution for number admitted at each time point of interest  
 
-get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
+get_prob_dist = function(time_window, time_pts, summ, preds_all_ts_, tta_prob) {
   
   distr_coll = data.table()
   adm_coll = data.table()
@@ -66,11 +66,11 @@ get_prob_dist = function(time_window, time_pts, summ, preds_all_ts, tta_prob) {
       
       if(is.na(time_window)) {
         
-        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+        df = merge(in_ED, preds_all_ts_[,.(csn, truth, prob.1, timeslice)], 
                             by = c("csn", "timeslice"), all.x = TRUE)
       } else {
         
-        df = merge(in_ED, preds_all_ts[,.(csn, truth, prob.1, timeslice)], 
+        df = merge(in_ED, preds_all_ts_[,.(csn, truth, prob.1, timeslice)], 
                             by = c("csn", "timeslice"), all.x = TRUE)
         df = merge(df, tta_prob[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
                    by = "timeslice")
@@ -118,7 +118,7 @@ load("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-03-23.rda") # te
 timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
 file_date = '2021-04-19'
 
-preds_all_ts <- data.table()
+preds_all_ts_ <- data.table()
 
 for (ts_ in timeslices) {
   
@@ -142,7 +142,7 @@ for (ts_ in timeslices) {
   }
   
   # bind all preds into one file
-  preds_all_ts = bind_rows(preds_all_ts, dt_)
+  preds_all_ts_ = bind_rows(preds_all_ts_, dt_)
   
 }
 
@@ -207,11 +207,11 @@ tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 time_window = 3
 
-prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
 distr_coll_8 = prob_dist[[1]]
 
-prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
 distr_coll_4 = prob_dist[[1]]
 
@@ -314,16 +314,16 @@ plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geo
 
 # Example output for Craig ----------------------------------------------------------
 
-prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
 distr_coll_8 = prob_dist[[1]]
 
-prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
 distr_coll_4 = prob_dist[[1]]
 
 
-prob_dist = get_prob_dist(12, time_pts, summ, preds_all_ts, tta_prob)
+prob_dist = get_prob_dist(12, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
 distr_coll_12 = prob_dist[[1]]
 
