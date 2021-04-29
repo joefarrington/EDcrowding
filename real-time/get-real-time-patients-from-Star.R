@@ -13,6 +13,13 @@ library(tidyverse)
 library(lubridate)
 library(data.table)
 
+# for mlr3
+library(mlr3)
+library(mlr3learners)
+library(mlr3proba)
+library(mlr3fselect)
+library(mlr3misc)
+
 
 # Create functions --------------------------------------------------------
 
@@ -76,6 +83,237 @@ group_room_names <- function(room) {
 
 group_room_names <- Vectorize(group_room_names)
 
+# function to create design matrix
+
+create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_real, cutoff, nextcutoff) {
+  
+  loc_cutoff <- loc[duration > cutoff & duration <= nextcutoff]
+  
+  # count number of location rows up to ED - note will include any pre- ED locations
+  loc_count <- loc_cutoff[, .N, by = csn]
+  setnames(loc_count, "N", "l_num")
+  
+  loc_count <- merge(loc_count, loc_cutoff[is.na(discharge_e), location, by = csn],
+                     all.x = TRUE)
+  setnames(loc_count, "location", "l_current")
+  loc_count[, l_current := factor(l_current)]
+  
+  # add indicator of location visited at csn level
+  loc_cutoff_csn <- merge(loc_count, data.table(
+    loc_cutoff[(!outside), .N > 0, by = .(csn, location)]  %>% 
+      pivot_wider(names_from = location, names_prefix = "l_visited_", values_from = V1, values_fill = 0)
+  ), all.x = TRUE)
+  
+  
+  # rename CDU
+  
+  if (sum(grepl("UCHT00CDU", colnames(loc))) > 0) {
+    setnames(loc_cutoff_csn, "num_UCHT00CDU", "num_CDU")
+  }
+  
+  # observation data - this will create counts of all observation data prior to cutoff + margin
+  # select for cutoff
+  obs_cutoff <- obs_real[duration > cutoff & duration <= nextcutoff]
+  
+  if (nrow(obs_cutoff) > 0) {
+    # add number of observation measurements up to cutoff
+    obs_cutoff[, o_num_meas := .N, by = csn]
+    
+    # add number of types of results by csn
+    obs_cutoff_csn <- merge(unique(obs_cutoff[, .(csn, o_num_meas)]), 
+                            obs_cutoff[, .(o_num_types = uniqueN(obs_name)), by = csn], by = "csn")
+    
+    # add number of observation events per csn
+    obs_cutoff_csn <- merge(obs_cutoff_csn, obs_cutoff[, .(o_num_events = uniqueN(elapsed_mins)), by = csn])
+    
+    # blood pressure has two measurements per event, so delete one type
+    obs_cutoff_csn[, o_num_types := o_num_types -1]
+    # obs_cutoff_csn[, o_num := o_num - o_num_Bloodpressure_sys]
+    obs_cutoff_csn[, o_has := 1] # this will be 1 for all csns currently; zeros added later
+    
+    
+    # add count of times when O2 sat dropped below 90 or 95
+    
+    sat_lt90 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 90, .N, by = .(csn)]
+    setnames(sat_lt90, "N", "o_num_o2sat_lt90")
+    sat_lt95 <- obs_cutoff[obs_name == "Oxygensaturation" & value_as_real < 95, .N, by = .(csn)]
+    setnames(sat_lt95, "N", "o_num_o2sat_lt95")
+    
+    obs_cutoff_csn <- merge(obs_cutoff_csn, sat_lt90, all.x = TRUE, by = "csn")
+    obs_cutoff_csn <- merge(obs_cutoff_csn, sat_lt95, all.x = TRUE, by = "csn")
+    
+    # add count of times when news score was medium or high
+    
+    news_med <- obs_cutoff[obs_name == "NEWSscore" & value_as_real < 7 & value_as_real > 4, .N, by = .(csn)] 
+    setnames(news_med, "N", "o_num_news_med")
+    news_high <- obs_cutoff[obs_name == "NEWSscore" & value_as_real >= 7, .N, by = .(csn)] 
+    setnames(news_high, "N", "o_num_news_high")
+    
+    obs_cutoff_csn <- merge(obs_cutoff_csn, news_med, all.x = TRUE, by = "csn")
+    obs_cutoff_csn <- merge(obs_cutoff_csn, news_high, all.x = TRUE, by = "csn")
+    
+    # add count of times ACVPU not equal to A
+    ACVPU_notA <- obs_cutoff[obs_name == "ACVPU" & value_as_real > 1, .N, by = .(csn)] 
+    setnames(ACVPU_notA, "N", "o_num_ACVPU_notA")
+    
+    obs_cutoff_csn <- merge(obs_cutoff_csn, ACVPU_notA, all.x = TRUE, by = "csn")
+    
+    # add count of times GCS <= 8
+    GCS_lt9 <- obs_cutoff[obs_name == "GCStotal" & value_as_real < 9, .N, by = .(csn)] 
+    setnames(GCS_lt9, "N", "o_num_GCS_lt9")
+    
+    obs_cutoff_csn <- merge(obs_cutoff_csn, GCS_lt9, all.x = TRUE, by = "csn")
+    
+    # generate counts of each observation by csn
+    obs_cutoff_csn_w <- obs_cutoff[, .N, by = .(csn, obs_name)] %>%
+      pivot_wider(names_from = obs_name, names_prefix = "o_num_", values_from = N, values_fill = 0)
+    
+    if (sum(grepl("o_num_Bloodpressure_dia", colnames(obs_cutoff_csn_w))) > 0) {
+      obs_cutoff_csn_w <- obs_cutoff_csn_w %>% select(-o_num_Bloodpressure_dia)
+      obs_cutoff_csn_w <- obs_cutoff_csn_w %>% rename(o_num_Bloodpressure = o_num_Bloodpressure_sys)
+    }
+    
+    obs_cutoff_csn <- data.table(merge(obs_cutoff_csn, obs_cutoff_csn_w))
+    
+    # add valued obs data
+    obs_cutoff_csn_val <- data.table(
+      obs_cutoff %>% 
+        filter(obs_name %in% c("TempinCelsius", "Heartrate","MAPnoninvasive", "Respiratoryrate", "FiO2" )) %>% 
+        group_by(csn, obs_name) %>%
+        # using max allows for possibility of two measurements in same minute
+        summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%
+        pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_value)
+    )
+  }
+  
+  
+  
+  # 
+  # add lab data
+
+  # select for cutoff
+  lab_orders_cutoff <- lab_orders_real[duration > cutoff & duration <= nextcutoff]
+  lab_results_cutoff <- lab_results_real[duration > cutoff & duration <= nextcutoff]
+  
+  # # add number of lab orders up to cutoff
+  # lab_cutoff[, p_num_orders := .N, by = csn]
+  
+  # add number of types of orders by csn
+  
+  if (nrow(lab_orders_cutoff) > 0) {
+    lab_cutoff_csn <- lab_orders_cutoff[, .(p_num_battery = uniqueN(battery_code)), by = csn]
+    
+    # add whether each cluster was requested
+    
+    lab_cutoff_csn_battery = lab_orders_cutoff[, (N =.N > 0), by = .(csn, battery_code)] %>% 
+      pivot_wider(names_from = battery_code, names_prefix = "p_req_battery_", values_from = V1, values_fill = 0)
+    
+    if (nrow(lab_results_cutoff) > 0) {
+      # add number of lab results that are out of range high and low
+      if (nrow(lab_results_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn]) > 0) {
+        lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(oor_high), .(p_num_oor_high =.N), by = csn])
+        
+      }
+      
+      if (nrow(lab_results_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn]) > 0) {
+        lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(oor_low), .(p_num_oor_low =.N), by = csn])
+        
+      }
+      
+      if (nrow(lab_results_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn]) > 0) {
+        lab_cutoff_csn <- merge(lab_cutoff_csn, lab_results_cutoff[(abnormal), .(p_num_abnormal =.N), by = csn])
+        
+      }
+      
+      if (nrow(lab_results_cutoff %>%
+                       filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")))> 0) {
+        # add score for each lab test in APACHE (add other values from ED clinicians)
+        lab_cutoff_csn_val <- data.table(
+          lab_results_cutoff %>%
+            filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")) %>% 
+            group_by(csn, test_lab_code) %>%
+            # using max allows for possibility of two measurements in same minute
+            summarise(latest_value = value_as_real)  %>%
+            pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)
+        )
+      }
+      
+    }
+    lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
+  }
+  
+  ## combine everything
+  # just use csn from summ to start with - add the other summ fields (which may have genuine NAs) later
+  matrix_cutoff <- merge(data.table(csn = dm[duration > cutoff & duration <= nextcutoff, csn]), loc_cutoff_csn, all.x = TRUE, by = "csn")
+  
+  if (nrow(obs_cutoff) > 0) {
+    matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn, all.x = TRUE)
+    
+  }
+  
+  if (nrow(lab_orders_cutoff) > 0) {
+    matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn, all.x = TRUE)
+    
+  }
+  
+  matrix_cutoff[is.na(matrix_cutoff)] <- 0
+  
+  # add other info where there may be genuine NAs
+  matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff & duration <= nextcutoff], by = c("csn")) 
+  
+  if (nrow(obs_cutoff) > 0) {
+    matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, by = "csn", all.x = TRUE) 
+  }
+  
+  if (nrow(lab_results_cutoff) > 0) {
+    if (nrow(lab_cutoff_csn_val) > 0) {
+      matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, by = "csn", all.x = TRUE)
+      
+    }
+  }
+
+  return(matrix_cutoff)
+  
+  
+}
+
+
+one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
+  
+  if(cols[1] == "auto") cols <- colnames(dt)[which(sapply(dt, function(x) is.factor(x) & !is.ordered(x)))]
+  
+  if(length(cols) == 0) {
+    return(dt) }
+  else {
+    
+    # Build tempDT containing and ID column and 'cols' columns
+    tempDT <- dt[, cols, with=FALSE]
+    tempDT[, ID := .I]
+    setcolorder(tempDT, unique(c("ID", colnames(tempDT))))
+    for(col in cols) set(tempDT, j=col, value=factor(paste(col, tempDT[[col]], sep="_"), levels=paste(col, levels(tempDT[[col]]), sep="_")))
+    
+    # One-hot-encode
+    if(dropUnusedLevels == TRUE){
+      newCols <- dcast(melt(tempDT, id = 'ID', value.factor = T), ID ~ value, drop = T, fun = length)
+    } else{
+      newCols <- dcast(melt(tempDT, id = 'ID', value.factor = T), ID ~ value, drop = F, fun = length)
+    }
+    
+    # Combine binarized columns with the original dataset
+    result <- cbind(dt, newCols[, !"ID"])
+    
+    # If dropCols = TRUE, remove the original factor columns
+    if(dropCols == TRUE){
+      result <- result[, !cols, with=FALSE]
+    }
+    
+    return(result)
+  }
+}
+
+
+# Set up connection -------------------------------------------------------
+
 
 
 # Set up connection
@@ -88,6 +326,8 @@ ctn <- DBI::dbConnect(RPostgres::Postgres(),
 
 
 # Get  data ---------------------------------------------------------
+
+time_of_extract = Sys.time()
 
 # all patients in ED now
 
@@ -320,9 +560,9 @@ summ_now = summ_now %>% left_join(demog_raw) %>%
                          TRUE ~ as.integer(as.period(interval(start = date_of_birth, end = admission_time))$year)))
 
 # flag under 18s but don't delete them
-summ_now = summ_now %>% mutate(under_18 = case_when(age >= 18 ~ TRUE,
+summ_now = summ_now %>% mutate(under_18 = case_when(age >= 18 ~ FALSE,
                                                     is.na(age) ~ FALSE, # retain patients with NA age for now
-                                                    TRUE ~ FALSE))
+                                                    age <18 ~ TRUE))
 
 # add visit history
 
@@ -357,11 +597,58 @@ moves_now <- moves_now %>% mutate(duration_row = difftime(discharge, admission, 
 # indicate whether row is OTF location
 moves_now <- moves_now %>% mutate(OTF_row = case_when(room == "UCHED OTF POOL" ~ 1, TRUE ~ 0))
 
+# update summ_now to mark any patients who are OTF now
+summ_now = left_join(summ_now, 
+                     moves_now %>% filter(OTF_row == 1, is.na(discharge)) %>% select(csn) %>% mutate(OTF_now = TRUE)
+                     )
+
+summ_now = summ_now %>% mutate(exclude = case_when(OTF_now ~ TRUE, 
+                                        under_18 ~ TRUE,
+                                        TRUE ~ FALSE))
+# from create-data-tables.R
+moves <- data.table(moves_now %>% anti_join(summ_now %>% filter(OTF_now | under_18) %>% select(csn)) %>% 
+  mutate(location = case_when(department == "ED" & room4 == "TRIAGE" ~ "Waiting",
+                            TRUE ~ room4)) %>% 
+  select(csn, admission, discharge, department, location) %>% 
+  arrange(csn, admission))
+
+setkey(moves, csn)
+moves[, "ED" := if_else(department == "ED", 1, 0)]
+
+# Deal with repeated locations 
+# update with next row's discharge time when locations are repeated
+cols = c("csn","admission","discharge", "department", "location")
+leadcols = paste("lead", cols, sep="_")
+lagcols = paste("lag", cols, sep="_")
+moves[, (leadcols) := shift(.SD, 1, NA, "lead"), .SDcols=cols]
+
+# find rows where locations are repeated so the first one can be dropped
+moves[csn == lead_csn & location == lead_location, drop_row := TRUE]
+# remove rows where location is repeated
+moves <- moves[is.na(drop_row)]
+
+# update admission date of the remaining row
+moves[, (lagcols) := shift(.SD, 1, NA, "lag"), .SDcols=cols]
+moves[csn == lag_csn & admission != lag_discharge, amend_row := TRUE]
+rpt(moves[(amend_row)])
+moves[csn == lag_csn & admission != lag_discharge, admission := lag_discharge]
+
+# remove any lag and lead rows for avoidance of error
+set(moves, NULL , c("drop_row", "amend_row", 
+                    "lag_csn", "lag_location", "lag_department", "lag_admission", "lag_discharge",  
+                    "lead_csn", "lead_location", "lead_department", "lead_admission", "lead_discharge"), NULL)
 
 
+# get first ED rows
+moves[ED == 1, first_ED := if_else(admission == min(admission, na.rm = TRUE), TRUE, FALSE), by = csn]
+first_ED_ = unique(moves[(first_ED), list(csn, admission)])
+setnames(first_ED_, "admission", "first_ED_admission")
+moves = merge(moves, first_ED_, all.x = TRUE)
+rm(first_ED_)
 
+moves[, "outside" := department != "ED"]
 
-
+summ <- merge(data.table(summ_now %>% select(-OTF_now, -exclude)), (unique(moves[,.(csn, first_ED_admission)])), by = "csn")
 
 # Process lab data --------------------------------------------------------
 
@@ -369,7 +656,281 @@ setkey(lab_orders, csn)
 lab_orders_real <- merge(lab_orders, summ[,.(csn, first_ED_admission)]) 
 
 setkey(lab_results, csn)
+lab_results_real <- merge(lab_results, summ[,.(csn, first_ED_admission)]) 
 
 # add elapsed time
-lab_orders[, elapsed_mins := as.numeric(difftime(request_datetime, first_ED_admission, units = "mins"))]
+lab_orders_real[, elapsed_mins := as.numeric(difftime(request_datetime, first_ED_admission, units = "mins"))]
 lab_results_real[, elapsed_mins := as.numeric(difftime(result_last_modified_time, first_ED_admission, units = "mins"))] 
+
+# remove obs from prior to ED by more than 2 hours
+lab_orders_real <- lab_orders_real[elapsed_mins >= -120]
+lab_results_real <- lab_results_real[elapsed_mins >= -120]
+
+# create out of range values
+lab_results_real <- lab_results_real %>% 
+  mutate(oor_low = value_as_real < range_low,
+         oor_high = value_as_real > range_high,
+         abnormal = abnormal_flag == "A")
+
+
+lab_results_real[, lab_results_real := case_when(is.na(value_as_real) & abnormal_flag == "A" ~ 1,
+                                                 TRUE ~ value_as_real
+)]
+
+# remove lab battery orders not included in ML model
+load("~/EDcrowding/real-time/data-raw/lab_orders_to_include.rda")
+lab_orders_real = lab_orders_real[battery_code %in% lab_orders_to_include]
+
+
+# Process obs data --------------------------------------------------------
+
+obs_real <- data.table(obs)
+setkey(obs_real, csn)
+obs_real <- merge(obs_real, summ[,.(csn, first_ED_admission)]) 
+
+# add elapsed time
+obs_real[, elapsed_mins := as.numeric(difftime(observation_datetime, first_ED_admission, units = "mins"))]
+
+# remove obs from prior to ED by more than 2 hours
+obs_real <- obs_real[elapsed_mins >= -120]
+
+# read mapped names for obs codes
+vo_mapping <- read_csv("~/Emap Mapping Spreadsheet - all questions.csv") %>% data.table()
+vo_mapping = vo_mapping[,.(`Friendly name`, `epic id`)]
+setnames(vo_mapping, "Friendly name", "obs_name")
+setnames(vo_mapping, "epic id", "id_in_application")
+vo_mapping = unique(vo_mapping[, obs_name := max(obs_name), by = id_in_application])
+vo_mapping[, obs_name := gsub(" ", "", obs_name)]
+
+# add mapped names to obs data
+obs_real[, id_in_application := as.numeric(id_in_application)]
+obs_real = merge(obs_real, vo_mapping, by = "id_in_application", allow.cartesian=TRUE, all.x = TRUE)
+
+# remove rows where there is no obs_name - ie not in mapping
+obs_real = obs_real[(!is.na(obs_name))]
+obs_real = obs_real[obs_name != "Reportedsymptomsonadmission"]
+
+# Temperature measured in both celcius and farenheit
+# Note that making a manual conversion will generate a different values to the original temp value
+obs_real[obs_name == "Temperature", value_as_real := (value_as_real - 32) * 5/9]
+obs_real[obs_name %in% c("Temperature", "Temp(inCelsius)"), num_temp_in_dttm := .N, by = .(csn, observation_datetime)]
+obs_real[num_temp_in_dttm == 2 & obs_name == "Temperature", delete_row := TRUE]
+obs_real = obs_real[is.na(delete_row)]
+obs_real[obs_name == "Temperature", obs_name := "Temp(inCelsius)"]
+
+# remove duplicate measurements (there are still a bunch with multiple temp measurements in one obs event)
+obs_real[obs_name %in% c("Temperature", "Temp(inCelsius)"), num_temp_in_dttm := .N, by = .(csn, observation_datetime)]
+obs_real[num_temp_in_dttm > 1]
+
+# first delete cols id_in_application and visit_observation_type_id as these have diff values for celcius and f meas
+obs_real[, id_in_application := NULL]
+obs_real[, visit_observation_type_id := NULL]
+obs_real = unique(obs_real)
+
+# convert ACVPU to numeric
+obs_real[, value_as_real := case_when(obs_name == "ACVPU" & value_as_text == "A" ~ 1,
+                                      obs_name == "ACVPU" & value_as_text == "C" ~ 2,
+                                      obs_name == "ACVPU" & value_as_text == "V" ~ 3,
+                                      obs_name == "ACVPU" & value_as_text == "P" ~ 4,
+                                      obs_name == "ACVPU" & value_as_text == "U" ~ 5,
+                                      TRUE ~ value_as_real
+)]
+
+# convert Bloodpressure to numeric
+
+Bloodpressure <- as_tibble(obs_real[obs_name == "Bloodpressure"]) %>% select(-value_as_real, -obs_name) %>% 
+  separate(value_as_text, into = c("Bloodpressure_sys","Bloodpressure_dia"), sep = "/") %>% 
+  mutate(Bloodpressure_sys = as.numeric(Bloodpressure_sys),
+         Bloodpressure_dia = as.numeric(Bloodpressure_dia)) %>% 
+  pivot_longer(Bloodpressure_sys:Bloodpressure_dia, names_to = "obs_name", values_to = "value_as_real"
+  )
+
+Bloodpressure <- Bloodpressure %>% mutate(value_as_text = NA)
+
+obs_real <- bind_rows(obs_real[obs_name != "Bloodpressure"], Bloodpressure)
+
+# convert resp assist type
+
+obs_real[, value_as_real := case_when(obs_name == "Roomairoroxygen" & value_as_text == "Supplemental Oxygen" ~ 1,
+                                      obs_name == "Roomairoroxygen" & value_as_text == "Room air" ~ 0,
+                                      TRUE ~ value_as_real)]
+
+
+# convert text to numeric where straightfoward
+obs_real[obs_name == "NEWSscore", value_as_real := as.numeric(value_as_text)]
+obs_real[obs_name == "NEWS2score", value_as_real := as.numeric(value_as_text)]
+obs_real[obs_name == "RASS", value_as_real := as.numeric(value_as_text)]
+obs_real[obs_name == "Painscore-verbalatrest", value_as_real := as.numeric(value_as_text)]
+obs_real[obs_name == "Painscore-verbalonmovement", value_as_real := as.numeric(value_as_text)]
+
+# remove outliers
+obs_real <- obs_real %>%
+  mutate(value_as_real = case_when(value_as_real >46 & obs_name == "Temp(inCelsius)" ~ NA_real_,
+                                   TRUE ~ value_as_real))
+
+# create final dataset of results (real values)
+obs_real <- obs_real[, .(csn, observation_datetime, value_as_real, obs_name, elapsed_mins)]
+
+# remove any punctuation that will make column names problematic
+obs_real[, obs_name := gsub("\\(|\\)|\\-|\\>|\\?|\\/","", obs_name)]
+obs_real[, obs_name := gsub("Currenttemperature>37.5orhistoryoffeverinthelast24hours","Fever", obs_name)]
+
+load("~/EDcrowding/real-time/data-raw/obs_to_include.rda")
+obs_real = obs_real[obs_name %in% obs_to_include]
+
+
+# Generate timeslices -----------------------------------------------------
+
+dm <- summ[,.(csn, age, sex, presentation_time, arrival_method, first_ED_admission, patient_class,
+              num_prior_adm_after_ED = num_adm_after_ED, num_prior_ED_visits = num_ED_visits)]
+
+dm[, tod := factor((hour(presentation_time) %/% 4)+1)]
+dm[, quarter := factor(case_when( month(presentation_time) <= 3 ~ 1,
+                                  month(presentation_time) <= 6 ~ 2, 
+                                  month(presentation_time) <= 9 ~ 3, 
+                                  month(presentation_time) <= 12 ~ 4))]
+#dm[, year := factor(year(presentation_time))]
+dm[, weekend := factor(if_else(weekdays(presentation_time, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0))]
+# the lab closes at 10 pm 
+dm[, night := factor(ifelse(hour(presentation_time) < 22 & hour(presentation_time) > 7, 0, 1))]
+dm[, gt70 := factor(age >= 70)]
+dm[, sex := factor(sex)]
+
+# was an inpatient, as part of this visit, before ED
+dm[, inpatient := if_else(patient_class == "INPATIENT", 1, 0)]
+dm[, inpatient := factor(inpatient)]
+
+# include a feature to capture time delay between presentation and arrival at ED;
+dm[, beforeED := as.numeric(difftime(first_ED_admission, presentation_time, units = "mins"))]
+# small number have negative time for before ED
+dm[, beforeED := if_else(beforeED <0, 0, beforeED) ]
+
+dm[, duration := as.numeric(difftime(time_of_extract, first_ED_admission, units = "mins"))]
+
+
+# simplify arrival method
+dm[, arrival := gsub(" |-", "", arrival_method)]
+dm[, arrival := factor(if_else(!arrival %in% c("Ambulance",
+                                               "Walkin",
+                                               "PublicTrans",
+                                               "Ambnomedic"), "Other", arrival)) ]
+dm[, arrival_method := NULL]
+setkey(dm, csn)
+
+
+
+# Prepare location data --------------------------------------------------
+
+loc <- moves[csn %in% dm$csn, .(csn, admission, discharge, location, visited_CDU = FALSE, outside)]
+loc <- merge(loc, dm[,.(csn, first_ED_admission, duration)])
+
+# remove rows where admission occurs to locations before arrival at ED
+loc <- loc[admission >= first_ED_admission]
+
+
+loc[, admission_e := as.numeric(difftime(admission, first_ED_admission, units = "mins"))]
+loc[, discharge_e := as.numeric(difftime(discharge, first_ED_admission, units = "mins"))]
+
+loc[, c("admission", "discharge", "first_ED_admission") := NULL]
+dm[, c("presentation_time", "first_ED_admission") := NULL]
+
+cols = colnames(copy(dm)[, c("csn","duration") := NULL])
+cols_ = paste("a", cols, sep="_")
+setnames(dm, cols, cols_)
+
+setkey(loc, csn)
+
+# Prepare obs and lab data
+obs_real <- merge(obs_real, dm[,.(csn, duration)], by = "csn")
+lab_orders_real <- merge(lab_orders_real, dm[,.(csn, duration)], by = "csn")
+lab_results_real <- merge(lab_results_real, dm[,.(csn, duration)], by = "csn")
+
+# Create timeslices -------------------------------------------------------
+
+
+timeslices <- c(0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 480+4*60)
+
+for (i in seq(1, length(timeslices) -1, 1)) {
+  print(paste0("Processing timeslice ", timeslices[i]))
+  
+  if (nrow(dm[duration >timeslices[i] & duration < timeslices[i+1]]) > 0) {
+    ts_ <- case_when(nchar(as.character(timeslices[i])) == 1 ~ paste0("00", timeslices[i]),
+                         nchar(as.character(timeslices[i])) == 2 ~ paste0("0", timeslices[i]),
+                         TRUE ~ as.character(timeslices[i]))
+    name_ <- paste0("dm", ts_)
+    ts <- create_timeslice(loc, dm, obs_real, lab_orders_real, lab_results_real, timeslices[i], timeslices[i+1])
+    assign(name_, ts)
+  }
+}
+
+
+
+
+# Make predictions --------------------------------------------------------
+
+model_date = '2021-04-19'
+model_features = "alop"
+use_dataset = "Post"
+
+preds_all_ts <- data.table()
+
+for (ts_ in timeslices) {
+
+  name_ts <- paste0("dm", ts_)
+  dt = get(name_ts)
+  
+  #  select dataset (pre or post covid or both if use_dataset is null)
+  if (!is.null(use_dataset)) {
+    dt = dt[a_epoch == use_dataset]
+    dt[, a_epoch := NULL]
+  }
+  
+  dt[, row_id := seq_len(nrow(dt))]
+  
+  # create vectors identifying test ids
+  assign(paste0("task", ts_, "_ids"), dt$row_id)
+  
+  # remove train-val-test label and row_id so not included in features
+  dt[, row_id := NULL]
+
+  # encode factors
+  ts <- one_hot(cols = "auto", dt = as.data.table(dt),  dropUnusedLevels=TRUE)
+  name_tsk <- paste0("task", ts_)
+  
+  
+  # add other features that might be missing
+  inFile = paste0("~/EDcrowding/predict-admission/data-output/features_", name_tsk, "_", model_date, ".rda")
+  load(inFile)
+  
+  ts_cols = colnames(ts)
+  missing_features = feature_list[!feature_list %in% ts_cols] # load this from file later
+  
+  missing_cols <- data.table(matrix(0, nrow = nrow(ts), ncol = length(missing_features)))
+  ts = bind_cols(ts, missing_cols)
+  colnames(ts) = c(ts_cols, missing_features)
+  
+  # # assign to named data table
+  # name_tsp <- paste0("dm", ts_, "p")
+  # assign(name_tsp, ts)
+  # 
+  # create task
+  tsk = TaskClassif$new(id = name_ts, backend = ts, target="adm") 
+  tsk$col_roles$name = "csn"
+  tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
+  tsk$positive = "1" # tell mlr3 which is the positive class
+  assign(name_tsk, tsk)
+  
+  
+  # load learner
+  inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
+  load(inFile)
+  
+  # get predictions
+  pred_values = as.data.table(learner$predict(tsk, row_ids = dt$row_id))
+  pred_values$timeslice = name_tsk
+  pred_values$csn = csns
+  
+  preds_all_ts <- bind_rows(preds_all_ts, pred_values)
+  
+}
+

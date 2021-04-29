@@ -34,11 +34,7 @@ poly_prod = function(df){
   return(coef(y))
 }
 
-get_random_dttm <- function(dttm_start, dttm_end) {
-  dt <- as.numeric(difftime(dttm_end, dttm_start,unit="sec"))
-  increment <- runif(1, 0, dt)
-  return(dttm_start + increment)
-}
+
 
 one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
   
@@ -119,6 +115,8 @@ make_predictions = function(time_pts, summ) {
   preds_all_ts <- data.table()
   
   for (ts_ in timeslices) {
+    
+    print(ts_)
     
     # load timeslice 
     inFile = paste0("~/EDcrowding/predict-admission/data-raw/dm", ts_, "_", file_date, ".rda")
@@ -515,6 +513,10 @@ summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge
 # added this while using only part of the dataset - need to change it later
 summ = summ[date(presentation_time) >= '2020-03-19']
 
+# load file for poisson distributions - generated empirically 
+poisson_file <- paste0("~/EDcrowding/flow-mapping/data-output/poisson_means.rda")
+load(poisson_file)
+
 
 # Get probability distribution for time to admission for each timeslice ----------------------------
 
@@ -559,22 +561,20 @@ tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 # CORU plots for training data ------------------------------------------------------------
 
-set.seed(17L)
-start_of_set = as.POSIXct('2020-03-19 00:00:00')
-end_of_set = as.POSIXct('2020-12-01 00:00:00')
-#  find the first random date
-time_pts_train <- get_random_dttm(start_of_set + hours(12), 
-                            start_of_set + hours(24))
-last_pt <- time_pts_train 
+start_of_set = with_tz(as.POSIXct('2020-12-01'), tz = "UTC")
+end_of_set = with_tz(as.POSIXct('2020-12-29'), tz = "UTC")
+next_dt = start_of_set
 
+time_pts = POSIXct()
 # each sample to be more than 12 hours and less than 24 hours after the previous one
-while (last_pt + hours(12) < end_of_set) {
-  next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
-  time_pts_train <- c(time_pts_train, next_pt)
-  last_pt <- next_pt
+while (next_dt < end_of_set) {
+  next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
+  time_pts <- c(time_pts, next_pt)
+  next_dt = next_dt + days(1)
 }
 
-preds_train = make_predictions(time_pts_train, summ)
+
+preds_train = make_predictions(time_pts, summ)
 # make_predictions returns two datasets: in_ED_all and preds_all_ts
 # input these to chart
 
@@ -605,8 +605,8 @@ grid.arrange(p_train_2, p_train_3, p_train_4, p_train_6, p_train_8, p_train_12, 
 
 set.seed(17L)
 
-start_of_set = as.POSIXct('2020-12-01 00:00:00')
-end_of_set = as.POSIXct('2020-12-29 00:00:00')
+start_of_set = with_tz(as.POSIXct('2020-12-01'), tz = "UTC")
+end_of_set = with_tz(as.POSIXct('2020-12-29'), tz = "UTC")
 #  find the first random date
 time_pts_val <- get_random_dttm(start_of_set + hours(4), 
                             start_of_set + hours(8)) 

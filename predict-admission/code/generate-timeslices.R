@@ -23,7 +23,7 @@ rpt <- function(dataframe) {
 
 # function to create design matrix
 
-create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff) {
+create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_real, cutoff, nextcutoff) {
   
   # locations - note this section will not include patients who have no location data up to cutoff + margin
   
@@ -159,7 +159,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   
   lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
   
-  # add score for each lab test in APACHE
+  # add score for each lab test in APACHE (add other values from ED clinicians)
   lab_cutoff_csn_val <- data.table(
     lab_results_cutoff %>%
       filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")) %>% 
@@ -222,9 +222,9 @@ file_date = '2021-04-19'
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 
-# keep only lab orders that are used more than 50 times
-battery_count = lab_orders_real[, .N, by = battery_code]
-lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
+# # keep only lab orders that are used more than 50 times - moved this to clean-lab-data.R
+# battery_count = lab_orders_real[, .N, by = battery_code]
+# lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
 
 
 
@@ -358,7 +358,7 @@ for (i in seq(1, length(timeslices) -1, 1)) {
                        nchar(as.character(timeslices[i])) == 2 ~ paste0("0", timeslices[i]),
                       TRUE ~ as.character(timeslices[i]))
   name_ <- paste0("dm", filenum)
-  ts <- create_timeslice(loc, dm, obs_real, lab_real, timeslices[i], timeslices[i+1])
+  ts <- create_timeslice(loc, dm, obs_real, lab_orders_real, lab_results_real, timeslices[i], timeslices[i+1])
   assign(name_, ts)
 }
 
