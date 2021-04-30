@@ -272,23 +272,23 @@ in_ED_at_time_pt_all[, weekend:= if_else(weekdays(time_pt, abbreviate = TRUE) %i
 in_ED_at_time_pt_all[, time_of_report:= factor(paste0(hour(time_pt), ":", substr(time_pt, 15, 16)),
                                                levels = c("6:00", "12:00", "16:00", "22:00"))]
 
-# generate number of visits in timeslice in total, also taking into account epoch, time of report, weekend etc. 
-in_ED_at_time_pt_all[, num_ts := .N, by = .(epoch, in_set, weekend, time_of_report, timeslice)]
-# generate cumulative probability of being admitted within a number of hours after timeslice
-tta_prob = in_ED_at_time_pt_all[, .(num_with_tta_in_hr = .N), by = .(epoch, in_set, weekend, time_of_report, timeslice, num_ts, tta_hr)]
-
-tta_prob[, prob := num_with_tta_in_hr/num_ts]
-tta_prob[, cdf := cumsum(prob), by = .(epoch, in_set, weekend, time_of_report, timeslice)]
-
-tta_prob[in_set == "Train" & epoch == "Pre" ] %>% 
-  mutate(weekend = factor(weekend, levels = c(0,1), labels = c("Weekday", "Weekend")), 
-         in_set = factor(in_set, levels = c("Train", "Val", "Test"))) %>% 
-  ggplot(aes(x = tta_hr, y = prob, col = weekend)) + geom_line() + 
-  facet_grid(time_of_report  ~ timeslice) +
-  labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
-       subtitle = "Pre COVID data", 
-       x = "Time to admission (hrs)",
-       y = "Probability")
+# # generate number of visits in timeslice in total, also taking into account epoch, time of report, weekend etc. 
+# in_ED_at_time_pt_all[, num_ts := .N, by = .(epoch, in_set, weekend, time_of_report, timeslice)]
+# # generate cumulative probability of being admitted within a number of hours after timeslice
+# tta_prob = in_ED_at_time_pt_all[, .(num_with_tta_in_hr = .N), by = .(epoch, in_set, weekend, time_of_report, timeslice, num_ts, tta_hr)]
+# 
+# tta_prob[, prob := num_with_tta_in_hr/num_ts]
+# tta_prob[, cdf := cumsum(prob), by = .(epoch, in_set, weekend, time_of_report, timeslice)]
+# 
+# tta_prob[in_set == "Train" & epoch == "Pre" ] %>% 
+#   mutate(weekend = factor(weekend, levels = c(0,1), labels = c("Weekday", "Weekend")), 
+#          in_set = factor(in_set, levels = c("Train", "Val", "Test"))) %>% 
+#   ggplot(aes(x = tta_hr, y = prob, col = weekend)) + geom_line() + 
+#   facet_grid(time_of_report  ~ timeslice) +
+#   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
+#        subtitle = "Pre COVID data", 
+#        x = "Time to admission (hrs)",
+#        y = "Probability")
 
 ## looks like not much variation by weekend; trying without
 # resummarise number in timeslice
@@ -297,39 +297,42 @@ tta_prob_2 = in_ED_at_time_pt_all[, .(num_with_tta_in_hr = .N), by = .(epoch, in
 tta_prob_2[, prob := num_with_tta_in_hr/num_ts]
 tta_prob_2[, cdf := cumsum(prob), by = .(epoch, in_set, time_of_report, timeslice)]
 
-epoch_ = "Post"
-tta_prob_2[in_set == "Train" & epoch == epoch_ ] %>% 
-  ggplot(aes(x = tta_hr, y = prob)) + geom_line() + 
-  facet_grid(time_of_report  ~ timeslice) +
-  labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
-       subtitle = paste(epoch_, "COVID data"), 
-       x = "Time to admission (hrs)",
-       y = "Probability")
+tta_prob_file = paste0("EDcrowding/real-time/data-raw/tta_prob.rda")
+save(tta_prob_2, file = tta_prob_file)
 
-tta_prob_2[timeslice %in% c(300, 360, 480) & in_set == "Train"] %>% 
-  mutate( timeslice = case_when(nchar(as.character(timeslice)) == 1 ~ paste0("00", timeslice),
-                                     nchar(as.character(timeslice)) == 2 ~ paste0("0", timeslice),
-                                     TRUE ~ paste0("", timeslice)),
-          epoch = factor(epoch, levels = c("Pre", "Post"))) %>% 
-            ggplot(aes(x = tta_hr, y = prob, col = time_of_report)) + geom_line() +
-  facet_grid(epoch ~ timeslice ) +
-  labs(title = "Probability of number of hours to admission for last three timeslices at different times of day",
-       subtitle = "Pre and post Covid",
-       x = "Hours to admission", 
-       y = "Probability")
-  
-
-# get expected values
-expected_tta = tta_prob_2[in_set == "Train", .SD[which.max(prob)], by = list(epoch, time_of_report, timeslice)]
-expected_tta %>%  mutate( timeslice = case_when(nchar(as.character(timeslice)) == 1 ~ paste0("00", timeslice),
-                                        nchar(as.character(timeslice)) == 2 ~ paste0("0", timeslice),
-                                        TRUE ~ paste0("", timeslice)),
-                          epoch = factor(epoch, levels = c("Pre", "Post"))) %>% 
-  ggplot(aes(x = timeslice, y = tta_hr, col = time_of_report, group = time_of_report)) + geom_line() +
-  scale_y_continuous(breaks = seq(0, 10, 1)) +
-  facet_grid(epoch  ~ time_of_report) +
-  labs(title = "Expected time to admission from beginning of timeslice",
-       subtitle = "Training set only", 
-       y = "Expected number of hours to admission",
-       x = "Timeslice") +
-  theme(legend.position = "bottom")
+# epoch_ = "Post"
+# tta_prob_2[in_set == "Train" & epoch == epoch_ ] %>% 
+#   ggplot(aes(x = tta_hr, y = prob)) + geom_line() + 
+#   facet_grid(time_of_report  ~ timeslice) +
+#   labs(title = "Probability distribution for time to admission after beginning of timeslice (up to 24 hours)",
+#        subtitle = paste(epoch_, "COVID data"), 
+#        x = "Time to admission (hrs)",
+#        y = "Probability")
+# 
+# tta_prob_2[timeslice %in% c(300, 360, 480) & in_set == "Train"] %>% 
+#   mutate( timeslice = case_when(nchar(as.character(timeslice)) == 1 ~ paste0("00", timeslice),
+#                                      nchar(as.character(timeslice)) == 2 ~ paste0("0", timeslice),
+#                                      TRUE ~ paste0("", timeslice)),
+#           epoch = factor(epoch, levels = c("Pre", "Post"))) %>% 
+#             ggplot(aes(x = tta_hr, y = prob, col = time_of_report)) + geom_line() +
+#   facet_grid(epoch ~ timeslice ) +
+#   labs(title = "Probability of number of hours to admission for last three timeslices at different times of day",
+#        subtitle = "Pre and post Covid",
+#        x = "Hours to admission", 
+#        y = "Probability")
+#   
+# 
+# # get expected values
+# expected_tta = tta_prob_2[in_set == "Train", .SD[which.max(prob)], by = list(epoch, time_of_report, timeslice)]
+# expected_tta %>%  mutate( timeslice = case_when(nchar(as.character(timeslice)) == 1 ~ paste0("00", timeslice),
+#                                         nchar(as.character(timeslice)) == 2 ~ paste0("0", timeslice),
+#                                         TRUE ~ paste0("", timeslice)),
+#                           epoch = factor(epoch, levels = c("Pre", "Post"))) %>% 
+#   ggplot(aes(x = timeslice, y = tta_hr, col = time_of_report, group = time_of_report)) + geom_line() +
+#   scale_y_continuous(breaks = seq(0, 10, 1)) +
+#   facet_grid(epoch  ~ time_of_report) +
+#   labs(title = "Expected time to admission from beginning of timeslice",
+#        subtitle = "Training set only", 
+#        y = "Expected number of hours to admission",
+#        x = "Timeslice") +
+#   theme(legend.position = "bottom")

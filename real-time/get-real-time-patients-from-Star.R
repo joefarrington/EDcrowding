@@ -12,6 +12,8 @@ library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(data.table)
+library(polynom)
+
 
 # for mlr3
 library(mlr3)
@@ -26,6 +28,18 @@ library(mlr3misc)
 rpt <- function(dataframe) {
   print(dataframe %>% select(csn) %>% n_distinct())
 }
+
+poly_prod = function(df){
+  
+  # polynomial(vector) is a polynomial t
+  y = polynomial(c(1,0))# 
+  for (n in 1:nrow(df)){
+    y = y*polynomial(c(1-df$prob.1[n],df$prob.1[n]))
+  }
+  return(coef(y))
+}
+
+
 
 
 split_location <- function(hl7_location, n) {
@@ -266,7 +280,8 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
   }
   
   if (nrow(lab_results_cutoff) > 0) {
-    if (nrow(lab_cutoff_csn_val) > 0) {
+    if (nrow(lab_results_cutoff %>%
+             filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")))> 0) {
       matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, by = "csn", all.x = TRUE)
       
     }
@@ -312,6 +327,55 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 }
 
 
+get_prob_dist = function(time_window, preds_all_ts, poisson_means, tta_probs) {
+  
+  
+  distr_all = data.table()
+  # get probs for all in ED being admitted
+  
+  num_adm_ = seq(0,nrow(preds_all_ts), 1)
+  # the probabilities of each of these numbers being admitted
+  probs = poly_prod(preds_all_ts) 
+  
+  distr_all = bind_cols(num_adm_pred = num_adm_, 
+                    probs = probs, cdf = cumsum(probs),
+                    dist = "In ED now; admission at some point")
+  
+  for (time_window in c(4, 8)) {
+    
+    df = merge(preds_all_ts[, .(prob.1, csn, timeslice = as.numeric(gsub("task", "", timeslice)))], 
+               tta_probs[tta_hr == time_window, .(timeslice, prob_adm_in_time_window = cdf)], 
+               by = "timeslice", all.x = TRUE)
+    df[, prob.1 := prob.1 * prob_adm_in_time_window]
+    
+    probs_in_ED = poly_prod(df) 
+    
+    dist = bind_cols(num_adm_pred = num_adm_, 
+                     probs = probs_in_ED, cdf = cumsum(probs_in_ED),
+                     dist = paste("In ED now; admission in", time_window, "hours"))
+    
+    distr_all = bind_rows(distr_all, dist)
+    
+    # time_window_ = time_window
+    # probs_not_yet_arrived = dpois(c(num_adm_ , seq(max(num_adm_), max(num_adm_+20),1)), 
+    #                               lambda = poisson_means[time_window == time_window_, poisson_mean])
+    # 
+    # all_probs = data.table(outer(probs_not_yet_arrived, probs_in_ED, "*"))
+    # colnames(all_probs) = as.character(num_adm_)
+    # all_probs[, not_yet_in_ED := as.character(c(num_adm_ , seq(max(num_adm_), max(num_adm_+20),1)))]
+    # 
+    # all_probs %>% pivot_longer(1:11) %>% 
+    #   mutate(tot_adm = as.numeric(gsub("not_yet_in_ED", "", not_yet_in_ED))
+                 
+  }
+  
+  
+
+  return(data.table(distr_all))
+  
+}
+
+
 # Set up connection -------------------------------------------------------
 
 
@@ -349,7 +413,7 @@ sqlQuery <- "select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient
 sqlQuery <- gsub('\n','',sqlQuery)
 summ_now <- as_tibble(dbGetQuery(ctn, sqlQuery))
 rpt(summ_now)
-summ_now <- summ_now %>% mutate(time_since_arrival = difftime(Sys.time(), presentation_time, units = "mins"))
+summ_now <- summ_now %>% mutate(time_since_arrival = difftime(time_of_extract, presentation_time, units = "mins"))
 
 
 # demographics
@@ -850,6 +914,8 @@ lab_results_real <- merge(lab_results_real, dm[,.(csn, duration)], by = "csn")
 
 timeslices <- c(0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 480+4*60)
 
+timeslices_to_predict <- as.character()
+
 for (i in seq(1, length(timeslices) -1, 1)) {
   print(paste0("Processing timeslice ", timeslices[i]))
   
@@ -859,7 +925,9 @@ for (i in seq(1, length(timeslices) -1, 1)) {
                          TRUE ~ as.character(timeslices[i]))
     name_ <- paste0("dm", ts_)
     ts <- create_timeslice(loc, dm, obs_real, lab_orders_real, lab_results_real, timeslices[i], timeslices[i+1])
+
     assign(name_, ts)
+    timeslices_to_predict = c(timeslices_to_predict, name_)
   }
 }
 
@@ -868,35 +936,24 @@ for (i in seq(1, length(timeslices) -1, 1)) {
 
 # Make predictions --------------------------------------------------------
 
-model_date = '2021-04-19'
-model_features = "alop"
-use_dataset = "Post"
+model_date = '2021-04-29'
 
-preds_all_ts <- data.table()
+pred_file = paste0("~/EDcrowding/real-time/data-output/real_time_preds.rda")
 
-for (ts_ in timeslices) {
+if (file.exists(pred_file)) {
+  load(pred_file)
+} else {
+  preds_all_ts <- data.table()
+}
 
-  name_ts <- paste0("dm", ts_)
+for (ts_ in timeslices_to_predict) {
+
+  name_ts <- ts_
   dt = get(name_ts)
   
-  #  select dataset (pre or post covid or both if use_dataset is null)
-  if (!is.null(use_dataset)) {
-    dt = dt[a_epoch == use_dataset]
-    dt[, a_epoch := NULL]
-  }
-  
-  dt[, row_id := seq_len(nrow(dt))]
-  
-  # create vectors identifying test ids
-  assign(paste0("task", ts_, "_ids"), dt$row_id)
-  
-  # remove train-val-test label and row_id so not included in features
-  dt[, row_id := NULL]
-
   # encode factors
   ts <- one_hot(cols = "auto", dt = as.data.table(dt),  dropUnusedLevels=TRUE)
-  name_tsk <- paste0("task", ts_)
-  
+  name_tsk <- gsub("dm", "task", ts_)
   
   # add other features that might be missing
   inFile = paste0("~/EDcrowding/predict-admission/data-output/features_", name_tsk, "_", model_date, ".rda")
@@ -908,29 +965,189 @@ for (ts_ in timeslices) {
   missing_cols <- data.table(matrix(0, nrow = nrow(ts), ncol = length(missing_features)))
   ts = bind_cols(ts, missing_cols)
   colnames(ts) = c(ts_cols, missing_features)
-  
-  # # assign to named data table
-  # name_tsp <- paste0("dm", ts_, "p")
-  # assign(name_tsp, ts)
-  # 
-  # create task
-  tsk = TaskClassif$new(id = name_ts, backend = ts, target="adm") 
-  tsk$col_roles$name = "csn"
-  tsk$col_roles$feature = setdiff(tsk$col_roles$feature, "csn")
-  tsk$positive = "1" # tell mlr3 which is the positive class
-  assign(name_tsk, tsk)
-  
-  
+
   # load learner
   inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
   load(inFile)
   
   # get predictions
-  pred_values = as.data.table(learner$predict(tsk, row_ids = dt$row_id))
+  pred_values = as.data.table(predict(learner, ts, predict_type = "prob"))
+  setnames(pred_values, c("1", "0"), c("prob.1", "prob.0"))
   pred_values$timeslice = name_tsk
-  pred_values$csn = csns
+  pred_values[, csn:= ts$csn]
+  pred_values[, extract_dttm := time_of_extract]
   
   preds_all_ts <- bind_rows(preds_all_ts, pred_values)
   
+  
 }
+
+
+
+save(preds_all_ts, file = pred_file)
+
+
+# Predict distribution ----------------------------------------------------
+
+# load poisson means for not-yet-arrived
+poisson_file = "~/EDcrowding/real-time/data-output/poisson_means.rda"
+load(poisson_file)
+
+# load probabilities of time to admit
+tta_hr_file = "EDcrowding/real-time/data-raw/tta_prob.rda"
+load(tta_hr_file)
+
+
+get_report = case_when(as.numeric(substr(time_of_extract, 12,13)) < 6 ~ "6:00",
+                       as.numeric(substr(time_of_extract, 12,13)) < 12 ~ "12:00",
+                       as.numeric(substr(time_of_extract, 12,13)) < 16 ~ "16:00",
+                       TRUE ~ "22:00")
+
+is_weekend = if_else(weekdays(time_of_extract, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0)
+
+
+distr_all = get_prob_dist(time_window = NA, preds_all_ts[extract_dttm == time_of_extract],
+                      poisson_means[epoch == "Post" & in_set == "Train" & time_of_report == get_report & weekend == is_weekend],
+                      tta_prob_2[epoch == "Post" & in_set == "Train" & time_of_report == get_report])
+
+distr_all = data.table(distr_all)
+
+distr_all[, N := case_when(num_adm_pred > 30 ~ "> 30",
+                           num_adm_pred < 5 ~ "< 5",
+                           TRUE ~ as.character(num_adm_pred))]
+distr_all[, N := factor(N, levels = c("< 5", as.character(seq(5, 30, 1)), "> 30"))]
+
+distr_all %>% ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
+  theme_classic(base_size = 18)+ 
+  scale_fill_gradient(low="white", high="red")   + theme(axis.title.y=element_blank(),
+                                                         axis.text.y=element_blank(),
+                                                         axis.ticks.y=element_blank()) +
+  labs(fill = "Probability", 
+       x = "Number of admissions") +
+  theme(legend.position = "null") +
+  facet_wrap(dist~ ., nrow = 3)
+
+# Charts ------------------------------------------------------------------
+
+# get patients admitted yesterday - this may include inpatients who were rerouted to ED
+
+sqlQuery <- paste(" select count(*) from star.hospital_visit hv where
+        hv.hospital_visit_id in (
+            select distinct hospital_visit_id
+              from star.location_visit lv,
+                   star.location l
+              where left(l.location_string, 3) ='ED^'
+                      and lv.admission_time > '", substr(time_of_extract - days(1), 1,10), "00:00:00'
+                      and lv.admission_time <= '", substr(time_of_extract - days(1), 1,10), "23:59:59' 
+                  and l.location_id = lv.location_id   ) and patient_class = 'INPATIENT';")
+
+sqlQuery <- gsub('\n','',sqlQuery)
+adm_yest <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+# get patients admitted last 24 hours
+
+sqlQuery <- paste(" select count(*) from star.hospital_visit hv where
+        hv.hospital_visit_id in (
+            select distinct hospital_visit_id
+              from star.location_visit lv,
+                   star.location l
+              where left(l.location_string, 3) ='ED^'
+                      and lv.admission_time > '", time_of_extract - days(1), "'
+                      and lv.admission_time <= '", time_of_extract,  "'
+                  and l.location_id = lv.location_id   ) and patient_class = 'INPATIENT';")
+
+sqlQuery <- gsub('\n','',sqlQuery)
+adm_last_24 <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+
+moves_now = moves_now %>% mutate(room5 = case_when(room4 == "TRIAGE" ~ "Waiting",
+                                       TRUE ~ room4)) %>% 
+  mutate(room5 = factor(room5, levels = c("Waiting", "RAT", "MAJORS", "RESUS", "UTC", "SDEC", "TAF", "PAEDS", "OTF"),
+                        labels = c("Waiting/TRIAGE", "RAT", "MAJORS", "RESUS", "UTC", "SDEC", "TAF", "PAEDS", "OTF")))
+
+# chart in hours - last 24 hours
+moves_now %>% filter(is.na(discharge)) %>% 
+  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  filter(time_since_arrival <= 24*60) %>% 
+  mutate(time_since_arrival = time_since_arrival/60) %>% 
+  ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18)) +
+  labs(y = "Current location", x = "Hours since arrival",
+       title = paste("Patients in ED at ", substr(time_of_extract, 1, 16), "- arrivals in last 24 hours")) +
+  theme_grey(base_size = 18) +
+  # geom_vline(xintercept = timeslices/60)  + theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = seq(0,24,4), limits = c(0,24)) +
+  annotate("text", x = 16, y = "Waiting/TRIAGE", 
+           label = paste("Number in ED now:", nrow(summ), "\nAdmissions yesterday :", adm_yest$count, "\nAdmissions last 24 hrs:",  adm_last_24$count),
+           size = 6)
+
+
+# chart in hours - last 3 days
+moves_now %>% filter(is.na(discharge)) %>% 
+  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  mutate(time_since_arrival = time_since_arrival/60) %>% 
+  ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18)) +
+  labs(y = "Current location", x = "Hours since arrival",
+       title = paste("Patients in ED at ", substr(time_of_extract, 1, 16), "- arrivals in last 3 days")) +
+  theme_grey(base_size = 18) +
+  # geom_vline(xintercept = timeslices/60)  + theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = seq(0,24*3,8)) +
+  annotate("text", x = 16, y = "Waiting/TRIAGE", 
+           label = paste("Number in ED now:", nrow(summ), "\nAdmissions yesterday :", adm_yest$count, "\nAdmissions last 24 hrs:",  adm_last_24$count),
+           size = 6)
+
+# chart with predictions
+moves_now %>% filter(is.na(discharge)) %>% 
+  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  mutate(extract_dttm = time_of_extract) %>% 
+  left_join(preds_all_ts, by = c("csn", "extract_dttm"))  %>% 
+  filter(time_since_arrival <= 24*60) %>% 
+  mutate(time_since_arrival = time_since_arrival/60) %>% 
+  ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18, col = prob.1)) +
+  labs(y = "Current location", x = "Hours since arrival",
+       title = paste("Patients in ED at ", substr(time_of_extract, 1, 16)),
+       col = "Probability of admission", 
+       shape = "Under 18") +
+  theme_grey(base_size = 18) +
+  # geom_vline(xintercept = timeslices/60)  + theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = seq(0,24,4)) +
+  scale_colour_gradient2(low = "blue", mid = "yellow", high = "red", limits = c(0,1), breaks = c(0,0.5, 1)) + 
+  theme(legend.text=element_text(size=10))
+
+
+
+
+# Evaluate ----------------------------------------------------------------
+
+# get patients admitted yesterday - this may include inpatients who were rerouted to ED
+
+sqlQuery <- paste(" select count(*) from star.hospital_visit hv where
+        hv.hospital_visit_id in (
+            select distinct hospital_visit_id
+              from star.location_visit lv,
+                   star.location l
+              where left(l.location_string, 3) ='ED^'
+                      and lv.admission_time > '", substr(time_of_extract - days(1), 1,10), "00:00:00'
+                      and lv.admission_time <= '", substr(time_of_extract - days(1), 1,10), "23:59:59' 
+                  and l.location_id = lv.location_id   ) and patient_class = 'INPATIENT';")
+
+sqlQuery <- gsub('\n','',sqlQuery)
+adm_yest <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+# get patients admitted last 24 hours
+
+sqlQuery <- paste(" select count(*) from star.hospital_visit hv where
+        hv.hospital_visit_id in (
+            select distinct hospital_visit_id
+              from star.location_visit lv,
+                   star.location l
+              where left(l.location_string, 3) ='ED^'
+                      and lv.admission_time > '", time_of_extract - days(1), "'
+                      and lv.admission_time <= '", time_of_extract,  "'
+                  and l.location_id = lv.location_id   ) and patient_class = 'INPATIENT';")
+
+sqlQuery <- gsub('\n','',sqlQuery)
+adm_last_24 <- as_tibble(dbGetQuery(ctn, sqlQuery))
 

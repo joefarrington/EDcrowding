@@ -118,7 +118,7 @@ grid.arrange(p1, p2, nrow = 1)
 # multiplying by 4 because num_obs is used to later to plot Poisson chart (not sure if right)
 poisson_means = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
                                   by = .(epoch, weekend, in_set, time_of_report, time_window)] 
-save(poisson_means, file = "~/EDcrowding/predict-admission/data-output/poisson_means.rda")
+save(poisson_means, file = "~/EDcrowding/real-time/data-output/poisson_means.rda")
 # save(poisson_means, file = "~poisson_means.rda")
 # Do again for pre COVID --------------------------------------------------
 
