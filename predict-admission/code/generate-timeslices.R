@@ -11,7 +11,6 @@ library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(data.table)
-library(tidymodels)
 
 
 # Create functions --------------------------------------------------------
@@ -159,10 +158,11 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
   
   lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
   
-  # add score for each lab test in APACHE (add other values from ED clinicians)
+  # add latest score for each lab test in APACHE and those identified by ED clinicians
   lab_cutoff_csn_val <- data.table(
     lab_results_cutoff %>%
-      filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")) %>% 
+      filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC",
+                                  "HTRT", "Lac", "pCO2", "HCO3", "pH")) %>% 
       group_by(csn, test_lab_code) %>%
       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
       # using max allows for possibility of two measurements in same minute
@@ -170,7 +170,6 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
       pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)
   )
   
-
   
   ## combine everything
   
@@ -218,7 +217,7 @@ load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda
 
 
 # lab data
-file_date = '2021-04-19'
+file_date = '2021-05-01'
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 

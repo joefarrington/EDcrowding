@@ -336,3 +336,15 @@ save(tta_prob_2, file = tta_prob_file)
 #        y = "Expected number of hours to admission",
 #        x = "Timeslice") +
 #   theme(legend.position = "bottom")
+
+
+
+## reducing further
+in_ED_at_time_pt_all[, num_ts := .N, by = .(time_of_report, timeslice)]
+tta_prob_2 = in_ED_at_time_pt_all[, .(num_with_tta_in_hr = .N), by = .(epoch, in_set, time_of_report, timeslice, num_ts, tta_hr)]
+tta_prob_2[, prob := num_with_tta_in_hr/num_ts]
+tta_prob_2[, cdf := cumsum(prob), by = .(epoch, in_set, time_of_report, timeslice)]
+
+tta_prob_file = paste0("EDcrowding/real-time/data-raw/tta_prob.rda")
+save(tta_prob_2, file = tta_prob_file)
+

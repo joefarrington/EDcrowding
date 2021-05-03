@@ -20,22 +20,22 @@
 
 # set date of file to include
 
-file_date <- "2021-04-19"
+file_date <- "2021-05-01"
 
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
 use_dataset = "Post"
 
-base_model = FALSE
-check_eval_metric =  FALSE # keep eval_metric as log_loss
-tune_nr = FALSE
-tune_trees = FALSE
-tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
-recal_nr = FALSE
-tune_samples = FALSE
-tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
-reduce_lr = FALSE
+base_model = TRUE
+# check_eval_metric =  FALSE # keep eval_metric as log_loss
+tune_nr = TRUE
+tune_trees = TRUE
+# tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
+recal_nr = TRUE
+tune_samples = TRUE
+# tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
+reduce_lr = TRUE
 final_preds = TRUE
 
 
@@ -1117,49 +1117,49 @@ if (final_preds) {
 }
 
 
-# # Plot importances --------------------------------------------------------
-# 
-# imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-#                                                     "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-#                                         "a_sex_U") &
-#        importance > 0.005] %>% 
-#   ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
-#   scale_fill_gradient(low="white", high="red") +
-#   labs(title = "Feature importances by timeslice",
-#        fill = "Importance",
-#        x = "Timeslice",
-#        y = "Feature")
-# 
-# 
-# p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-#                                         "a_sex_U") &
-#        timeslice == "task030"  &
-#        importance > 0.01] %>% 
-#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-#   scale_fill_gradient(low="white", high="red") +
-#   labs(title = "Feature importances for 30  min timeslice",
-#        fill = "Importance",
-#        x = "Timeslice",
-#        y = "Feature") +
-#   theme(legend.position = "bottom")
-# 
-# 
-# p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-#                                         "a_sex_U") &
-#        timeslice == "task120"  &
-#        importance > 0.01] %>% 
-#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-#   scale_fill_gradient(low="white", high="red") +
-#   labs(title = "Feature importances for 120  min timeslice",
-#        fill = "Importance",
-#        x = "Timeslice",
-#        y = "Feature") +
-#   theme(legend.position = "bottom") +
-#   scale_x_continuous(limits = c(0,0.25))
-# 
-# library(gridExtra)
-# grid.arrange(p1, p2,
-#              ncol = 2, nrow = 1)
-# ~
+# Plot importances --------------------------------------------------------
+
+imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                                    "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       importance > 0.005] %>%
+  ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances by timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature")
+
+
+p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       timeslice == "task030"  &
+       importance > 0.01] %>%
+  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances for 30  min timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature") +
+  theme(legend.position = "bottom")
+
+
+p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+                                        "a_sex_U") &
+       timeslice == "task120"  &
+       importance > 0.01] %>%
+  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+  scale_fill_gradient(low="white", high="red") +
+  labs(title = "Feature importances for 120  min timeslice",
+       fill = "Importance",
+       x = "Timeslice",
+       y = "Feature") +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(limits = c(0,0.25))
+
+library(gridExtra)
+grid.arrange(p1, p2,
+             ncol = 2, nrow = 1)
+~

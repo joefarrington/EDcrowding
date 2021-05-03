@@ -439,7 +439,7 @@ sqlQuery <- "select m.mrn, hv.encounter as csn, hv.hospital_visit_id, hv.patient
   and lv.discharge_time is null
     order by csn, admission_time desc;"
 
-sqlQuery <- gsub('\n','',sqlQuery)
+sqlQuery %>% gsub('\n','',sqlQuery)
 summ_now <- as_tibble(dbGetQuery(ctn, sqlQuery))
 rpt(summ_now)
 summ_now <- summ_now %>% mutate(time_since_arrival = difftime(time_of_extract, presentation_time, units = "mins"))
@@ -641,8 +641,8 @@ moves_now %>% filter(is.na(admission))
 moves_now %>% filter(admission == discharge)
 moves_now %>% filter(admission > discharge)
 
-# check for NA age eg patient had no record on demographics table
-summ_now %>% filter(is.na(age))
+# # check for NA age eg patient had no record on demographics table
+# summ_now %>% filter(is.na(age))
 
 # Process summ data -------------------------------------------------------
 
@@ -741,12 +741,13 @@ rm(first_ED_)
 
 moves[, "outside" := department != "ED"]
 
-summ <- merge(data.table(summ_now %>% select(-OTF_now, -exclude)), (unique(moves[,.(csn, first_ED_admission)])), by = "csn")
+# added unique summ here as there are duplicate rows on summ_now - need to fix
+summ <- merge(data.table(unique(summ_now) %>% select(-OTF_now, -exclude)), (unique(moves[,.(csn, first_ED_admission)])), by = "csn")
 
 # Process lab data --------------------------------------------------------
 
 setkey(lab_orders, csn)
-lab_orders_real <- merge(lab_orders, summ[,.(csn, first_ED_admission)]) 
+lab_orders_real <- merge(lab_orders, summ[,.(csn, first_ED_admission)], by = "csn") 
 
 setkey(lab_results, csn)
 lab_results_real <- merge(lab_results, summ[,.(csn, first_ED_admission)]) 
@@ -1035,9 +1036,10 @@ get_report = case_when(as.numeric(substr(time_of_extract, 12,13)) < 6 ~ "6:00",
 is_weekend = if_else(weekdays(time_of_extract, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0)
 
 
-distr_all = get_prob_dist(time_window = NA, preds_all_ts[extract_dttm == time_of_extract],
-                      poisson_means[epoch == "Post" & in_set == "Train" & time_of_report == get_report & weekend == is_weekend],
-                      tta_prob_2[epoch == "Post" & in_set == "Train" & time_of_report == get_report])
+poisson_means = poisson_means[epoch == "Post" & in_set == "Train" & time_of_report == get_report & weekend == is_weekend]
+tta_probs = tta_prob_2[epoch == "Post" & in_set == "Train" & time_of_report == get_report]
+
+distr_all = get_prob_dist(time_window = NA, preds_all_ts[extract_dttm == time_of_extract], poisson_means, tta_probs)
 
 distr_all = data.table(distr_all)
 
@@ -1088,7 +1090,7 @@ moves_now = moves_now %>% mutate(room5 = case_when(room4 == "TRIAGE" ~ "Waiting"
 
 # chart in hours - last 24 hours
 moves_now %>% filter(is.na(discharge)) %>% 
-  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  left_join(unique(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18)), by = "csn") %>% 
   filter(time_since_arrival <= 24*60) %>% 
   mutate(time_since_arrival = time_since_arrival/60) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18)) +
@@ -1105,7 +1107,7 @@ moves_now %>% filter(is.na(discharge)) %>%
 
 # chart in hours - last 3 days
 moves_now %>% filter(is.na(discharge)) %>% 
-  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  left_join(unique(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18)), by = "csn") %>% 
   mutate(time_since_arrival = time_since_arrival/60) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18)) +
   labs(y = "Current location", x = "Hours since arrival",
@@ -1120,7 +1122,7 @@ moves_now %>% filter(is.na(discharge)) %>%
 
 # chart with predictions
 p1 = moves_now %>% filter(is.na(discharge)) %>% 
-  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  left_join(unique(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18)), by = "csn") %>% 
   mutate(extract_dttm = time_of_extract) %>% 
   left_join(preds_all_ts, by = c("csn", "extract_dttm"))  %>% 
   filter(time_since_arrival <= 24*60) %>% 
@@ -1133,10 +1135,12 @@ p1 = moves_now %>% filter(is.na(discharge)) %>%
   theme_grey(base_size = 18) +
   # geom_vline(xintercept = timeslices/60)  + theme(panel.grid.minor = element_blank()) +
   theme(legend.position = "bottom") +
-  scale_x_continuous(breaks = seq(0,24,4)) +
+  scale_x_continuous(breaks = seq(0,24,1)) +
   scale_colour_gradient2(low = "blue", mid = "yellow", high = "red", limits = c(0,1), breaks = c(0,0.5, 1)) + 
-  theme(legend.text=element_text(size=10))
+  theme(legend.text=element_text(size=10)) + 
+  geom_vline(xintercept = timeslices/60, linetype = "dashed")
 
+p1
 p2 = distr_all %>% filter(grepl("Including", dist)) %>% 
   mutate(dist = gsub("Including not yet arrived; a", "A", dist)) %>% 
   ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
@@ -1188,66 +1192,112 @@ sqlQuery <- gsub('\n','',sqlQuery)
 adm_last_24 <- as_tibble(dbGetQuery(ctn, sqlQuery))
 
 
-# Shapley plots -----------------------------------------------------------
+# Investigate one observation -----------------------------------------------------------
 
 library(DALEX)
 library(DALEXtra)
 
+# set identify ts to explain
+explain_ts = "240"
+dt = dm240
 
-exp <- explain_mlr3(learner, 
-                           data     = ts,
-                           label    = "XGB",
+
+
+# encode factors
+ts <- one_hot(cols = "auto", dt = as.data.table(dt),  dropUnusedLevels=TRUE)
+name_tsk <- paste0("task", explain_ts)
+
+# add other features that might be missing
+inFile = paste0("~/EDcrowding/predict-admission/data-output/features_", name_tsk, "_", model_date, ".rda")
+load(inFile)
+
+ts_cols = colnames(ts)
+missing_features = feature_list[!feature_list %in% ts_cols] # load this from file later
+
+missing_cols <- data.table(matrix(0, nrow = nrow(ts), ncol = length(missing_features)))
+ts = bind_cols(ts, missing_cols)
+colnames(ts) = c(ts_cols, missing_features)
+
+# load learner
+inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
+load(inFile)
+
+
+# create explainer for this timeslice
+explainer <- explain_mlr3(learner, 
+                           data     = ts[, csn := NULL],
+                           label    = paste0("task", as.character(explain_ts)),
                            colorize = FALSE)
 
-# get variable importances using permutations-based importance
-model_parts(exp)
+# pick an example by looking at timeslice
+preds_all_ts[extract_dttm == time_of_extract & timeslice == paste0("task", as.character(explain_ts))]
+
+explain_csn_row = ts[3,]
+bd = predict_parts(explainer,
+              new_observation = explain_csn_row)
 
 
-selected_variables <- c("a_age", "a_num_prior_adm_after_ED", "a_arrival_Ambulance","a_arrival_Ambnomedic")
+bd = data.table(bd)
 
-# this doesn't work because of incompatible data types
-pd <- model_profile(exp,
-                         variables = selected_variables)$agr_profiles
-
-ronaldo = ts[csn == "1027255252"]
-ron = predict_parts(exp,
-              new_observation = ronaldo)
-
-case_when(ron$sign == "1" ~ "3",
-                             ron$sign == "3" ~ "1",
-                             TRUE ~ ron$sign)
-
-
-exp2 <- explain_mlr3(learner, 
-                    data     = ts,
-                    y        = c(1, 1, 2, 1),
-                    label    = "XGB",
-                    colorize = FALSE)
-
-ron = predict_parts(exp2,
-                    new_observation = ronaldo)
+bd[, sign_ := case_when(variable == "intercept" ~ 'x',
+                        sign == "1" ~ "3",
+                        sign == "3" ~ "1",
+                        TRUE ~ as.character(sign))]
 
 
 
 # possible waterfall chart here: https://gist.github.com/rentrop/36f07b67cb6c4b82088e2115fee2498f
 
-plot_data = ron[variable != "prediction"]
-prediction = ron[variable == "prediction", 1- contribution]
-intercept = ron[variable == "intercept", 1- contribution]
-plot_data[, abs_contribution := abs(contribution)]
+bd[, abs_contribution := abs(contribution)]
+plot_data = bd[!variable %in% c( "prediction", "intercept")]
 setorder(plot_data, -abs_contribution)
-p = plot_data[1:12, .(variable_name, contribution, sign_)]
-p[, contribution_ := case_when(variable_name == "intercept" ~ 1 - contribution,
+plot_data = plot_data[ 1:12]
+
+prediction = bd[variable == "prediction"]
+intercept = bd[variable == "intercept"]
+rest = sum(plot_data$contribution) - prediction$contribution + intercept$contribution
+
+
+p = bind_rows(intercept, plot_data, data.table(variable = "+ all other factors",
+                                                           contribution = -rest,
+                                                           sign_ = case_when(rest > 0 ~ "-1",
+                                                                             rest <= 0 ~ "3")),
+              prediction)
+
+# setorder(plot_data, -abs_contribution)
+p[, contribution_ := case_when(variable == "intercept" ~ 1 - contribution,
+                               variable == "prediction" ~ 1 - contribution,
                                TRUE ~ contribution * -1)]
 p[, end := cumsum(contribution_)]
-p[, start := case_when(variable_name == "intercept" ~ 0,
+p[, start := case_when(variable == "intercept" ~ 0,
                                TRUE ~ lag(end))]
-p[, id := seq(1:nrow(p))]
+p[, id := 16-seq(1:nrow(p))]
+p[id == 1, end := 0]
+p[id == 1, start := contribution_]
 
-p[, variable_name_ := factor(variable_name, levels = c(p$variable_name)) ]
+# p__ = bind_rows(p, data.table(variable_ = "prediction", 
+#                               contribution_ = prediction, 
+#                               end = 0, 
+#                               start = p[12,end], id = 0,
+#                               sign_ = 'x'))
 
-p %>% ggplot(aes(x = variable_name_, fill = as.factor(sign_))) +
-  geom_rect(aes(x = variable_name_, xmin = id -0.45, xmax = id + 0.45, ymin = end, ymax =start)) + xlab("") +
+
+p[, variable_ := factor(variable, levels = c(p$variable)) ]
+
+pl = p %>% ggplot(aes(x = reorder(variable_, desc(variable_)), fill = as.factor(sign_))) +
+  geom_rect(aes(x = reorder(variable_, desc(variable_)), xmin = id -0.45, xmax = id + 0.45, ymin = end, ymax =start)) + xlab("") +
   theme(legend.position = "none") + 
-  geom_hline(yintercept = intercept) + 
-  geom_hline(yintercept = prediction) + coord_flip()
+  # geom_hline(yintercept = intercept) + 
+  # geom_hline(yintercept = prediction) + 
+  coord_flip()
+
+for (i in 1:14) {
+  pl = pl + annotate(geom = "segment", x = p$id[i] + .25, xend =  p$id[i] - 1.25, y = p$end[i], yend = p$end[i])
+  pl = pl + annotate(geom = "text", x = p$id[i], y = (p$start[i]+p$end[i])/2, label = round(p$contribution_[i],2), size = 4)
+}
+
+pl = pl + annotate(geom = "text", x = p$id[15], y = (p$start[15]+p$end[15])/2, label = round(p$contribution_[15],3), size = 4)
+
+pl + labs(title = paste0("Break down plot for patient in timeslice ",explain_ts, " and location ", moves[(is.na(discharge)) & (csn == explain_csn_row$csn), location]))
+
+
