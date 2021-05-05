@@ -147,3 +147,7 @@ obs_real[, obs_name := gsub("Currenttemperature>37.5orhistoryoffeverinthelast24h
 outFile = paste0("EDcrowding/predict-admission/data-raw/obs_real_",today(),".rda")
 save(obs_real, file = outFile)
 
+# save record of which obs were included for real-time prediction
+obs_to_include = unique(obs_real$obs_name)
+outFile = paste0("EDcrowding/real-time/data-raw/obs_to_include.rda")
+save(obs_to_include, file = outFile)

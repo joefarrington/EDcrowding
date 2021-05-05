@@ -20,11 +20,6 @@ poly_prod = function(df){
   return(coef(y))
 }
 
-get_random_dttm <- function(dttm_start, dttm_end) {
-  dt <- as.numeric(difftime(dttm_end, dttm_start,unit="sec"))
-  increment <- runif(1, 0, dt)
-  return(dttm_start + increment)
-}
 
 # Get probability distribution for number admitted at each time point of interest  
 
@@ -102,18 +97,29 @@ get_prob_dist = function(time_window, time_pts, summ, preds_all_ts_, tta_prob) {
 
 # summary of csns to get minimum and maxium
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
+# load("~/summ_2021-04-13.rda")
 summ = summ[!is.na(discharge_time)]
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
-# added this while using only part of the dataset - need to change it later
-summ = summ[date(presentation_time) >= '2020-03-19']
+
+summ[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
+                           presentation_time < '2019-12-13 00:00:00' ~ "Val",
+                           presentation_time < '2020-03-19 00:00:00' ~ "Test",
+                           presentation_time < '2020-12-01 00:00:00' ~ "Train",
+                           presentation_time < '2020-12-29 00:00:00' ~ "Val",
+                           TRUE ~ "Test",)]
+
+
+
 
 # load predictions (output from ML) - this loads predictions identified by row_id
 preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_preds_",today(),".rda")
 load(preds_file)
 
+# preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-04-21.rda")
+
+
 # load timeslice data in order to match row_ids to csns
-load("~/EDcrowding/predict-admission/data-output/xgb_preds_2021-03-23.rda") # temporarily
 
 timeslices <- c("000", "015", "030", "060", "090", "120", "180", "240", "300", "360", "480")
 file_date = '2021-04-19'
@@ -147,23 +153,24 @@ for (ts_ in timeslices) {
 }
 
 
-# Generate sample of time points of interest ------------------------------
+# Generate time points ------------------------------
 
-set.seed(17L)
-time_pts <- get_random_dttm(min(summ$presentation_time, na.rm = TRUE) + hours(12), min(summ$presentation_time, na.rm = TRUE) + hours(24))
-last_pt <- time_pts
+start_of_set = as.POSIXct('2019-05-01')
+end_of_set = as.POSIXct('2021-04-13')
+next_dt = start_of_set
 
+time_pts = POSIXct()
 # each sample to be more than 12 hours and less than 24 hours after the previous one
-while (last_pt + hours(12) < max(summ$presentation_time, na.rm = TRUE)) {
-  next_pt <- get_random_dttm(last_pt + hours(12), last_pt + hours(24))
+while (next_dt < end_of_set) {
+  next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
   time_pts <- c(time_pts, next_pt)
-  last_pt <- next_pt
+  next_dt = next_dt + days(1)
 }
+
 
 
 # Get probability distribution for time to admission for each timeslice ----------------------------
 
-# now using left_ED and first_ED_admission to tighten the distribution
 summ[adm %in% c("direct_adm", "indirect_adm"), ED_duration := difftime(left_ED, first_ED_admission, units = "mins")]
 
 summ[,task000 := 1]
@@ -177,6 +184,8 @@ summ[,task240 := if_else(ED_duration > 240, 1, 0)]
 summ[,task300 := if_else(ED_duration > 300, 1, 0)]
 summ[,task360 := if_else(ED_duration > 360, 1, 0)]
 summ[,task480 := if_else(ED_duration > 480, 1, 0)]
+
+
 
 # get time to admission after beginning of each timeslice
 tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% 
@@ -195,7 +204,65 @@ tta = tta[tta_hr <= 24]
 tta[, num_ts := sum(in_timeslice), by = timeslice]
 
 # generate cumulative probability of being admitted within a number of hours after timeslice
-tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>% 
+tta_prob_old_way = data.table(tta %>% filter(tta_hr >= 0) %>% 
+                        group_by(timeslice, num_ts, tta_hr) %>% 
+                        summarise(num_with_tta_in_hr = n()))
+tta_prob_old_way[, prob := num_with_tta_in_hr/num_ts]
+tta_prob_old_way[, cdf := cumsum(prob), by = timeslice]
+
+
+
+# As above but using report times to generate tta -----------------------------------------
+
+# get all later-admitted patients in ED at that point in time
+in_ED_at_time_pt_all = data.table()
+
+for (i in 1:length(time_pts)) {
+  
+  if (i %% 100 == 0) {
+    print(paste("Processed ", i, " dates"))
+  }
+  
+  in_ED_at_time_pt = summ[first_ED_admission < time_pts[i] &  first_outside_proper_admission > time_pts[i] 
+                          & adm %in% c("indirect_adm", "direct_adm"), 
+                          .(csn, first_ED_admission = with_tz(first_ED_admission, tzone = "UTC"), 
+                            first_outside_proper_admission = with_tz(first_outside_proper_admission, tzone = "UTC"), 
+                            ED_duration)]
+  
+  in_ED_at_time_pt[, time_pt := time_pts[i]]
+  
+  in_ED_at_time_pt_all = bind_rows(in_ED_at_time_pt_all, in_ED_at_time_pt)
+}
+
+in_ED_at_time_pt_all[, ED_duration_so_far := difftime(time_pt, first_ED_admission, units = "mins")]
+
+in_ED_at_time_pt_all[,timeslice := case_when(ED_duration_so_far < 15 ~ 0,
+                             ED_duration_so_far >= 15 & ED_duration_so_far < 60 ~ 15,
+                             ED_duration_so_far >= 60 & ED_duration_so_far < 90 ~ 90,
+                             ED_duration_so_far >= 90 & ED_duration_so_far < 120 ~ 90,
+                             ED_duration_so_far >= 120 & ED_duration_so_far < 180 ~ 120,
+                             ED_duration_so_far >= 180 & ED_duration_so_far < 240 ~ 180,
+                             ED_duration_so_far >= 240 & ED_duration_so_far < 300 ~ 240,
+                             ED_duration_so_far >= 300 & ED_duration_so_far < 360 ~ 300,
+                             ED_duration_so_far >= 360 & ED_duration_so_far < 480 ~ 360,
+                             ED_duration_so_far >= 480 ~ 480)
+     ]
+
+# get time to admission after report time
+
+in_ED_at_time_pt_all[, tta_after_ts_start := as.numeric(ED_duration - as.numeric(gsub("task","", timeslice)))]
+in_ED_at_time_pt_all[, tta_hr := ceiling(tta_after_ts_start/60)]
+in_ED_at_time_pt_all = in_ED_at_time_pt_all[tta_hr <= 24]
+
+# generate number of visits in timeslice in total
+in_ED_at_time_pt_all[, num_ts := .N, by = timeslice]
+
+in_ED_at_time_pt_all[, weekend:= if_else(weekdays(time_pt, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0)]
+in_ED_at_time_pt_all[, time_of_report:= paste0(hour(time_pt), ":", substr(time_pt, 15, 16))]
+
+
+# generate cumulative probability of being admitted within a number of hours after timeslice
+tta_prob = data.table(in_ED_at_time_pt_all %>% filter(tta_hr >= 0) %>% 
                         group_by(timeslice, num_ts, tta_hr) %>% 
                         summarise(num_with_tta_in_hr = n()))
 tta_prob[, prob := num_with_tta_in_hr/num_ts]
@@ -207,9 +274,9 @@ tta_prob[, cdf := cumsum(prob), by = timeslice]
 
 time_window = 3
 
-prob_dist = get_prob_dist(8, time_pts, summ, preds_all_ts_, tta_prob)
+prob_dist = get_prob_dist(NA, time_pts_val, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
-distr_coll_8 = prob_dist[[1]]
+distr_coll= prob_dist[[1]]
 
 prob_dist = get_prob_dist(4, time_pts, summ, preds_all_ts_, tta_prob)
 # collect all predicted distributions for each time point of interest
@@ -230,7 +297,7 @@ distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
 lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
 setorder(lower_M, value)
 lower_M[, cum_weight := cumsum(probs)]
-lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts_val)]
 lower_M[, dist := "model lower"]
 
 # same for high cdf values
@@ -238,7 +305,7 @@ lower_M[, dist := "model lower"]
 upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
 setorder(upper_M, value)
 upper_M[, cum_weight := cumsum(probs)]
-upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts_val)]
 upper_M[, dist := "model upper"]
 
 # same for mid point
@@ -246,7 +313,7 @@ upper_M[, dist := "model upper"]
 mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
 setorder(mid_M, value)
 mid_M[, cum_weight := cumsum(probs)]
-mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts_val)]
 mid_M[, dist := "model mid"]
 
 
@@ -277,7 +344,7 @@ adm_coll = merge(adm_coll,
 lower_E = adm_coll[, .(value = lower_E)]
 setorder(lower_E, value)
 lower_E_prob = lower_E[, .N, by = value]
-lower_E_prob[, cum_weight := N/length(time_pts)]
+lower_E_prob[, cum_weight := N/length(time_pts_val)]
 lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
 lower_E_prob[, dist := "actual lower"]
 
@@ -286,7 +353,7 @@ lower_E_prob[, dist := "actual lower"]
 upper_E = adm_coll[, .(value = upper_E)]
 setorder(upper_E, value)
 upper_E_prob = upper_E[, .N, by = value]
-upper_E_prob[, cum_weight := N/length(time_pts)]
+upper_E_prob[, cum_weight := N/length(time_pts_val)]
 upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
 upper_E_prob[, dist := "actual upper"]
 
@@ -295,7 +362,7 @@ upper_E_prob[, dist := "actual upper"]
 mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
 setorder(mid_E, value)
 mid_E_prob = mid_E[, .N, by = value]
-mid_E_prob[, cum_weight := N/length(time_pts)]
+mid_E_prob[, cum_weight := N/length(time_pts_val)]
 mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
 mid_E_prob[, dist := "acutal mid"]
 

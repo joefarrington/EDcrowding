@@ -568,17 +568,17 @@ if (tune_class.weights) {
     }
   } 
   
-  # 
-  # print ("Best results:")
-  # scores <- data.table(scores)
-  # print(scores[tsk_ids == "val" & tuning_round == "class.weights" & model_features == model_features
-  #              , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, mtry)])
-  # 
-  # scores[tsk_ids == "val" & tuning_round == "mtry" & model_features == model_features] %>%
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-  #   ggplot(aes(x = mtry, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
-  #   labs(y = "logloss", title = "Results of tuning nrounds of mtry for each timeslice - logloss scores")
-  # 
+    # 
+    # print ("Best results:")
+    # scores <- data.table(scores)
+    # print(scores[tsk_ids == "val" & tuning_round == "class.weights" & model_features == model_features
+    #              , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, mtry)])
+    # 
+    # scores[tsk_ids == "val" & tuning_round == "mtry" & model_features == model_features] %>%
+    #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+    #   ggplot(aes(x = mtry, y = value)) + geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+    #   labs(y = "logloss", title = "Results of tuning nrounds of mtry for each timeslice - logloss scores")
+    # 
   
 }
 

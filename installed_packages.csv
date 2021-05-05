@@ -1,21 +1,22 @@
 "","Package","LibPath","Version","Priority","Depends","Imports","LinkingTo","Suggests","Enhances","License","License_is_FOSS","License_restricts_use","OS_type","MD5sum","NeedsCompilation","Built"
-"abind","abind","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-5",NA,"R (>= 1.5.0)","methods, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"askpass","askpass","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1",NA,NA,"sys (>= 2.1)",NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"assertthat","assertthat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,NA,"tools",NA,"testthat, covr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"backports","backports","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,"R (>= 3.0.0)",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"base64enc","base64enc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1-3",NA,"R (>= 2.9.0)",NA,NA,NA,"png","GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"BBmisc","BBmisc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.11",NA,NA,"utils, methods, stats, checkmate (>= 1.8.0)",NA,"testthat, microbenchmark, codetools",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"bbotk","bbotk","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,"R (>= 3.1.0)","checkmate (>= 2.0.0), data.table, lgr, methods, mlr3misc (>=
+"1","abind","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-5",NA,"R (>= 1.5.0)","methods, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"2","aod","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,"R (>= 2.10), methods, stats",NA,NA,"MASS, boot, lme4",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.4"
+"3","askpass","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1",NA,NA,"sys (>= 2.1)",NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"4","assertthat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,NA,"tools",NA,"testthat, covr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"5","backports","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,"R (>= 3.0.0)",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"6","base64enc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1-3",NA,"R (>= 2.9.0)",NA,NA,NA,"png","GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"7","BBmisc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.11",NA,NA,"utils, methods, stats, checkmate (>= 1.8.0)",NA,"testthat, microbenchmark, codetools",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"8","bbotk","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,"R (>= 3.1.0)","checkmate (>= 2.0.0), data.table, lgr, methods, mlr3misc (>=
 0.5.0), paradox (>= 0.3), R6",NA,"adagio, GenSA, knitr, nloptr, rmarkdown, testthat",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"BH","BH","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.72.0-3",NA,NA,NA,NA,NA,NA,"BSL-1.0",NA,NA,NA,NA,"no","4.0.0"
-"bit","bit","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.0.4",NA,"R (>= 2.9.2)",NA,NA,"testthat (>= 0.11.0), roxygen2, knitr, rmarkdown,
+"9","BH","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.72.0-3",NA,NA,NA,NA,NA,NA,"BSL-1.0",NA,NA,NA,NA,"no","4.0.0"
+"10","bit","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.0.4",NA,"R (>= 2.9.2)",NA,NA,"testthat (>= 0.11.0), roxygen2, knitr, rmarkdown,
 microbenchmark, bit64 (>= 4.0.0), ff (>= 4.0.0)",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"bit64","bit64","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.0.5",NA,"R (>= 3.0.1), bit (>= 4.0.0), utils, methods, stats",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"blob","blob","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.1",NA,NA,"methods, rlang, vctrs (>= 0.2.1)",NA,"covr, crayon, pillar (>= 1.2.1), testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"boot","boot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3-25","recommended","R (>= 3.0.0), graphics, stats",NA,NA,"MASS, survival",NA,"Unlimited",NA,NA,NA,NA,"no","4.0.2"
-"brew","brew","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-6",NA,NA,NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,NA,"4.0.3"
-"brio","brio","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,NA,NA,"testthat (>= 2.1.0), covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"broom","broom","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.2",NA,"R (>= 3.1)","backports, dplyr (>= 1.0.0), ellipsis, generics (>= 0.0.2),
+"11","bit64","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.0.5",NA,"R (>= 3.0.1), bit (>= 4.0.0), utils, methods, stats",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"12","blob","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.1",NA,NA,"methods, rlang, vctrs (>= 0.2.1)",NA,"covr, crayon, pillar (>= 1.2.1), testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"13","boot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3-25","recommended","R (>= 3.0.0), graphics, stats",NA,NA,"MASS, survival",NA,"Unlimited",NA,NA,NA,NA,"no","4.0.2"
+"14","brew","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-6",NA,NA,NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,NA,"4.0.3"
+"15","brio","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,NA,NA,"testthat (>= 2.1.0), covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"16","broom","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.2",NA,"R (>= 3.1)","backports, dplyr (>= 1.0.0), ellipsis, generics (>= 0.0.2),
 glue, methods, purrr, rlang, stringr, tibble (>= 3.0.0), tidyr
 (>= 1.0.0)",NA,"AER, akima, AUC, bbmle, betareg, biglm, binGroup, boot,
 btergm, car, caret, cluster, coda, covr, drc, e1071, emmeans,
@@ -30,61 +31,72 @@ modeldata, modeltests, muhaz, multcomp, network, nnet, orcutt
 rmarkdown, robust, robustbase, rsample, sandwich, sp, spdep,
 spatialreg, speedglm, spelling, survey, survival, systemfit,
 testthat (>= 2.1.0), tseries, zoo",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"callr","callr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.5.1",NA,NA,"processx (>= 3.4.4), R6, utils",NA,"cli, covr, crayon, fansi, pingr, ps, rprojroot, spelling,
+"17","callr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.5.1",NA,NA,"processx (>= 3.4.4), R6, utils",NA,"cli, covr, crayon, fansi, pingr, ps, rprojroot, spelling,
 testthat, tibble, withr (>= 2.3.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"car","car","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0-10",NA,"R (>= 3.5.0), carData (>= 3.0-0)","abind, MASS, mgcv, nnet, pbkrtest (>= 0.4-4), quantreg,
+"18","car","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0-10",NA,"R (>= 3.5.0), carData (>= 3.0-0)","abind, MASS, mgcv, nnet, pbkrtest (>= 0.4-4), quantreg,
 grDevices, utils, stats, graphics, maptools, rio, lme4, nlme",NA,"alr4, boot, coxme, knitr, leaps, lmtest, Matrix,
 MatrixModels, rgl (>= 0.93.960), sandwich, SparseM, survival,
 survey",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"carData","carData","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0-4",NA,"R (>= 3.5.0)",NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"cellranger","cellranger","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.0.0)","rematch, tibble",NA,"covr, testthat (>= 1.0.0), knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"checkmate","checkmate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.0.0)","backports (>= 1.1.0), utils",NA,"R6, fastmatch, data.table (>= 1.9.8), devtools, ggplot2,
+"19","carData","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0-4",NA,"R (>= 3.5.0)",NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"20","cellranger","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.0.0)","rematch, tibble",NA,"covr, testthat (>= 1.0.0), knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"21","checkmate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.0.0)","backports (>= 1.1.0), utils",NA,"R6, fastmatch, data.table (>= 1.9.8), devtools, ggplot2,
 knitr, magrittr, microbenchmark, rmarkdown, testthat (>=
 0.11.0), tinytest (>= 1.1.0), tibble",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"class","class","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-17","recommended","R (>= 3.0.0), stats, utils","MASS",NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"cli","cli","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 2.10)","assertthat, crayon (>= 1.3.4), glue, methods, utils, fansi",NA,"callr, covr, htmlwidgets, knitr, mockery, ps (>= 1.3.4.9000),
+"22","class","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-17","recommended","R (>= 3.0.0), stats, utils","MASS",NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
+"23","cli","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 2.10)","assertthat, crayon (>= 1.3.4), glue, methods, utils, fansi",NA,"callr, covr, htmlwidgets, knitr, mockery, ps (>= 1.3.4.9000),
 rmarkdown, rstudioapi, prettycode (>= 1.1.0), testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"clipr","clipr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.1",NA,NA,"utils",NA,"covr, knitr, rmarkdown, rstudioapi (>= 0.5), testthat (>=
+"24","clipr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.1",NA,NA,"utils",NA,"covr, knitr, rmarkdown, rstudioapi (>= 0.5), testthat (>=
 2.0.0)",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"colorspace","colorspace","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0-0",NA,"R (>= 3.0.0), methods","graphics, grDevices, stats",NA,"datasets, utils, KernSmooth, MASS, kernlab, mvtnorm, vcd,
+"25","clue","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3-58",NA,"R (>= 3.2.0)","stats, cluster, graphics, methods",NA,"e1071, lpSolve (>= 5.5.7), quadprog (>= 1.4-8), relations","RWeka, ape, cba, cclust, flexclust, flexmix, kernlab, mclust,
+movMF, modeltools","GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"26","clusterCrit","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.8",NA,NA,NA,NA,"RUnit, rbenchmark",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"27","colorspace","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0-0",NA,"R (>= 3.0.0), methods","graphics, grDevices, stats",NA,"datasets, utils, KernSmooth, MASS, kernlab, mvtnorm, vcd,
 tcltk, shiny, shinyjs, ggplot2, dplyr, scales, grid, png, jpeg,
 knitr, rmarkdown, RColorBrewer, rcartocolor, scico, viridis,
 wesanderson",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"colourpicker","colourpicker","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.1.0)","ggplot2, htmltools, htmlwidgets (>= 0.7), jsonlite, miniUI (>=
+"28","colourpicker","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.1.0)","ggplot2, htmltools, htmlwidgets (>= 0.7), jsonlite, miniUI (>=
 0.1.1), shiny (>= 0.11.1), shinyjs (>= 2.0.0), utils",NA,"knitr (>= 1.7), rmarkdown, rstudioapi (>= 0.5),
 shinydisconnect",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"commonmark","commonmark","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7",NA,NA,NA,NA,"curl, testthat, xml2",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"config","config","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3",NA,NA,"yaml (>= 2.1.13)",NA,"testthat, knitr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"conquer","conquer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,"R (>= 3.5.0)","Rcpp (>= 1.0.3), Matrix, matrixStats, stats","Rcpp, RcppArmadillo (>= 0.9.850.1.0)",NA,NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"corrplot","corrplot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.84",NA,NA,NA,NA,"knitr, RColorBrewer, testthat",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
-"covr","covr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.5.1",NA,"R (>= 3.1.0), methods","digest, stats, utils, jsonlite, rex, httr, crayon, withr (>=
+"29","commonmark","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7",NA,NA,NA,NA,"curl, testthat, xml2",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"30","config","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3",NA,NA,"yaml (>= 2.1.13)",NA,"testthat, knitr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"31","conquer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,"R (>= 3.5.0)","Rcpp (>= 1.0.3), Matrix, matrixStats, stats","Rcpp, RcppArmadillo (>= 0.9.850.1.0)",NA,NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"32","corrplot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.84",NA,NA,NA,NA,"knitr, RColorBrewer, testthat",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
+"33","covr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.5.1",NA,"R (>= 3.1.0), methods","digest, stats, utils, jsonlite, rex, httr, crayon, withr (>=
 1.0.2), yaml",NA,"R6, curl, knitr, rmarkdown, htmltools, DT (>= 0.2), testthat,
 rlang, rstudioapi (>= 0.2), xml2 (>= 1.0.0), parallel, memoise,
 mockery",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"cowplot","cowplot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.5.0)","ggplot2 (> 2.2.1), grid, gtable, grDevices, methods, rlang,
+"34","cowplot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.5.0)","ggplot2 (> 2.2.1), grid, gtable, grDevices, methods, rlang,
 scales",NA,"Cairo, covr, dplyr, forcats, gridGraphics (>= 0.4-0), knitr,
 lattice, magick, maps, PASWR, patchwork, rmarkdown, ragg,
 testthat (>= 1.0.0), tidyr, vdiffr (>= 0.3.0), VennDiagram",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"cpp11","cpp11","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.4",NA,NA,NA,NA,"bench, brio, callr, cli, covr, decor, desc, ggplot2, glue,
+"35","cpp11","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.4",NA,NA,NA,NA,"bench, brio, callr, cli, covr, decor, desc, ggplot2, glue,
 knitr, lobstr, mockery, progress, rmarkdown, scales, testthat,
 tibble, utils, vctrs, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"crayon","crayon","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.4",NA,NA,"grDevices, methods, utils",NA,"mockery, rstudioapi, testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"credentials","credentials","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.0",NA,NA,"openssl (>= 1.3), sys (>= 2.1), curl, jsonlite, askpass",NA,"testthat, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"crosstalk","crosstalk","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0.1",NA,NA,"htmltools (>= 0.3.6), jsonlite, lazyeval, R6",NA,"shiny, ggplot2, testthat (>= 2.1.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"curl","curl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.3",NA,"R (>= 3.0.0)",NA,NA,"spelling, testthat (>= 1.0.0), knitr, jsonlite, rmarkdown,
+"36","crayon","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.4",NA,NA,"grDevices, methods, utils",NA,"mockery, rstudioapi, testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"37","credentials","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.0",NA,NA,"openssl (>= 1.3), sys (>= 2.1), curl, jsonlite, askpass",NA,"testthat, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"38","crosstalk","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0.1",NA,NA,"htmltools (>= 0.3.6), jsonlite, lazyeval, R6",NA,"shiny, ggplot2, testthat (>= 2.1.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"39","curl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.3",NA,"R (>= 3.0.0)",NA,NA,"spelling, testthat (>= 1.0.0), knitr, jsonlite, rmarkdown,
 magrittr, httpuv (>= 1.4.4), webutils",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"data.table","data.table","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.13.4",NA,"R (>= 3.1.0)","methods",NA,"bit64 (>= 4.0.0), bit (>= 4.0.4), curl, R.utils, xts,
+"40","DALEX","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.1",NA,"R (>= 3.5)","ggplot2, iBreakDown (>= 1.3.1), ingredients (>= 2.0)",NA,"gower, ranger, testthat, methods",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
+"41","DALEXtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0",NA,"R (>= 3.5.0), DALEX (>= 1.3)","reticulate, ggplot2, gridExtra",NA,"auditor, ingredients, gbm, ggrepel, h2o, iml, lime,
+localModel, mlr, mlr3, randomForest, recipes, rmarkdown, rpart,
+xgboost, testthat, tidymodels",NA,"GPL",NA,NA,NA,NA,"no","4.0.4"
+"42","data.table","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.13.4",NA,"R (>= 3.1.0)","methods",NA,"bit64 (>= 4.0.0), bit (>= 4.0.4), curl, R.utils, xts,
 nanotime, zoo (>= 1.8-1), yaml, knitr, rmarkdown",NA,"MPL-2.0 | file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"DBI","DBI","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"methods, R (>= 3.0.0)",NA,NA,"blob, covr, hms, knitr, magrittr, rmarkdown, rprojroot,
+"43","DBI","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"methods, R (>= 3.0.0)",NA,NA,"blob, covr, hms, knitr, magrittr, rmarkdown, rprojroot,
 RSQLite (>= 1.1-2), testthat, xml2",NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.0"
-"dbplyr","dbplyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1)","assertthat (>= 0.2.0), DBI (>= 1.0.0), dplyr (>= 0.8.0), glue
+"44","dbplyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1)","assertthat (>= 0.2.0), DBI (>= 1.0.0), dplyr (>= 0.8.0), glue
 (>= 1.2.0), lifecycle, magrittr, methods, purrr (>= 0.2.5), R6
 (>= 2.2.2), rlang (>= 0.2.0), tibble (>= 1.4.2), tidyselect (>=
 0.2.4), blob (>= 1.2.0), utils, withr",NA,"bit64, covr, knitr, Lahman, nycflights13, odbc, RMariaDB (>=
 1.0.2), rmarkdown, RPostgres (>= 1.1.3), RPostgreSQL, RSQLite
 (>= 2.1.0), testthat (>= 3.0.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"desc","desc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,"R (>= 3.1.0)","assertthat, utils, R6, crayon, rprojroot",NA,"covr, testthat, whoami, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"devtools","devtools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.2",NA,"R (>= 3.0.2), usethis (>= 1.6.3)","callr (>= 3.4.4), cli (>= 2.0.2), covr (>= 3.5.1), desc (>=
+"45","dendextend","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.14.0",NA,"R (>= 3.0.0)","utils, stats, datasets, magrittr (>= 1.0.1), ggplot2, viridis",NA,"knitr, rmarkdown, testthat, seriation, colorspace, ape,
+microbenchmark, gplots, heatmaply, dynamicTreeCut, pvclust,
+corrplot, DendSer, MASS, cluster, fpc, circlize (>= 0.2.5),
+covr","ggdendro, dendroextras, Hmisc, data.table, rpart","GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.4"
+"46","desc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,"R (>= 3.1.0)","assertthat, utils, R6, crayon, rprojroot",NA,"covr, testthat, whoami, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"47","devtools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.2",NA,"R (>= 3.0.2), usethis (>= 1.6.3)","callr (>= 3.4.4), cli (>= 2.0.2), covr (>= 3.5.1), desc (>=
 1.2.0), DT (>= 0.15), ellipsis (>= 0.3.1), httr (>= 1.4.2),
 jsonlite (>= 1.7.1), memoise (>= 1.1.0), pkgbuild (>= 1.1.0),
 pkgload (>= 1.1.0), rcmdcheck (>= 1.3.3), remotes (>= 2.2.0),
@@ -95,185 +107,192 @@ foghorn (>= 1.3.1), gmailr (>= 1.0.0), knitr (>= 1.29), lintr
 (>= 2.0.1), MASS, mockery (>= 0.4.2), pingr (>= 2.0.1), pkgdown
 (>= 1.6.1), rhub (>= 1.1.1), rmarkdown (>= 2.3), spelling (>=
 2.1)",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"dials","dials","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.9",NA,"scales, R (>= 2.10)","glue, purrr, tibble, rlang, utils, withr, DiceDesign, dplyr
+"48","dgof","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2",NA,NA,NA,NA,NA,NA,"GPL (>= 2.0)",NA,NA,NA,NA,"yes","4.0.3"
+"49","dials","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.9",NA,"scales, R (>= 2.10)","glue, purrr, tibble, rlang, utils, withr, DiceDesign, dplyr
 (>= 0.8.5), vctrs (>= 0.3.0.9000)",NA,"testthat, knitr, rpart, covr, kernlab, xml2, rmarkdown",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"DiceDesign","DiceDesign","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-1",NA,"R (>= 2.10)",NA,NA,"rgl, randtoolbox, lattice",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"diffobj","diffobj","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.2",NA,"R (>= 3.1.0)","crayon (>= 1.3.2), tools, methods, utils, stats",NA,"knitr, rmarkdown, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"digest","digest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.27",NA,"R (>= 3.3.0)","utils",NA,"tinytest, knitr, rmarkdown, minidown",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"distr6","distr6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.7",NA,NA,"checkmate, data.table, R6, R62S3 (>= 1.4.0), set6 (>= 0.2.0),
+"50","DiceDesign","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-1",NA,"R (>= 2.10)",NA,NA,"rgl, randtoolbox, lattice",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"51","diffobj","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.2",NA,"R (>= 3.1.0)","crayon (>= 1.3.2), tools, methods, utils, stats",NA,"knitr, rmarkdown, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"52","digest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.27",NA,"R (>= 3.3.0)","utils",NA,"tinytest, knitr, rmarkdown, minidown",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"53","distr6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,NA,"checkmate, data.table, R6, R62S3 (>= 1.4.0), set6 (>= 0.2.0),
 stats, Rcpp","Rcpp","cubature, GoFKernel, knitr, testthat, rmarkdown, magrittr,
-extraDistr, actuar, plotly, pracma",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"doParallel","doParallel","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.16",NA,"R (>= 2.14.0), foreach(>= 1.2.0), iterators(>= 1.0.0),
+extraDistr, actuar, plotly, pracma",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.4"
+"54","doParallel","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.16",NA,"R (>= 2.14.0), foreach(>= 1.2.0), iterators(>= 1.0.0),
 parallel, utils",NA,NA,"caret, mlbench, rpart, RUnit","compiler","GPL-2",NA,NA,NA,NA,"no","4.0.0"
-"dplyr","dplyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,"R (>= 3.2.0)","ellipsis, generics, glue (>= 1.3.2), lifecycle (>= 0.2.0),
+"55","dplyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,"R (>= 3.2.0)","ellipsis, generics, glue (>= 1.3.2), lifecycle (>= 0.2.0),
 magrittr (>= 1.5), methods, R6, rlang (>= 0.4.7), tibble (>=
 2.1.3), tidyselect (>= 1.1.0), utils, vctrs (>= 0.3.2)",NA,"bench, broom, callr, covr, DBI, dbplyr (>= 1.4.3), knitr,
 Lahman, lobstr, microbenchmark, nycflights13, purrr, rmarkdown,
 RMySQL, RPostgreSQL, RSQLite, testthat (>= 2.1.0), withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"DT","DT","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.16",NA,NA,"htmltools (>= 0.3.6), htmlwidgets (>= 1.3), jsonlite (>=
+"56","DT","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.16",NA,NA,"htmltools (>= 0.3.6), htmlwidgets (>= 1.3), jsonlite (>=
 0.9.16), magrittr, crosstalk, promises",NA,"knitr (>= 1.8), rmarkdown, shiny (>= 1.2.0), testit",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"ellipsis","ellipsis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 3.2)","rlang (>= 0.3.0)",NA,"covr, testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"evaluate","evaluate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.14",NA,"R (>= 3.0.2)","methods",NA,"testthat, lattice, ggplot2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"fansi","fansi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.1.0)",NA,NA,"unitizer, knitr, rmarkdown",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"farver","farver","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.3",NA,NA,NA,NA,"testthat (>= 2.1.0), covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"fastmap","fastmap","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,NA,NA,NA,"testthat (>= 2.1.1)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"fastmatch","fastmatch","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-0",NA,NA,NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"feather","feather","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.5",NA,NA,"Rcpp, tibble (>= 2.0.0), hms","Rcpp","testthat",NA,"Apache License 2.0",NA,NA,NA,NA,"yes","4.0.3"
-"forcats","forcats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.2)","ellipsis, magrittr, rlang, tibble",NA,"covr, ggplot2, testthat, readr, knitr, rmarkdown, dplyr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"foreach","foreach","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.1",NA,"R (>= 2.5.0)","codetools, utils, iterators",NA,"randomForest, doMC, doParallel, testthat, knitr, rmarkdown",NA,"Apache License (== 2.0)",NA,NA,NA,NA,"no","4.0.3"
-"foreign","foreign","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8-80","recommended","R (>= 4.0.0)","methods, utils, stats",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"Formula","Formula","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2-4",NA,"R (>= 2.0.0), stats",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"fs","fs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.1)","methods",NA,"testthat, covr, pillar (>= 1.0.0), tibble (>= 1.1.0), crayon,
+"57","ellipsis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 3.2)","rlang (>= 0.3.0)",NA,"covr, testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.2"
+"58","evaluate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.14",NA,"R (>= 3.0.2)","methods",NA,"testthat, lattice, ggplot2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"59","fansi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.1.0)",NA,NA,"unitizer, knitr, rmarkdown",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"60","farver","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.3",NA,NA,NA,NA,"testthat (>= 2.1.0), covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"61","fastmap","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,NA,NA,NA,"testthat (>= 2.1.1)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"62","fastmatch","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-0",NA,NA,NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"63","feather","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.5",NA,NA,"Rcpp, tibble (>= 2.0.0), hms","Rcpp","testthat",NA,"Apache License 2.0",NA,NA,NA,NA,"yes","4.0.3"
+"64","forcats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.2)","ellipsis, magrittr, rlang, tibble",NA,"covr, ggplot2, testthat, readr, knitr, rmarkdown, dplyr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"65","foreach","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.1",NA,"R (>= 2.5.0)","codetools, utils, iterators",NA,"randomForest, doMC, doParallel, testthat, knitr, rmarkdown",NA,"Apache License (== 2.0)",NA,NA,NA,NA,"no","4.0.3"
+"66","foreign","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8-80","recommended","R (>= 4.0.0)","methods, utils, stats",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"67","Formula","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2-4",NA,"R (>= 2.0.0), stats",NA,NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"68","fs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.1)","methods",NA,"testthat, covr, pillar (>= 1.0.0), tibble (>= 1.1.0), crayon,
 rmarkdown, knitr, withr, spelling, vctrs (>= 0.3.0)",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"furrr","furrr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,"future (>= 1.19.1), R (>= 3.2.0)","ellipsis, globals (>= 0.13.1), lifecycle (>= 0.2.0), purrr (>=
+"69","furrr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,"future (>= 1.19.1), R (>= 3.2.0)","ellipsis, globals (>= 0.13.1), lifecycle (>= 0.2.0), purrr (>=
 0.3.0), rlang (>= 0.3.0), vctrs (>= 0.3.2)",NA,"carrier, covr, dplyr (>= 0.7.4), knitr, listenv (>= 0.6.0),
 magrittr, progressr, rmarkdown, testthat, withr, tidyselect",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"future","future","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.21.0",NA,NA,"digest, globals (>= 0.13.1), listenv (>= 0.8.0), parallel,
+"70","future","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.21.0",NA,NA,"digest, globals (>= 0.13.1), listenv (>= 0.8.0), parallel,
 parallelly (>= 1.21.0), tools, utils",NA,"RhpcBLASctl, R.rsp, markdown",NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.0"
-"future.apply","future.apply","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.0",NA,"R (>= 3.2.0), future (>= 1.17.0)","globals (>= 0.12.5), parallel, utils",NA,"datasets, stats, tools, listenv (>= 0.8.0), R.rsp, markdown",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"fuzzyjoin","fuzzyjoin","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.6",NA,"R (>= 2.10)","stringdist, stringr, dplyr (>= 0.8.1), tidyr (>= 0.4.0),
+"71","future.apply","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.0",NA,"R (>= 3.2.0), future (>= 1.17.0)","globals (>= 0.12.5), parallel, utils",NA,"datasets, stats, tools, listenv (>= 0.8.0), R.rsp, markdown",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"72","fuzzyjoin","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.6",NA,"R (>= 2.10)","stringdist, stringr, dplyr (>= 0.8.1), tidyr (>= 0.4.0),
 purrr, geosphere, tibble",NA,"testthat, knitr, ggplot2, qdapDictionaries, readr, rvest,
 rmarkdown, maps, IRanges, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"generics","generics","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,"R (>= 3.1)","methods",NA,"covr, pkgload, testthat, tibble",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"geosphere","geosphere","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5-10",NA,"R (>= 3.0.0)","sp",NA,"methods, raster",NA,"GPL (>= 3)",NA,NA,NA,NA,"yes","4.0.2"
-"gert","gert","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,NA,"askpass, credentials (>= 1.2.1), openssl (>= 1.4.1),
+"73","generics","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,"R (>= 3.1)","methods",NA,"covr, pkgload, testthat, tibble",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"74","geosphere","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5-10",NA,"R (>= 3.0.0)","sp",NA,"methods, raster",NA,"GPL (>= 3)",NA,NA,NA,NA,"yes","4.0.2"
+"75","gert","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.2",NA,NA,"askpass, credentials (>= 1.2.1), openssl (>= 1.4.1),
 rstudioapi (>= 0.11), zip (>= 2.1.0)",NA,"spelling, knitr, rmarkdown, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"ggalluvial","ggalluvial","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.12.3",NA,"R (>= 3.5), ggplot2 (>= 2.2)","stats, dplyr (>= 0.7), tidyr (>= 0.7), lazyeval, rlang,
+"76","ggalluvial","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.12.3",NA,"R (>= 3.5), ggplot2 (>= 2.2)","stats, dplyr (>= 0.7), tidyr (>= 0.7), lazyeval, rlang,
 tidyselect",NA,"grid, alluvial, testthat, knitr, rmarkdown, babynames,
 sessioninfo, ggrepel, shiny (>= 1.4.0.2), htmltools, sp (>=
 1.4-0), ggfittext (>= 0.6), vdiffr (>= 0.2)",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"GGally","GGally","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1), ggplot2 (>= 3.3.0)","grDevices, grid, gtable (>= 0.2.0), plyr (>= 1.8.3), progress,
+"77","GGally","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1), ggplot2 (>= 3.3.0)","grDevices, grid, gtable (>= 0.2.0), plyr (>= 1.8.3), progress,
 RColorBrewer, reshape (>= 0.8.5), scales (>= 1.1.0), utils,
 rlang, lifecycle",NA,"broom (>= 0.4.0), chemometrics, geosphere (>= 1.5-1),
 ggforce, Hmisc, igraph (>= 1.0.1), intergraph (>= 2.0-2), maps
 (>= 3.1.0), mapproj, network (>= 1.12.0), scagnostics, sna (>=
 2.3-2), survival, rmarkdown, roxygen2, testthat, crosstalk,
 knitr, spelling",NA,"GPL (>= 2.0)",NA,NA,NA,NA,"no","4.0.3"
-"ggExtra","ggExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9",NA,"R (>= 3.1.0)","colourpicker (>= 1.0), ggplot2 (>= 2.2.0), grDevices, grid (>=
+"78","ggdendro","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.22",NA,NA,"MASS, ggplot2(>= 0.9.2)",NA,"rpart (>= 4.0-0), tree, testthat, knitr, cluster, scales,
+spelling, rmarkdown",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.4"
+"79","ggExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9",NA,"R (>= 3.1.0)","colourpicker (>= 1.0), ggplot2 (>= 2.2.0), grDevices, grid (>=
 3.1.3), gtable (>= 0.2.0), miniUI (>= 0.1.1), scales (>=
 0.2.0), shiny (>= 0.13.0), shinyjs (>= 0.5.2), utils, R6",NA,"knitr (>= 1.7), rmarkdown, rstudioapi (>= 0.5), testthat,
 vdiffr, fontquiver, svglite, withr, devtools",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"ggforce","ggforce","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.2",NA,"ggplot2 (>= 3.0.0), R (>= 3.3.0)","Rcpp (>= 0.12.2), grid, scales, MASS, tweenr (>= 0.1.5),
+"80","ggforce","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.2",NA,"ggplot2 (>= 3.0.0), R (>= 3.3.0)","Rcpp (>= 0.12.2), grid, scales, MASS, tweenr (>= 0.1.5),
 gtable, rlang, polyclip, stats, grDevices, tidyselect, withr,
 utils","Rcpp, RcppEigen","sessioninfo, concaveman, deldir, reshape2, units (>= 0.4-6),
 covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"ggplot2","ggplot2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.3.2",NA,"R (>= 3.2)","digest, glue, grDevices, grid, gtable (>= 0.1.1), isoband,
+"81","ggplot2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.3.2",NA,"R (>= 3.2)","digest, glue, grDevices, grid, gtable (>= 0.1.1), isoband,
 MASS, mgcv, rlang (>= 0.3.0), scales (>= 0.5.0), stats, tibble,
 withr (>= 2.0.0)",NA,"covr, dplyr, ggplot2movies, hexbin, Hmisc, knitr, lattice,
 mapproj, maps, maptools, multcomp, munsell, nlme, profvis,
 quantreg, RColorBrewer, rgeos, rmarkdown, rpart, sf (>= 0.7-3),
 svglite (>= 1.2.0.9001), testthat (>= 2.1.0), vdiffr (>= 0.3.0)","sp","GPL-2 | file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"ggpubr","ggpubr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.0",NA,"R (>= 3.1.0), ggplot2","ggrepel, grid, ggsci, stats, utils, tidyr, purrr, dplyr (>=
+"82","ggpubr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.0",NA,"R (>= 3.1.0), ggplot2","ggrepel, grid, ggsci, stats, utils, tidyr, purrr, dplyr (>=
 0.7.1), cowplot, ggsignif, scales, gridExtra, glue, polynom,
 rlang, rstatix (>= 0.6.0), tibble, magrittr",NA,"grDevices, knitr, RColorBrewer, gtable",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"ggraph","ggraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.4",NA,"R (>= 2.10), ggplot2 (>= 3.0.0)","Rcpp (>= 0.12.2), dplyr, ggforce (>= 0.3.1), grid, igraph (>=
+"83","ggraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.4",NA,"R (>= 2.10), ggplot2 (>= 3.0.0)","Rcpp (>= 0.12.2), dplyr, ggforce (>= 0.3.1), grid, igraph (>=
 1.0.0), scales, MASS, digest, gtable, ggrepel, utils, stats,
 viridis, rlang, tidygraph, graphlayouts (>= 0.5.0), withr","Rcpp","network, knitr, rmarkdown, purrr, tibble, seriation, deldir,
 gganimate, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"ggrepel","ggrepel","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.2",NA,"R (>= 3.0.0), ggplot2 (>= 2.2.0)","grid, Rcpp, scales (>= 0.3.0)","Rcpp","knitr, rmarkdown, testthat, gridExtra, devtools, prettydoc",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"ggsci","ggsci","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.9",NA,"R (>= 3.0.2)","grDevices, scales, ggplot2 (>= 2.0.0)",NA,"knitr, rmarkdown, gridExtra, reshape2",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"ggsignif","ggsignif","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,NA,"ggplot2 (>= 2.0.0)",NA,"testthat, knitr, rmarkdown",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"gh","gh","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"cli (>= 2.0.1), gitcreds, httr (>= 1.2), ini, jsonlite",NA,"covr, knitr, rmarkdown, rprojroot, spelling, testthat (>=
+"84","ggrepel","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.2",NA,"R (>= 3.0.0), ggplot2 (>= 2.2.0)","grid, Rcpp, scales (>= 0.3.0)","Rcpp","knitr, rmarkdown, testthat, gridExtra, devtools, prettydoc",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"85","ggsci","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.9",NA,"R (>= 3.0.2)","grDevices, scales, ggplot2 (>= 2.0.0)",NA,"knitr, rmarkdown, gridExtra, reshape2",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"86","ggsignif","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,NA,"ggplot2 (>= 2.0.0)",NA,"testthat, knitr, rmarkdown",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"87","gh","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"cli (>= 2.0.1), gitcreds, httr (>= 1.2), ini, jsonlite",NA,"covr, knitr, rmarkdown, rprojroot, spelling, testthat (>=
 2.3.2), withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"gitcreds","gitcreds","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.1",NA,NA,NA,NA,"codetools, testthat, knitr, mockery, oskeyring, rmarkdown,
+"88","gitcreds","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.1",NA,NA,NA,NA,"codetools, testthat, knitr, mockery, oskeyring, rmarkdown,
 withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"globals","globals","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.14.0",NA,"R (>= 3.1.2)","codetools",NA,NA,NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
-"glue","glue","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.2",NA,"R (>= 3.2)","methods",NA,"testthat, covr, magrittr, crayon, knitr, rmarkdown, DBI,
+"89","globals","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.14.0",NA,"R (>= 3.1.2)","codetools",NA,NA,NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
+"90","glue","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.2",NA,"R (>= 3.2)","methods",NA,"testthat, covr, magrittr, crayon, knitr, rmarkdown, DBI,
 RSQLite, R.utils, forcats, microbenchmark, rprintf, stringr,
 ggplot2, dplyr, withr, vctrs (>= 0.3.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"gower","gower","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,NA,NA,NA,"tinytest (>= 0.9.3),",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"GPfit","GPfit","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-8",NA,NA,"lhs (>= 0.5), lattice (>= 0.18-8)",NA,"testthat",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"graphlayouts","graphlayouts","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.1",NA,"R (>= 3.2.0)","igraph, Rcpp","Rcpp, RcppArmadillo","oaqc, testthat, ggraph, ggplot2, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"gridExtra","gridExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3",NA,NA,"gtable, grid, grDevices, graphics, utils",NA,"ggplot2, egg, lattice, knitr, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.0"
-"gtable","gtable","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.0)","grid",NA,"covr, testthat, knitr, rmarkdown, ggplot2, profvis",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.0"
-"hardhat","hardhat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.5",NA,"R (>= 2.10)","glue, rlang (>= 0.4.1), tibble, vctrs (>= 0.3.0)",NA,"covr, crayon, devtools, knitr, Matrix, modeldata (>= 0.0.2),
+"91","gower","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,NA,NA,NA,"tinytest (>= 0.9.3),",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"92","GPfit","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-8",NA,NA,"lhs (>= 0.5), lattice (>= 0.18-8)",NA,"testthat",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
+"93","graphlayouts","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.7.1",NA,"R (>= 3.2.0)","igraph, Rcpp","Rcpp, RcppArmadillo","oaqc, testthat, ggraph, ggplot2, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"94","gridExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3",NA,NA,"gtable, grid, grDevices, graphics, utils",NA,"ggplot2, egg, lattice, knitr, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.0"
+"95","gtable","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.0)","grid",NA,"covr, testthat, knitr, rmarkdown, ggplot2, profvis",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.0"
+"96","hardhat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.5",NA,"R (>= 2.10)","glue, rlang (>= 0.4.1), tibble, vctrs (>= 0.3.0)",NA,"covr, crayon, devtools, knitr, Matrix, modeldata (>= 0.0.2),
 recipes (>= 0.1.8), rmarkdown (>= 2.3), roxygen2, testthat (>=
 2.1.0), usethis",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"haven","haven","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.1",NA,"R (>= 3.2)","forcats (>= 0.2.0), hms, methods, Rcpp (>= 0.11.4), readr (>=
+"97","haven","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.1",NA,"R (>= 3.2)","forcats (>= 0.2.0), hms, methods, Rcpp (>= 0.11.4), readr (>=
 0.1.0), rlang (>= 0.4.0), tibble, tidyselect, vctrs (>= 0.3.0)","Rcpp","covr, fs, knitr, rmarkdown, testthat, pillar (>= 1.4.0), cli,
 crayon",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"hexbin","hexbin","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.28.1",NA,"R (>= 2.0.1), methods","lattice, grid, graphics, grDevices, stats, utils",NA,"marray, affy, Biobase, limma, knitr",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"highr","highr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8",NA,"R (>= 3.2.3)",NA,NA,"knitr, testit",NA,"GPL",NA,NA,NA,NA,"no","4.0.0"
-"hms","hms","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.3",NA,NA,"methods, pkgconfig, rlang, vctrs (>= 0.2.1)",NA,"crayon, lubridate, pillar (>= 1.1.0), testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"htmltools","htmltools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 2.14.1)","utils, digest, grDevices, base64enc, rlang",NA,"markdown, testthat, withr, Cairo, ragg","knitr","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.2"
-"htmlwidgets","htmlwidgets","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.2",NA,NA,"grDevices, htmltools (>= 0.3), jsonlite (>= 0.9.16), yaml",NA,"knitr (>= 1.8), rmarkdown","shiny (>= 1.1)","MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"httpuv","httpuv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.4",NA,"R (>= 2.15.1)","Rcpp (>= 0.11.0), utils, R6, promises, later (>= 0.8.0)","Rcpp, BH, later","testthat, callr, curl, websocket",NA,"GPL (>= 2) | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"httr","httr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.2",NA,"R (>= 3.2)","curl (>= 3.0.0), jsonlite, mime, openssl (>= 0.8), R6",NA,"covr, httpuv, jpeg, knitr, png, readr, rmarkdown, testthat
+"98","hexbin","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.28.1",NA,"R (>= 2.0.1), methods","lattice, grid, graphics, grDevices, stats, utils",NA,"marray, affy, Biobase, limma, knitr",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"99","highr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8",NA,"R (>= 3.2.3)",NA,NA,"knitr, testit",NA,"GPL",NA,NA,NA,NA,"no","4.0.0"
+"100","hms","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.3",NA,NA,"methods, pkgconfig, rlang, vctrs (>= 0.2.1)",NA,"crayon, lubridate, pillar (>= 1.1.0), testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"101","htmltools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 2.14.1)","utils, digest, grDevices, base64enc, rlang",NA,"markdown, testthat, withr, Cairo, ragg","knitr","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.2"
+"102","htmlwidgets","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.2",NA,NA,"grDevices, htmltools (>= 0.3), jsonlite (>= 0.9.16), yaml",NA,"knitr (>= 1.8), rmarkdown","shiny (>= 1.1)","MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"103","httpuv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.4",NA,"R (>= 2.15.1)","Rcpp (>= 0.11.0), utils, R6, promises, later (>= 0.8.0)","Rcpp, BH, later","testthat, callr, curl, websocket",NA,"GPL (>= 2) | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"104","httr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.2",NA,"R (>= 3.2)","curl (>= 3.0.0), jsonlite, mime, openssl (>= 0.8), R6",NA,"covr, httpuv, jpeg, knitr, png, readr, rmarkdown, testthat
 (>= 0.8.0), xml2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"igraph","igraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.6",NA,"methods","graphics, grDevices, magrittr, Matrix, pkgconfig (>= 2.0.0),
+"105","iBreakDown","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,"R (>= 3.5)","ggplot2",NA,"DALEX, knitr, rmarkdown, randomForest, e1071, ranger, nnet,
+testthat, r2d3, jsonlite, covr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"106","igraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.6",NA,"methods","graphics, grDevices, magrittr, Matrix, pkgconfig (>= 2.0.0),
 stats, utils",NA,"ape, digest, graph, igraphdata, rgl, scales, stats4, tcltk,
 testthat, withr",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"iml","iml","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.10.1",NA,NA,"checkmate, data.table, Formula, future, future.apply, ggplot2,
+"107","iml","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.10.1",NA,NA,"checkmate, data.table, Formula, future, future.apply, ggplot2,
 keras (>= 2.2.5.0), Metrics, prediction, R6",NA,"ALEPlot, bench, caret, covr, e1071, future.callr, glmnet,
 gower, h2o, knitr, MASS, mlr, mlr3, party, partykit, patchwork,
 randomForest, ranger, rmarkdown, rpart, testthat, yaImpute",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"infer","infer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.3",NA,"R (>= 3.5.0)","dplyr (>= 0.7.0), methods, tibble, rlang (>= 0.2.0), ggplot2,
+"108","infer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.3",NA,"R (>= 3.5.0)","dplyr (>= 0.7.0), methods, tibble, rlang (>= 0.2.0), ggplot2,
 magrittr, glue (>= 1.3.0), grDevices, purrr",NA,"broom, devtools (>= 1.12.0), knitr, tidyr, rmarkdown,
 nycflights13, stringr, testthat, covr, vdiffr, fs",NA,"CC0",NA,NA,NA,NA,"no","4.0.3"
-"ini","ini","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,NA,NA,NA,"testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"inline","inline","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.17",NA,NA,"methods",NA,"Rcpp (>= 0.11.0), tinytest",NA,"LGPL",NA,NA,NA,NA,"no","4.0.3"
-"ipred","ipred","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-9",NA,"R (>= 2.10)","rpart (>= 3.1-8), MASS, survival, nnet, class, prodlim",NA,"mvtnorm, mlbench, TH.data",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"isoband","isoband","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,NA,"grid, utils","testthat","covr, ggplot2, knitr, magick, microbenchmark, rmarkdown, sf,
+"109","ingredients","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.1",NA,"R (>= 3.5)","ggplot2, scales, gridExtra, methods",NA,"DALEX, gower, ranger, testthat, r2d3, jsonlite, knitr,
+rmarkdown, covr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"110","ini","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,NA,NA,NA,"testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"111","inline","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.17",NA,NA,"methods",NA,"Rcpp (>= 0.11.0), tinytest",NA,"LGPL",NA,NA,NA,NA,"no","4.0.3"
+"112","ipred","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-9",NA,"R (>= 2.10)","rpart (>= 3.1-8), MASS, survival, nnet, class, prodlim",NA,"mvtnorm, mlbench, TH.data",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"113","isoband","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,NA,"grid, utils","testthat","covr, ggplot2, knitr, magick, microbenchmark, rmarkdown, sf,
 testthat, xml2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"iterators","iterators","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.13",NA,"R (>= 2.5.0), utils",NA,NA,"RUnit, foreach",NA,"Apache License (== 2.0)",NA,NA,NA,NA,"no","4.0.3"
-"jsonlite","jsonlite","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7.1",NA,"methods",NA,NA,"httr, curl, plyr, testthat, knitr, rmarkdown, R.rsp, sf",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"kableExtra","kableExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,"R (>= 3.1.0)","knitr (>= 1.16), magrittr, stringr (>= 1.0), xml2 (>= 1.1.1),
+"114","iterators","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.13",NA,"R (>= 2.5.0), utils",NA,NA,"RUnit, foreach",NA,"Apache License (== 2.0)",NA,NA,NA,NA,"no","4.0.3"
+"115","jsonlite","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7.1",NA,"methods",NA,NA,"httr, curl, plyr, testthat, knitr, rmarkdown, R.rsp, sf",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"116","kableExtra","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,"R (>= 3.1.0)","knitr (>= 1.16), magrittr, stringr (>= 1.0), xml2 (>= 1.1.1),
 rvest, rmarkdown (>= 1.6.0), scales, viridisLite, stats,
 grDevices, htmltools, rstudioapi, glue, tools, webshot, digest,
 graphics",NA,"testthat, magick, formattable, sparkline",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"keras","keras","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.0.0",NA,"R (>= 3.2)","generics (>= 0.0.1), reticulate (>= 1.10), tensorflow (>=
+"117","keras","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.0.0",NA,"R (>= 3.2)","generics (>= 0.0.1), reticulate (>= 1.10), tensorflow (>=
 2.0.0), tfruns (>= 1.0), magrittr, zeallot, methods, R6",NA,"ggplot2, testthat (>= 2.1.0), knitr, rmarkdown, tfdatasets,
 jpeg",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"KernSmooth","KernSmooth","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.23-18","recommended","R (>= 2.5.0), stats",NA,NA,"MASS",NA,"Unlimited",NA,NA,NA,NA,"yes","4.0.3"
-"knitr","knitr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.30",NA,"R (>= 3.2.3)","evaluate (>= 0.10), highr, markdown, stringr (>= 0.6), yaml
+"118","KernSmooth","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.23-18","recommended","R (>= 2.5.0), stats",NA,NA,"MASS",NA,"Unlimited",NA,NA,NA,NA,"yes","4.0.3"
+"119","knitr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.30",NA,"R (>= 3.2.3)","evaluate (>= 0.10), highr, markdown, stringr (>= 0.6), yaml
 (>= 2.1.19), methods, xfun (>= 0.15), tools",NA,"formatR, testit, digest, rgl (>= 0.95.1201), codetools,
 rmarkdown, htmlwidgets (>= 0.7), webshot, tikzDevice (>= 0.10),
 tinytex, reticulate (>= 1.4), JuliaCall (>= 0.11.1), magick,
 png, jpeg, gifski, xml2 (>= 1.2.0), httr, DBI (>= 0.4-1),
 showtext, tibble, sass, ragg, styler (>= 1.2.0)",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
-"labeling","labeling","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.2",NA,NA,"stats, graphics",NA,NA,NA,"MIT + file LICENSE | Unlimited",NA,NA,NA,NA,"no","4.0.3"
-"later","later","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0.1",NA,NA,"Rcpp (>= 0.12.9), rlang","Rcpp, BH","knitr, rmarkdown, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.2"
-"lava","lava","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.8.1",NA,"R (>= 3.0)","grDevices, graphics, methods, numDeriv, stats, survival,
+"120","labeling","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.2",NA,NA,"stats, graphics",NA,NA,NA,"MIT + file LICENSE | Unlimited",NA,NA,NA,NA,"no","4.0.3"
+"121","later","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0.1",NA,NA,"Rcpp (>= 0.12.9), rlang","Rcpp, BH","knitr, rmarkdown, testthat",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.2"
+"122","lava","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.8.1",NA,"R (>= 3.0)","grDevices, graphics, methods, numDeriv, stats, survival,
 SQUAREM, utils",NA,"KernSmooth, Matrix, Rgraphviz, data.table, ellipse, fields,
 foreach, geepack, gof (>= 0.9), graph, knitr, bookdown,
 rmarkdown, igraph (>= 0.6), lava.tobit (>= 0.4.7), lavaSearch2,
 lme4, magrittr, mets (>= 1.1), nlme, optimx, polycor, quantreg,
 rgl, R.rsp (>= 0.40), testthat (>= 0.11), visNetwork, zoo",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"lazyeval","lazyeval","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,"R (>= 3.1.0)",NA,NA,"knitr, rmarkdown (>= 0.2.65), testthat, covr",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"lgr","lgr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.2.0)","R6 (>= 2.4.0)",NA,"cli, covr, crayon, data.table, desc, future, future.apply,
+"123","lazyeval","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,"R (>= 3.1.0)",NA,NA,"knitr, rmarkdown (>= 0.2.65), testthat, covr",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"124","lgr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.2.0)","R6 (>= 2.4.0)",NA,"cli, covr, crayon, data.table, desc, future, future.apply,
 glue, jsonlite, knitr, rmarkdown, rotor (>= 0.3.0), rprojroot,
 testthat, tibble, tools, utils, whoami, yaml",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"lhs","lhs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,"R (>= 3.4.0)","Rcpp","Rcpp","testthat, assertthat, DoE.base, knitr, rmarkdown, covr",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"lifecycle","lifecycle","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,"R (>= 3.2)","glue, rlang (>= 0.4.0)",NA,"covr, crayon, knitr, rmarkdown, testthat (>= 2.1.0)",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"listenv","listenv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.0",NA,"R (>= 3.1.2)",NA,NA,"R.utils, R.rsp, markdown",NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
-"lme4","lme4","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-26",NA,"R (>= 3.2.0), Matrix (>= 1.2-1), methods, stats","graphics, grid, splines, utils, parallel, MASS, lattice, boot,
+"125","lhs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,"R (>= 3.4.0)","Rcpp","Rcpp","testthat, assertthat, DoE.base, knitr, rmarkdown, covr",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"126","lifecycle","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,"R (>= 3.2)","glue, rlang (>= 0.4.0)",NA,"covr, crayon, knitr, rmarkdown, testthat (>= 2.1.0)",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"127","listenv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.0",NA,"R (>= 3.1.2)",NA,NA,"R.utils, R.rsp, markdown",NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
+"128","lme4","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-26",NA,"R (>= 3.2.0), Matrix (>= 1.2-1), methods, stats","graphics, grid, splines, utils, parallel, MASS, lattice, boot,
 nlme (>= 3.1-123), minqa (>= 1.1.15), nloptr (>= 1.0.4),
 statmod","Rcpp (>= 0.10.5), RcppEigen","knitr, rmarkdown, PKPDmodels, MEMSS, testthat (>= 0.8.1),
 ggplot2, mlmRev, optimx (>= 2013.8.6), gamm4, pbkrtest, HSAUR3,
 numDeriv, car, dfoptim, mgcv",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"lmtest","lmtest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-38",NA,"R (>= 3.0.0), stats, zoo","graphics",NA,"car, strucchange, sandwich, dynlm, stats4, survival, AER",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"lubridate","lubridate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7.9.2",NA,"methods, R (>= 3.2)","generics, Rcpp (>= 0.12.13)","Rcpp","covr, knitr, testthat (>= 2.1.0), vctrs (>= 0.3.0), rmarkdown","chron, timeDate, tis, zoo","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"magick","magick","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5.2",NA,NA,"Rcpp (>= 0.12.12), magrittr, curl","Rcpp","av (>= 0.3), spelling, jsonlite, methods, knitr, rmarkdown,
+"129","lmtest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-38",NA,"R (>= 3.0.0), stats, zoo","graphics",NA,"car, strucchange, sandwich, dynlm, stats4, survival, AER",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"130","lubridate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.7.9.2",NA,"methods, R (>= 3.2)","generics, Rcpp (>= 0.12.13)","Rcpp","covr, knitr, testthat (>= 2.1.0), vctrs (>= 0.3.0), rmarkdown","chron, timeDate, tis, zoo","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"131","magick","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5.2",NA,NA,"Rcpp (>= 0.12.12), magrittr, curl","Rcpp","av (>= 0.3), spelling, jsonlite, methods, knitr, rmarkdown,
 rsvg, webp, pdftools, ggplot2, gapminder, IRdisplay, tesseract
 (>= 2.0), gifski",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"magrittr","magrittr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.1",NA,NA,NA,NA,"covr, knitr, rlang, rmarkdown, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"maptools","maptools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-2",NA,"R (>= 2.10), sp (>= 1.0-11)","foreign (>= 0.8), methods, grid, lattice, stats, utils,
+"132","magrittr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.1",NA,NA,NA,NA,"covr, knitr, rlang, rmarkdown, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"133","maptools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0-2",NA,"R (>= 2.10), sp (>= 1.0-11)","foreign (>= 0.8), methods, grid, lattice, stats, utils,
 grDevices",NA,"rgeos (>= 0.1-8), spatstat (>= 1.60), PBSmapping, maps,
 RColorBrewer, raster, polyclip, spatstat.utils, plotrix","gpclib","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"markdown","markdown","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1",NA,"R (>= 2.11.1)","utils, xfun, mime (>= 0.3)",NA,"knitr, RCurl",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.0"
-"MASS","MASS","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-53","recommended","R (>= 3.1.0), grDevices, graphics, stats, utils","methods",NA,"lattice, nlme, nnet, survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"MatrixModels","MatrixModels","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-1",NA,"R (>= 3.0.1)","stats, methods, Matrix (>= 1.1-5)",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"matrixStats","matrixStats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.57.0",NA,"R (>= 2.12.0)",NA,NA,"base64enc, ggplot2, knitr, microbenchmark, R.devices, R.rsp",NA,"Artistic-2.0",NA,NA,NA,NA,"yes","4.0.3"
-"mcc","mcc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0",NA,NA,NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"mco","mco","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.15.6",NA,"R (>= 3.0.0)",NA,NA,"scatterplot3d, testthat",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"memoise","memoise","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,"digest (>= 0.6.3)",NA,"testthat, aws.s3, httr, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"Metrics","Metrics","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,NA,NA,NA,"testthat",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"mime","mime","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9",NA,NA,"tools",NA,NA,NA,"GPL",NA,NA,NA,NA,"yes","4.0.0"
-"miniUI","miniUI","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.1.1",NA,NA,"shiny (>= 0.13), htmltools (>= 0.3), utils",NA,NA,NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"minqa","minqa","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.4",NA,NA,"Rcpp (>= 0.9.10)","Rcpp",NA,NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"misc3d","misc3d","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-0",NA,NA,"grDevices, graphics, stats, tcltk",NA,"rgl, tkrplot, MASS",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
-"mlbench","mlbench","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1-1",NA,"R (>= 2.10)",NA,NA,"lattice",NA,"GPL-2",NA,NA,NA,NA,NA,"4.0.3"
-"mlr","mlr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.18.0",NA,"ParamHelpers (>= 1.10), R (>= 3.0.2)","backports (>= 1.1.0), BBmisc (>= 1.11), checkmate (>= 1.8.2),
+"134","markdown","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1",NA,"R (>= 2.11.1)","utils, xfun, mime (>= 0.3)",NA,"knitr, RCurl",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.0"
+"135","MASS","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-53","recommended","R (>= 3.1.0), grDevices, graphics, stats, utils","methods",NA,"lattice, nlme, nnet, survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"136","MatrixModels","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-1",NA,"R (>= 3.0.1)","stats, methods, Matrix (>= 1.1-5)",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"137","matrixStats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.57.0",NA,"R (>= 2.12.0)",NA,NA,"base64enc, ggplot2, knitr, microbenchmark, R.devices, R.rsp",NA,"Artistic-2.0",NA,NA,NA,NA,"yes","4.0.3"
+"138","mcc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0",NA,NA,NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"139","mco","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.15.6",NA,"R (>= 3.0.0)",NA,NA,"scatterplot3d, testthat",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"140","memoise","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,"digest (>= 0.6.3)",NA,"testthat, aws.s3, httr, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"141","Metrics","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,NA,NA,NA,"testthat",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"142","mime","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9",NA,NA,"tools",NA,NA,NA,"GPL",NA,NA,NA,NA,"yes","4.0.0"
+"143","miniUI","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.1.1",NA,NA,"shiny (>= 0.13), htmltools (>= 0.3), utils",NA,NA,NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"144","minqa","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.4",NA,NA,"Rcpp (>= 0.9.10)","Rcpp",NA,NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"145","misc3d","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9-0",NA,NA,"grDevices, graphics, stats, tcltk",NA,"rgl, tkrplot, MASS",NA,"GPL",NA,NA,NA,NA,"no","4.0.3"
+"146","mlbench","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1-1",NA,"R (>= 2.10)",NA,NA,"lattice",NA,"GPL-2",NA,NA,NA,NA,NA,"4.0.3"
+"147","mlr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.18.0",NA,"ParamHelpers (>= 1.10), R (>= 3.0.2)","backports (>= 1.1.0), BBmisc (>= 1.11), checkmate (>= 1.8.2),
 data.table (>= 1.12.4), ggplot2, methods, parallelMap (>= 1.3),
 stats, stringi, survival, utils, XML",NA,"ada, adabag, bartMachine, batchtools, brnn, bst, C50, care,
 caret (>= 6.0-57), class, clue, cluster, ClusterR, clusterSim
@@ -293,80 +312,90 @@ rotationForest, rpart, RRF, rrlda, rsm, RSNNS, rucrdtw, RWeka,
 sda, sf, smoof, sparseLDA, stepPlr, survAUC, svglite, SwarmSVM,
 testthat, tgp, TH.data, tidyr, tsfeatures, vdiffr, wavelets,
 xgboost (>= 0.7)",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"mlr3","mlr3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.0",NA,"R (>= 3.1.0)","R6 (>= 2.4.1), backports, checkmate (>= 2.0.0), data.table (>=
+"148","mlr3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.0",NA,"R (>= 3.1.0)","R6 (>= 2.4.1), backports, checkmate (>= 2.0.0), data.table (>=
 1.12.8), digest, future.apply (>= 1.5.0), lgr (>= 0.3.4),
 mlbench, mlr3measures (>= 0.3.0), mlr3misc (>= 0.6.0), paradox
 (>= 0.6.0), uuid",NA,"Matrix, callr, datasets, distr6, evaluate, future,
 future.callr, mlr3data, progressr, rpart, testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3fselect","mlr3fselect","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.1.0)","bbotk (>= 0.2.0), checkmate (>= 2.0.0), data.table, lgr, mlr3
+"149","mlr3cluster","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.1",NA,"R (>= 3.1.0)","backports (>= 1.1.10), checkmate, clue, clusterCrit,
+data.table, mlr3 (>= 0.5.0), mlr3misc (>= 0.4.0), paradox, R6",NA,"dbscan, e1071, ClusterR, kernlab, apcluster, LPCM, mlbench,
+RWeka, testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"150","mlr3data","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.1.0)",NA,NA,"mlr3",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"151","mlr3filters","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.0",NA,"R (>= 3.1.0)","backports, checkmate, data.table, mlr3 (>= 0.1.8), mlr3misc,
+paradox, R6",NA,"care, caret, FSelectorRcpp, lgr, mlr3learners, mlr3measures,
+praznik, rpart, testthat (>= 3.0.0)",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"152","mlr3fselect","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.1",NA,"R (>= 3.1.0)","bbotk (>= 0.2.0), checkmate (>= 2.0.0), data.table, lgr, mlr3
 (>= 0.7.0), mlr3misc, mlr3pipelines (>= 0.3.0), paradox (>=
 0.3.0), R6",NA,"genalg, rpart, testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3learners","mlr3learners","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.3",NA,"R (>= 3.1.0)","data.table, mlr3 (>= 0.6.0), mlr3misc (>= 0.5.0), paradox, R6",NA,"checkmate, DiceKriging, distr6, e1071, glmnet, kknn, knitr,
+"153","mlr3learners","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.3",NA,"R (>= 3.1.0)","data.table, mlr3 (>= 0.6.0), mlr3misc (>= 0.5.0), paradox, R6",NA,"checkmate, DiceKriging, distr6, e1071, glmnet, kknn, knitr,
 lgr, MASS, mlr3proba (>= 0.2.5), nnet, pracma, ranger, rgenoud,
 rmarkdown, testthat (>= 3.0.0), xgboost",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3measures","mlr3measures","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.1.0)","checkmate, PRROC",NA,"testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3misc","mlr3misc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,"R (>= 3.1.0)","backports (>= 0.1.5), checkmate, data.table, R6",NA,"callr, evaluate, paradox, testthat",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"mlr3pipelines","mlr3pipelines","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 3.1.0)","backports, checkmate, data.table, digest, lgr, mlr3 (>=
+"154","mlr3measures","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.1.0)","checkmate, PRROC",NA,"testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"155","mlr3misc","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,"R (>= 3.1.0)","backports (>= 0.1.5), checkmate, data.table, R6",NA,"callr, evaluate, paradox, testthat",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"156","mlr3pipelines","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 3.1.0)","backports, checkmate, data.table, digest, lgr, mlr3 (>=
 0.6.0), mlr3misc (>= 0.5.0), paradox, R6, withr",NA,"ggplot2, glmnet, igraph, knitr, lme4, mlbench, bbotk (>=
 0.2.0), mlr3filters (>= 0.1.1), mlr3learners, mlr3measures,
 nloptr, quanteda, rmarkdown, rpart, stopwords, testthat,
 visNetwork, bestNormalize, fastICA, kernlab, smotefamily,
 evaluate, NMF, MASS, kknn, GenSA, methods, vtreat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3proba","mlr3proba","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.6",NA,"R (>= 3.5.0)","checkmate, data.table, distr6 (>= 1.4.5), mlr3 (>= 0.6.0),
+"157","mlr3proba","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.6",NA,"R (>= 3.5.0)","checkmate, data.table, distr6 (>= 1.4.5), mlr3 (>= 0.6.0),
 mlr3misc (>= 0.1.7), paradox (>= 0.1.0), R6, Rcpp (>= 1.0.4),
 survival","Rcpp","bujar, cubature, ggplot2, knitr, lgr, mlr3extralearners,
 mlr3pipelines (>= 0.3.0), pracma, rpart, set6 (>= 0.1.7),
 simsurv, survAUC, testthat",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"mlr3tuning","mlr3tuning","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.1.0)","bbotk (>= 0.2.2), checkmate (>= 2.0.0), data.table, lgr, mlr3
+"158","mlr3tuning","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.1.0)","bbotk (>= 0.2.2), checkmate (>= 2.0.0), data.table, lgr, mlr3
 (>= 0.7.0), mlr3misc (>= 0.5.0), paradox (>= 0.6.0), R6",NA,"adagio, GenSA, mlr3pipelines, nloptr, rpart, testthat (>=
 3.0.0)",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"mlr3viz","mlr3viz","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.1.0)","checkmate, data.table, ggplot2 (>= 3.3.0), mlr3misc, utils",NA,"cluster, distr6 (>= 1.4.4), factoextra, GGally, ggfortify (>=
+"159","mlr3verse","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,"R (>= 3.1.0)","bbotk, data.table, mlr3, mlr3cluster, mlr3data, mlr3filters,
+mlr3fselect, mlr3learners, mlr3misc, mlr3pipelines, mlr3proba,
+mlr3tuning, mlr3viz, paradox",NA,NA,NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"160","mlr3viz","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,"R (>= 3.1.0)","checkmate, data.table, ggplot2 (>= 3.3.0), mlr3misc, utils",NA,"cluster, distr6 (>= 1.4.4), factoextra, GGally, ggfortify (>=
 0.4.11), ggparty, glmnet, lgr, mlr3 (>= 0.6.0), mlr3cluster,
 mlr3filters, mlr3learners, mlr3proba (>= 0.2.3), partykit,
 precrec, rpart, stats, survival, testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"modeldata","modeldata","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,"R (>= 2.10)",NA,NA,"covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"modelr","modelr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.8",NA,"R (>= 3.2)","broom, magrittr, purrr (>= 0.2.2), rlang (>= 0.2.0), tibble,
+"161","modeldata","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,"R (>= 2.10)",NA,NA,"covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"162","modelr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.8",NA,"R (>= 3.2)","broom, magrittr, purrr (>= 0.2.2), rlang (>= 0.2.0), tibble,
 tidyr (>= 0.8.0), tidyselect, vctrs",NA,"compiler, covr, ggplot2, testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.2"
-"mStats","mStats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4.0",NA,"R (>= 4.0.0)","stats, utils",NA,"knitr, rmarkdown",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"munsell","munsell","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,NA,"colorspace, methods",NA,"ggplot2, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"nlme","nlme","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.1-150","recommended","R (>= 3.4.0)","graphics, stats, utils, lattice",NA,"Hmisc, MASS",NA,"GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.3"
-"nloptr","nloptr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.2.2",NA,NA,NA,NA,"testthat (>= 0.8.1), knitr, rmarkdown, inline (>= 0.3.14)",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"nnet","nnet","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-14","recommended","R (>= 3.0.0), stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"numDeriv","numDeriv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2016.8-1.1",NA,"R (>= 2.11.1)",NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"openssl","openssl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.3",NA,NA,"askpass",NA,"testthat (>= 2.1.0), digest, knitr, rmarkdown, jsonlite,
+"163","mStats","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4.0",NA,"R (>= 4.0.0)","stats, utils",NA,"knitr, rmarkdown",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"164","munsell","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.0",NA,NA,"colorspace, methods",NA,"ggplot2, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"165","nlme","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.1-150","recommended","R (>= 3.4.0)","graphics, stats, utils, lattice",NA,"Hmisc, MASS",NA,"GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.3"
+"166","nloptr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.2.2",NA,NA,NA,NA,"testthat (>= 0.8.1), knitr, rmarkdown, inline (>= 0.3.14)",NA,"LGPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"167","nnet","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-14","recommended","R (>= 3.0.0), stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
+"168","numDeriv","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2016.8-1.1",NA,"R (>= 2.11.1)",NA,NA,NA,NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
+"169","openssl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.3",NA,NA,"askpass",NA,"testthat (>= 2.1.0), digest, knitr, rmarkdown, jsonlite,
 jose, sodium",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"openxlsx","openxlsx","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.2.3",NA,"R (>= 3.3.0)","grDevices, methods, Rcpp, stats, utils, zip, stringi","Rcpp","knitr, testthat, roxygen2, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"pander","pander","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.3",NA,"R (>= 2.15.0)","grDevices, graphics, methods, utils, stats, digest, tools,
+"170","openxlsx","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.2.3",NA,"R (>= 3.3.0)","grDevices, methods, Rcpp, stats, utils, zip, stringi","Rcpp","knitr, testthat, roxygen2, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"171","pander","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.3",NA,"R (>= 2.15.0)","grDevices, graphics, methods, utils, stats, digest, tools,
 Rcpp","Rcpp","grid, lattice, ggplot2 (>= 0.9.2), sylly, sylly.en,
 futile.logger, survival, microbenchmark, zoo, nlme, descr,
 MASS, knitr, rmarkdown, tables, reshape, memisc, Epi,
 randomForest, tseries, gtable, rms, forecast, data.table",NA,"AGPL-3 | file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"paradox","paradox","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,NA,"backports, checkmate, data.table, methods, mlr3misc (>=
+"172","paradox","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,NA,"backports, checkmate, data.table, methods, mlr3misc (>=
 0.5.0), R6",NA,"knitr, lhs, testthat",NA,"LGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"parallelly","parallelly","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.21.0",NA,NA,"parallel, tools, utils",NA,NA,NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
-"parallelMap","parallelMap","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.0.0)","BBmisc (>= 1.8), checkmate (>= 1.8.0), parallel, stats, utils",NA,"BatchJobs (>= 1.8), batchtools (>= 0.9.6), data.table, Rmpi,
+"173","parallelly","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.21.0",NA,NA,"parallel, tools, utils",NA,NA,NA,"LGPL (>= 2.1)",NA,NA,NA,NA,"no","4.0.3"
+"174","parallelMap","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.0.0)","BBmisc (>= 1.8), checkmate (>= 1.8.0), parallel, stats, utils",NA,"BatchJobs (>= 1.8), batchtools (>= 0.9.6), data.table, Rmpi,
 rpart, snow, testthat",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"ParamHelpers","ParamHelpers","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.14",NA,NA,"backports, BBmisc (>= 1.10), checkmate (>= 1.8.2), fastmatch,
+"175","ParamHelpers","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.14",NA,NA,"backports, BBmisc (>= 1.10), checkmate (>= 1.8.2), fastmatch,
 methods",NA,"akima, covr, eaf, emoa, GGally, ggplot2, grid, gridExtra,
 irace (>= 2.1), lhs, plyr, reshape2, testthat",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"parsnip","parsnip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,"R (>= 2.10)","dplyr (>= 0.8.0.1), rlang (>= 0.3.1), purrr, utils, tibble (>=
+"176","parsnip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,"R (>= 2.10)","dplyr (>= 0.8.0.1), rlang (>= 0.3.1), purrr, utils, tibble (>=
 2.1.1), generics, glue, magrittr, stats, tidyr (>= 1.0.0),
 globals, prettyunits, vctrs (>= 0.2.0)",NA,"testthat, knitr, rmarkdown, survival, keras, xgboost, covr,
 C50, sparklyr (>= 1.0.0), earth, kernlab, kknn, randomForest,
 ranger (>= 0.12.0), rpart, MASS, nlme, modeldata, liquidSVM,
 Matrix",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"pbkrtest","pbkrtest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-8.6",NA,"R (>= 3.6.0), lme4 (>= 1.1.10)","Matrix (>= 1.2.3), parallel, magrittr, MASS, methods",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"pillar","pillar","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.7",NA,NA,"cli, crayon (>= 1.3.4), ellipsis, fansi, lifecycle, rlang (>=
+"177","pbkrtest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-8.6",NA,"R (>= 3.6.0), lme4 (>= 1.1.10)","Matrix (>= 1.2.3), parallel, magrittr, MASS, methods",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"178","pillar","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.7",NA,NA,"cli, crayon (>= 1.3.4), ellipsis, fansi, lifecycle, rlang (>=
 0.3.0), utf8 (>= 1.1.0), vctrs (>= 0.2.0)",NA,"bit64, knitr, lubridate, testthat (>= 2.0.0), withr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"pkgbuild","pkgbuild","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.1)","callr (>= 3.2.0), cli, crayon, desc, prettyunits, R6,
+"179","pkgbuild","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.1)","callr (>= 3.2.0), cli, crayon, desc, prettyunits, R6,
 rprojroot, withr (>= 2.1.2)",NA,"Rcpp, cpp11, testthat, covr",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.2"
-"pkgconfig","pkgconfig","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.3",NA,NA,"utils",NA,"covr, testthat, disposables (>= 1.0.3)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"pkgKitten","pkgKitten","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,NA,NA,"whoami (>= 1.1.0), tinytest",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"pkgload","pkgload","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,"cli, crayon, desc, methods, pkgbuild, rlang, rprojroot,
+"180","pkgconfig","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.3",NA,NA,"utils",NA,"covr, testthat, disposables (>= 1.0.3)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"181","pkgKitten","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,NA,NA,"whoami (>= 1.1.0), tinytest",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"182","pkgload","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,NA,"cli, crayon, desc, methods, pkgbuild, rlang, rprojroot,
 rstudioapi, utils, withr",NA,"bitops, covr, Rcpp, testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"plogr","plogr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,NA,NA,"Rcpp",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"plot3D","plot3D","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3",NA,"R (>= 2.15)","misc3d, stats, graphics, grDevices, methods",NA,NA,NA,"GPL (>= 3.0)",NA,NA,NA,NA,"no","4.0.3"
-"plotly","plotly","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.9.2.1",NA,"R (>= 3.2.0), ggplot2 (>= 3.0.0)","tools, scales, httr, jsonlite (>= 1.6), magrittr, digest,
+"183","plogr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,NA,NA,"Rcpp",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"184","plot3D","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3",NA,"R (>= 2.15)","misc3d, stats, graphics, grDevices, methods",NA,NA,NA,"GPL (>= 3.0)",NA,NA,NA,NA,"no","4.0.3"
+"185","plotly","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","4.9.2.1",NA,"R (>= 3.2.0), ggplot2 (>= 3.0.0)","tools, scales, httr, jsonlite (>= 1.6), magrittr, digest,
 viridisLite, base64enc, htmltools (>= 0.3.6), htmlwidgets (>=
 1.3), tidyr, hexbin, RColorBrewer, dplyr, tibble, lazyeval (>=
 0.2.0), rlang, crosstalk, purrr, data.table, promises",NA,"MASS, maps, ggthemes, GGally, testthat, knitr, devtools,
@@ -374,183 +403,186 @@ shiny (>= 1.1.0), shinytest (>= 1.3.0), curl, rmarkdown,
 vdiffr, Cairo, broom, webshot, listviewer, dendextend, sf,
 maptools, rgeos, png, IRdisplay, processx, plotlyGeoAssets,
 forcats",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"plyr","plyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8.6",NA,"R (>= 3.1.0)","Rcpp (>= 0.11.0)","Rcpp","abind, covr, doParallel, foreach, iterators, itertools,
+"186","plyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8.6",NA,"R (>= 3.1.0)","Rcpp (>= 0.11.0)","Rcpp","abind, covr, doParallel, foreach, iterators, itertools,
 tcltk, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"polyclip","polyclip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.10-0",NA,"R (>= 3.0.0)",NA,NA,NA,NA,"BSL",NA,NA,NA,NA,"yes","4.0.0"
-"polynom","polynom","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-0",NA,NA,"stats, graphics",NA,"knitr, rmarkdown",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"praise","praise","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,NA,NA,NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"precrec","precrec","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.11.2",NA,"R (>= 3.2.1)","Rcpp (>= 0.12.2), ggplot2 (>= 2.1.0), assertthat (>= 0.1),
+"187","polyclip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.10-0",NA,"R (>= 3.0.0)",NA,NA,NA,NA,"BSL",NA,NA,NA,NA,"yes","4.0.0"
+"188","polynom","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-0",NA,NA,"stats, graphics",NA,"knitr, rmarkdown",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
+"189","praise","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,NA,NA,NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"190","precrec","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.11.2",NA,"R (>= 3.2.1)","Rcpp (>= 0.12.2), ggplot2 (>= 2.1.0), assertthat (>= 0.1),
 grid, gridExtra (>= 2.0.0), methods, data.table (>= 1.10.4)","Rcpp","testthat (>= 0.11.0), knitr (>= 1.11), rmarkdown (>= 0.8.1)",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"prediction","prediction","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.14",NA,"R (>= 3.5.0)","utils, stats, data.table",NA,"datasets, methods, testthat","AER, aod, betareg, biglm, brglm, caret, crch, e1071, earth,
+"191","prediction","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.14",NA,"R (>= 3.5.0)","utils, stats, data.table",NA,"datasets, methods, testthat","AER, aod, betareg, biglm, brglm, caret, crch, e1071, earth,
 ff, ffbase, gam (>= 1.15), gee, glmnet, glmx, kernlab, lme4,
 MASS, mclogit, mda, mlogit, MNP, nlme, nnet, ordinal, plm,
 pscl, quantreg, rpart, sampleSelection, speedglm, survey (>=
 3.31-5), survival, truncreg, VGAM","MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"prettyunits","prettyunits","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,NA,NA,"codetools, covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"pROC","pROC","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.16.2",NA,"R (>= 2.14)","methods, plyr, Rcpp (>= 0.11.1)","Rcpp","microbenchmark, tcltk, MASS, logcondens, doParallel,
+"192","prettyunits","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,NA,NA,"codetools, covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"193","pROC","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.16.2",NA,"R (>= 2.14)","methods, plyr, Rcpp (>= 0.11.1)","Rcpp","microbenchmark, tcltk, MASS, logcondens, doParallel,
 testthat, vdiffr, ggplot2",NA,"GPL (>= 3)",NA,NA,NA,NA,"yes","4.0.3"
-"processx","processx","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4.5",NA,NA,"ps (>= 1.2.0), R6, utils",NA,"callr (>= 3.2.0), codetools, covr, crayon, curl, debugme,
+"194","processx","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4.5",NA,NA,"ps (>= 1.2.0), R6, utils",NA,"callr (>= 3.2.0), codetools, covr, crayon, curl, debugme,
 parallel, testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"prodlim","prodlim","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2019.11.13",NA,"R (>= 2.9.0)","Rcpp (>= 0.11.5), stats, grDevices, graphics, survival,
+"195","prodlim","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2019.11.13",NA,"R (>= 2.9.0)","Rcpp (>= 0.11.5), stats, grDevices, graphics, survival,
 KernSmooth, lava","Rcpp",NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"progress","progress","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.2",NA,NA,"hms, prettyunits, R6, crayon",NA,"Rcpp, testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"promises","promises","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,"R6, Rcpp, later, rlang, stats, magrittr","later, Rcpp","testthat, future, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"PRROC","PRROC","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,NA,NA,NA,"testthat, ggplot2, ROCR",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"pryr","pryr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,"R (>= 3.1.0)","stringr, codetools, methods, Rcpp (>= 0.11.0)","Rcpp","testthat (>= 0.8.0)",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"ps","ps","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.1)","utils",NA,"callr, covr, curl, pingr, processx (>= 3.1.0), R6, rlang,
+"196","progress","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.2",NA,NA,"hms, prettyunits, R6, crayon",NA,"Rcpp, testthat, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"197","promises","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,"R6, Rcpp, later, rlang, stats, magrittr","later, Rcpp","testthat, future, knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"198","PRROC","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,NA,NA,NA,"testthat, ggplot2, ROCR",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"199","pryr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.4",NA,"R (>= 3.1.0)","stringr, codetools, methods, Rcpp (>= 0.11.0)","Rcpp","testthat (>= 0.8.0)",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
+"200","ps","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.1)","utils",NA,"callr, covr, curl, pingr, processx (>= 3.1.0), R6, rlang,
 testthat, tibble",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"purrr","purrr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.4",NA,"R (>= 3.2)","magrittr (>= 1.5), rlang (>= 0.3.1)",NA,"covr, crayon, dplyr (>= 0.7.8), knitr, rmarkdown, testthat,
+"201","purrr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.4",NA,"R (>= 3.2)","magrittr (>= 1.5), rlang (>= 0.3.1)",NA,"covr, crayon, dplyr (>= 0.7.8), knitr, rmarkdown, testthat,
 tibble, tidyselect",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"quantreg","quantreg","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","5.75",NA,"R (>= 2.6), stats, SparseM","methods, graphics, Matrix, MatrixModels, conquer",NA,"tripack, akima, MASS, survival, rgl, logspline, nor1mix,
+"202","quantreg","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","5.75",NA,"R (>= 2.6), stats, SparseM","methods, graphics, Matrix, MatrixModels, conquer",NA,"tripack, akima, MASS, survival, rgl, logspline, nor1mix,
 Formula, zoo, R.rsp",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"r2d3","r2d3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,"R (>= 3.1.2)","htmlwidgets (>= 1.2), htmltools, jsonlite, rstudioapi",NA,"knitr, rmarkdown, shiny, shinytest, testthat, webshot",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"R6","R6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5.0",NA,"R (>= 3.0)",NA,NA,"knitr, microbenchmark, pryr, testthat, ggplot2, scales",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"R62S3","R62S3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.1",NA,"R (>= 3.5.0)","data.table, methods",NA,"pkgdown, testthat, R6",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"rappdirs","rappdirs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 2.14), methods",NA,NA,"testthat, roxygen2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"rapportools","rapportools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0",NA,"reshape","plyr, pander",NA,NA,NA,"AGPL-3",NA,NA,NA,NA,"no","4.0.3"
-"rbenchmark","rbenchmark","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,NA,NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,NA,"4.0.3"
-"rcmdcheck","rcmdcheck","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.3",NA,NA,"callr (>= 3.1.1.9000), cli (>= 1.1.0), crayon, desc (>=
+"203","r2d3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,"R (>= 3.1.2)","htmlwidgets (>= 1.2), htmltools, jsonlite, rstudioapi",NA,"knitr, rmarkdown, shiny, shinytest, testthat, webshot",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"204","R6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5.0",NA,"R (>= 3.0)",NA,NA,"knitr, microbenchmark, pryr, testthat, ggplot2, scales",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"205","R62S3","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.1",NA,"R (>= 3.5.0)","data.table, methods",NA,"pkgdown, testthat, R6",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"206","ranger","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.12.1",NA,"R (>= 3.1)","Rcpp (>= 0.11.2), Matrix","Rcpp, RcppEigen","survival, testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.4"
+"207","rappdirs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 2.14), methods",NA,NA,"testthat, roxygen2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"208","rapportools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0",NA,"reshape","plyr, pander",NA,NA,NA,"AGPL-3",NA,NA,NA,NA,"no","4.0.3"
+"209","rbenchmark","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,NA,NA,NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,NA,"4.0.3"
+"210","rcmdcheck","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.3",NA,NA,"callr (>= 3.1.1.9000), cli (>= 1.1.0), crayon, desc (>=
 1.2.0), digest, pkgbuild, prettyunits, R6, rprojroot,
 sessioninfo (>= 1.1.1), utils, withr, xopen",NA,"covr, knitr, mockery, rmarkdown, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"RColorBrewer","RColorBrewer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-2",NA,"R (>= 2.0.0)",NA,NA,NA,NA,"Apache License 2.0",NA,NA,NA,NA,"no","4.0.0"
-"Rcpp","Rcpp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.5",NA,NA,"methods, utils",NA,"tinytest, inline, rbenchmark, pkgKitten (>= 0.1.2)",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"RcppArmadillo","RcppArmadillo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.10.1.2.0",NA,"R (>= 3.3.0)","Rcpp (>= 0.11.0), stats, utils, methods","Rcpp","tinytest, Matrix, pkgKitten, reticulate, slam",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"RcppEigen","RcppEigen","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.3.7.0",NA,"R (>= 2.15.1)","Matrix (>= 1.1-0), Rcpp (>= 0.11.0), stats, utils","Rcpp","inline, tinytest, pkgKitten, microbenchmark",NA,"GPL (>= 2) | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"readr","readr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.0",NA,"R (>= 3.1)","cli, clipr, crayon, hms (>= 0.4.1), methods, rlang, R6,
+"211","RColorBrewer","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1-2",NA,"R (>= 2.0.0)",NA,NA,NA,NA,"Apache License 2.0",NA,NA,NA,NA,"no","4.0.0"
+"212","Rcpp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.4",NA,"R (>= 3.0.0)","methods, utils",NA,"tinytest, inline, rbenchmark, pkgKitten (>= 0.1.2)",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"213","RcppArmadillo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.10.1.2.0",NA,"R (>= 3.3.0)","Rcpp (>= 0.11.0), stats, utils, methods","Rcpp","tinytest, Matrix, pkgKitten, reticulate, slam",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"214","RcppEigen","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.3.7.0",NA,"R (>= 2.15.1)","Matrix (>= 1.1-0), Rcpp (>= 0.11.0), stats, utils","Rcpp","inline, tinytest, pkgKitten, microbenchmark",NA,"GPL (>= 2) | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"215","readr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.0",NA,"R (>= 3.1)","cli, clipr, crayon, hms (>= 0.4.1), methods, rlang, R6,
 tibble, utils, lifecycle","BH, cpp11","covr, curl, dplyr, knitr, rmarkdown, spelling, stringi,
 testthat, xml2",NA,"GPL (>= 2) | file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"readxl","readxl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,NA,"cellranger, Rcpp (>= 0.12.18), tibble (>= 1.3.1), utils","progress, Rcpp","covr, knitr, rmarkdown, rprojroot (>= 1.1), testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"recipes","recipes","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.15",NA,"R (>= 3.1), dplyr","generics (>= 0.1.0), glue, gower, ipred, lifecycle, lubridate,
+"216","readxl","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.1",NA,NA,"cellranger, Rcpp (>= 0.12.18), tibble (>= 1.3.1), utils","progress, Rcpp","covr, knitr, rmarkdown, rprojroot (>= 1.1), testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"217","recipes","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.15",NA,"R (>= 3.1), dplyr","generics (>= 0.1.0), glue, gower, ipred, lifecycle, lubridate,
 magrittr, Matrix, purrr (>= 0.2.3), rlang (>= 0.4.0), stats,
 tibble, tidyr (>= 1.0.0), tidyselect (>= 1.1.0), timeDate,
 utils, withr",NA,"covr, ddalpha, dimRed (>= 0.2.2), fastICA, ggplot2, igraph,
 kernlab, knitr, modeldata, RANN, RcppRoll, rmarkdown, rpart,
 rsample, RSpectra, testthat (>= 2.1.0), xml2",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"rematch","rematch","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,NA,NA,NA,"covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"rematch2","rematch2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.2",NA,NA,"tibble",NA,"covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"remotes","remotes","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 3.0.0)","methods, stats, tools, utils",NA,"brew, callr, codetools, curl, covr, git2r (>= 0.23.0), knitr,
+"218","rematch","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,NA,NA,NA,"covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"219","rematch2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.2",NA,NA,"tibble",NA,"covr, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"220","remotes","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 3.0.0)","methods, stats, tools, utils",NA,"brew, callr, codetools, curl, covr, git2r (>= 0.23.0), knitr,
 mockery, pkgbuild (>= 1.0.1), pingr, rmarkdown, rprojroot,
 testthat, withr",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.2"
-"repr","repr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.0.1)","utils, grDevices, htmltools, jsonlite, pillar (>= 1.4.0),
+"221","repr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.0.1)","utils, grDevices, htmltools, jsonlite, pillar (>= 1.4.0),
 base64enc",NA,"methods, highr, Cairo, stringr, testthat, diffobj (>= 0.2.3),
 leaflet","data.table, dplyr, htmlwidgets, vegalite, plotly, geojsonio","GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"reprex","reprex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.1)","callr (>= 2.0.0), clipr (>= 0.4.0), fs, rlang, rmarkdown,
+"222","reprex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 3.1)","callr (>= 2.0.0), clipr (>= 0.4.0), fs, rlang, rmarkdown,
 utils, whisker, withr",NA,"covr, devtools, fortunes, knitr, miniUI, rprojroot,
 rstudioapi, shiny, styler (>= 1.0.2), testthat (>= 2.0.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"reshape","reshape","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.8",NA,"R (>= 2.6.1)","plyr",NA,NA,NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"reshape2","reshape2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.4",NA,"R (>= 3.1)","plyr (>= 1.8.1), Rcpp, stringr","Rcpp","covr, lattice, testthat (>= 0.8.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"reticulate","reticulate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.18",NA,"R (>= 3.0)","graphics, jsonlite, Matrix, methods, rappdirs, Rcpp (>=
+"223","reshape","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.8.8",NA,"R (>= 2.6.1)","plyr",NA,NA,NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"224","reshape2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.4",NA,"R (>= 3.1)","plyr (>= 1.8.1), Rcpp, stringr","Rcpp","covr, lattice, testthat (>= 0.8.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"225","reticulate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.18",NA,"R (>= 3.0)","graphics, jsonlite, Matrix, methods, rappdirs, Rcpp (>=
 0.12.7), utils","Rcpp","callr, knitr, rmarkdown, testthat",NA,"Apache License 2.0",NA,NA,NA,NA,"yes","4.0.3"
-"rex","rex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"lazyeval",NA,"testthat, knitr, rmarkdown, dplyr, ggplot2, magrittr, Hmisc,
+"226","rex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"lazyeval",NA,"testthat, knitr, rmarkdown, dplyr, ggplot2, magrittr, Hmisc,
 stringr, rvest, roxygen2, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"Rgraphviz","Rgraphviz","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.32.0",NA,"R (>= 2.6.0), methods, utils, graph, grid","stats4, graphics, grDevices",NA,"RUnit, BiocGenerics, XML",NA,"EPL",NA,NA,NA,NA,"yes","4.0.0"
-"rio","rio","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.16",NA,"R (>= 2.15.0)","tools, stats, utils, foreign, haven (>= 1.1.0), curl (>= 0.6),
+"227","Rgraphviz","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.32.0",NA,"R (>= 2.6.0), methods, utils, graph, grid","stats4, graphics, grDevices",NA,"RUnit, BiocGenerics, XML",NA,"EPL",NA,NA,NA,NA,"yes","4.0.0"
+"228","rio","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.16",NA,"R (>= 2.15.0)","tools, stats, utils, foreign, haven (>= 1.1.0), curl (>= 0.6),
 data.table (>= 1.9.8), readxl (>= 0.1.1), openxlsx, tibble",NA,"datasets, bit64, testthat, knitr, magrittr, clipr, csvy,
 feather, fst, hexView, jsonlite, readODS (>= 1.6.4), readr,
 rmatio, xml2 (>= 1.2.0), yaml",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"RJSONIO","RJSONIO","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3-1.4",NA,NA,"methods",NA,NA,NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"rlang","rlang","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.9",NA,"R (>= 3.3.0)",NA,NA,"cli, covr, crayon, glue, magrittr, methods, pillar,
+"229","RJSONIO","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3-1.4",NA,NA,"methods",NA,NA,NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"230","rlang","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4.9",NA,"R (>= 3.3.0)",NA,NA,"cli, covr, crayon, glue, magrittr, methods, pillar,
 rmarkdown, testthat (>= 2.3.0), vctrs (>= 0.2.3), withr","winch","GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"rmarkdown","rmarkdown","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5",NA,"R (>= 3.0)","tools, utils, knitr (>= 1.22), yaml (>= 2.1.19), htmltools (>=
+"231","rmarkdown","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.5",NA,"R (>= 3.0)","tools, utils, knitr (>= 1.22), yaml (>= 2.1.19), htmltools (>=
 0.3.5), evaluate (>= 0.13), jsonlite, tinytex (>= 0.11), xfun
 (>= 0.15), methods, stringr (>= 1.2.0)",NA,"shiny (>= 0.11), tufte, testthat, digest, dygraphs, vctrs,
 tibble, fs, rsconnect",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"roxygen2","roxygen2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.1.1",NA,"R (>= 3.2)","brew, commonmark, desc (>= 1.2.0), digest, knitr, methods,
+"232","roxygen2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.1.1",NA,"R (>= 3.2)","brew, commonmark, desc (>= 1.2.0), digest, knitr, methods,
 pkgload (>= 1.0.2), purrr (>= 0.3.3), R6 (>= 2.1.2), Rcpp (>=
 0.11.0), rlang, stringi, stringr (>= 1.0.0), utils, xml2","Rcpp","covr, devtools, rmarkdown, testthat (>= 2.1.0), R.methodsS3,
 R.oo",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"RPostgres","RPostgres","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.1",NA,"R (>= 3.1.0)","bit64, blob (>= 1.2.0), DBI (>= 1.1.0), hms (>= 0.5.0),
+"233","RPostgres","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.1",NA,"R (>= 3.1.0)","bit64, blob (>= 1.2.0), DBI (>= 1.1.0), hms (>= 0.5.0),
 methods, Rcpp (>= 0.11.4.2), withr","BH, plogr (>= 0.2.0), Rcpp","DBItest (>= 1.7.0), testthat",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"RPostgreSQL","RPostgreSQL","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6-2",NA,"R (>= 2.9.0), methods, DBI (>= 0.3)",NA,NA,NA,NA,"GPL-2 | file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"rprojroot","rprojroot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.2",NA,"R (>= 3.0.0)",NA,NA,"covr, knitr, lifecycle, mockr, rmarkdown, testthat (>=
+"234","RPostgreSQL","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6-2",NA,"R (>= 2.9.0), methods, DBI (>= 0.3)",NA,NA,NA,NA,"GPL-2 | file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"235","rprojroot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.2",NA,"R (>= 3.0.0)",NA,NA,"covr, knitr, lifecycle, mockr, rmarkdown, testthat (>=
 3.0.0), withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"rsample","rsample","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.8",NA,"R (>= 3.2)","dplyr (>= 0.8.5), purrr, tibble, rlang (>= 0.4.0), methods,
+"236","rsample","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.8",NA,"R (>= 3.2)","dplyr (>= 0.8.5), purrr, tibble, rlang (>= 0.4.0), methods,
 generics, utils, tidyselect, furrr, tidyr, vctrs (>= 0.3.0),
 modeldata, slider (>= 0.1.5), ellipsis",NA,"ggplot2, testthat, rmarkdown, knitr, AmesHousing, recipes (>=
 0.1.4), broom, xml2, covr",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"rstatix","rstatix","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,"R (>= 3.3.0)","stats, utils, tidyr (>= 1.0.0), purrr, broom (>= 0.5.6), rlang
+"237","rstatix","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.6.0",NA,"R (>= 3.3.0)","stats, utils, tidyr (>= 1.0.0), purrr, broom (>= 0.5.6), rlang
 (>= 0.3.1), tibble (>= 2.1.3), dplyr (>= 0.7.1), magrittr,
 corrplot, tidyselect (>= 1.0.0), car, generics (>= 0.0.2)",NA,"knitr, rmarkdown, ggpubr, graphics, emmeans, coin, boot,
 testthat, spelling",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"rstudioapi","rstudioapi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.13",NA,NA,NA,NA,"testthat, knitr, rmarkdown, clipr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"rversions","rversions","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.2",NA,NA,"curl, utils, xml2 (>= 1.0.0)",NA,"mockery, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"rvest","rvest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.6",NA,"R (>= 3.2), xml2","httr (>= 0.5), magrittr, selectr",NA,"covr, knitr, png, rmarkdown, spelling, stringi (>= 0.3.1),
+"238","rstudioapi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.13",NA,NA,NA,NA,"testthat, knitr, rmarkdown, clipr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"239","rversions","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.2",NA,NA,"curl, utils, xml2 (>= 1.0.0)",NA,"mockery, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"240","rvest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.6",NA,"R (>= 3.2), xml2","httr (>= 0.5), magrittr, selectr",NA,"covr, knitr, png, rmarkdown, spelling, stringi (>= 0.3.1),
 testthat",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"scales","scales","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,"R (>= 3.2)","farver (>= 2.0.3), labeling, lifecycle, munsell (>= 0.5), R6,
+"241","scales","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,"R (>= 3.2)","farver (>= 2.0.3), labeling, lifecycle, munsell (>= 0.5), R6,
 RColorBrewer, viridisLite",NA,"bit64, covr, dichromat, ggplot2, hms (>= 0.5.0), testthat (>=
 2.1.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"selectr","selectr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-2",NA,"R (>= 3.0)","methods, stringr, R6",NA,"testthat, XML, xml2",NA,"BSD_3_clause + file LICENCE",NA,NA,NA,NA,"no","4.0.0"
-"sessioninfo","sessioninfo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,"cli, tools, utils, withr",NA,"callr, covr, mockery, testthat",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"set6","set6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,"checkmate, Rcpp, R6, utils","Rcpp","knitr, testthat, devtools, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"SHAPforxgboost","SHAPforxgboost","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.4",NA,"R (>= 3.3.0)","ggplot2 (>= 3.0.0), xgboost (>= 0.81.0.0), data.table (>=
+"242","selectr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4-2",NA,"R (>= 3.0)","methods, stringr, R6",NA,"testthat, XML, xml2",NA,"BSD_3_clause + file LICENCE",NA,NA,NA,NA,"no","4.0.0"
+"243","sessioninfo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.1",NA,NA,"cli, tools, utils, withr",NA,"callr, covr, mockery, testthat",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
+"244","set6","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,NA,"checkmate, Rcpp, R6, utils","Rcpp","knitr, testthat, devtools, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"245","SHAPforxgboost","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.4",NA,"R (>= 3.3.0)","ggplot2 (>= 3.0.0), xgboost (>= 0.81.0.0), data.table (>=
 1.12.0), ggforce (>= 0.2.1.9000), ggExtra (>= 0.8),
 RColorBrewer (>= 1.1.2), ggpubr, BBmisc",NA,"gridExtra (>= 2.3), here, parallel",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"shiny","shiny","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.0.2), methods","utils, grDevices, httpuv (>= 1.5.2), mime (>= 0.3), jsonlite
+"246","shiny","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.0",NA,"R (>= 3.0.2), methods","utils, grDevices, httpuv (>= 1.5.2), mime (>= 0.3), jsonlite
 (>= 0.9.16), xtable, digest, htmltools (>= 0.4.0.9003), R6 (>=
 2.0), sourcetools, later (>= 1.0.0), promises (>= 1.1.0),
 tools, crayon, rlang (>= 0.4.0), fastmap (>= 1.0.0), withr,
 commonmark (>= 1.7), glue (>= 1.3.2)",NA,"datasets, Cairo (>= 1.5-5), testthat (>= 2.1.1), knitr (>=
 1.6), markdown, rmarkdown, ggplot2, reactlog (>= 1.0.0),
 magrittr, shinytest, yaml, future, dygraphs, ragg, showtext",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"shinyjs","shinyjs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1.0)","digest (>= 0.6.8), htmltools (>= 0.2.9), jsonlite, shiny (>=
+"247","shinyjs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.1.0)","digest (>= 0.6.8), htmltools (>= 0.2.9), jsonlite, shiny (>=
 1.0.0)",NA,"knitr (>= 1.7), rmarkdown, shinyAce, shinydisconnect,
 testthat (>= 0.9.1)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"skimr","skimr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.2",NA,"R (>= 3.1.2)","cli, crayon, dplyr (>= 0.8.0), knitr (>= 1.2), magrittr (>=
+"248","skimr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.2",NA,"R (>= 3.1.2)","cli, crayon, dplyr (>= 0.8.0), knitr (>= 1.2), magrittr (>=
 1.5), purrr, repr, rlang (>= 0.3.1), stats, stringr (>= 1.1),
 tibble (>= 2.0.0), tidyr (>= 1.0), tidyselect (>= 0.2.5), withr",NA,"covr, extrafont, lubridate, rmarkdown, sf, testthat (>=
 2.0.0)",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"slider","slider","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.5",NA,"R (>= 3.2)","glue, rlang (>= 0.4.5), vctrs (>= 0.3.0), warp","vctrs (>= 0.3.0)","covr, dplyr (>= 0.8.3), knitr, lubridate, rmarkdown, testthat
+"249","slider","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.5",NA,"R (>= 3.2)","glue, rlang (>= 0.4.5), vctrs (>= 0.3.0), warp","vctrs (>= 0.3.0)","covr, dplyr (>= 0.8.3), knitr, lubridate, rmarkdown, testthat
 (>= 2.1.0), xml2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"smoof","smoof","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.0.2",NA,"ParamHelpers (>= 1.8), checkmate (>= 1.1)","BBmisc (>= 1.6), ggplot2 (>= 2.2.1), RColorBrewer, plot3D,
+"250","smoof","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.6.0.2",NA,"ParamHelpers (>= 1.8), checkmate (>= 1.1)","BBmisc (>= 1.6), ggplot2 (>= 2.2.1), RColorBrewer, plot3D,
 plotly, mco, Rcpp (>= 0.11.0), RJSONIO","Rcpp, RcppArmadillo","testthat, rPython (>= 0.0-5)",NA,"BSD_2_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"sourcetools","sourcetools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.7",NA,"R (>= 3.0.2)",NA,NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"sp","sp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-4",NA,"R (>= 3.0.0), methods","utils, stats, graphics, grDevices, lattice, grid",NA,"RColorBrewer, rgdal (>= 1.2-3), rgeos (>= 0.3-13), gstat,
+"251","sourcetools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.7",NA,"R (>= 3.0.2)",NA,NA,"testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"252","sp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-4",NA,"R (>= 3.0.0), methods","utils, stats, graphics, grDevices, lattice, grid",NA,"RColorBrewer, rgdal (>= 1.2-3), rgeos (>= 0.3-13), gstat,
 maptools, deldir",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"SparseM","SparseM","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.78",NA,"R (>= 2.15), methods","graphics, stats, utils",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"spatial","spatial","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-12","recommended","R (>= 3.0.0), graphics, stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"SQUAREM","SQUAREM","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2020.5",NA,"R (>= 3.0)",NA,NA,"setRNG",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"statmod","statmod","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.35",NA,"R (>= 3.0.0)","stats, graphics",NA,"MASS, tweedie",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"stringdist","stringdist","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.6.3",NA,"R (>= 2.15.3)","parallel",NA,"tinytest",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
-"stringi","stringi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.3",NA,"R (>= 2.14)","tools, utils, stats",NA,NA,NA,"file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"stringr","stringr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.0",NA,"R (>= 3.1)","glue (>= 1.2.0), magrittr, stringi (>= 1.1.7)",NA,"covr, htmltools, htmlwidgets, knitr, rmarkdown, testthat",NA,"GPL-2 | file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"summarytools","summarytools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.6",NA,"R (>= 2.10)","base64enc, checkmate, dplyr, grDevices, htmltools, lubridate,
+"253","SparseM","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.78",NA,"R (>= 2.15), methods","graphics, stats, utils",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"254","spatial","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","7.3-12","recommended","R (>= 3.0.0), graphics, stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
+"255","SQUAREM","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2020.5",NA,"R (>= 3.0)",NA,NA,"setRNG",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"256","statmod","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.35",NA,"R (>= 3.0.0)","stats, graphics",NA,"MASS, tweedie",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"257","stringdist","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.6.3",NA,"R (>= 2.15.3)","parallel",NA,"tinytest",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.3"
+"258","stringi","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.5.3",NA,"R (>= 2.14)","tools, utils, stats",NA,NA,NA,"file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"259","stringr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4.0",NA,"R (>= 3.1)","glue (>= 1.2.0), magrittr, stringi (>= 1.1.7)",NA,"covr, htmltools, htmlwidgets, knitr, rmarkdown, testthat",NA,"GPL-2 | file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"260","summarytools","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.9.6",NA,"R (>= 2.10)","base64enc, checkmate, dplyr, grDevices, htmltools, lubridate,
 magick, matrixStats, methods, pander, pryr, rapportools, stats,
 tcltk, tibble, tidyr, utils",NA,"forcats, kableExtra, knitr, magrittr, rmarkdown, rstudioapi",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"survival","survival","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.2-7","recommended","R (>= 3.4.0)","graphics, Matrix, methods, splines, stats, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"sys","sys","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4",NA,NA,NA,NA,"unix (>= 1.4), spelling, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"tensorflow","tensorflow","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 3.1)","config, jsonlite (>= 1.2), processx, reticulate (>= 1.10),
+"261","survival","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.2-7","recommended","R (>= 3.4.0)","graphics, Matrix, methods, splines, stats, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"262","sys","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.4",NA,NA,NA,NA,"unix (>= 1.4), spelling, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"263","table.express","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.1",NA,"R (>= 3.1.0)","methods, stats, utils, data.table (>= 1.9.8), dplyr, magrittr,
+R6, rlang (>= 0.3.1), tidyselect",NA,"knitr, rex, rmarkdown, testthat",NA,"MPL-2.0",NA,NA,NA,NA,"no","4.0.3"
+"264","tensorflow","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.0",NA,"R (>= 3.1)","config, jsonlite (>= 1.2), processx, reticulate (>= 1.10),
 tfruns (>= 1.0), utils, yaml, rstudioapi (>= 0.7)",NA,"testthat (>= 2.1.0), keras, tfestimators, callr",NA,"Apache License 2.0",NA,NA,NA,NA,"no","4.0.3"
-"testthat","testthat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0.0",NA,"R (>= 3.1)","brio, callr (>= 3.5.1), cli, crayon (>= 1.3.4), desc, digest,
+"265","testthat","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0.0",NA,"R (>= 3.1)","brio, callr (>= 3.5.1), cli, crayon (>= 1.3.4), desc, digest,
 ellipsis (>= 0.2.0), evaluate, jsonlite, lifecycle, magrittr,
 methods, pkgload, praise, processx, ps (>= 1.3.4), R6 (>=
 2.2.0), rlang (>= 0.4.1), utils, waldo (>= 0.2.1), withr (>=
 2.0.0)",NA,"covr, curl (>= 0.9.5), diffviewer (>= 0.1.0), knitr, mockery,
 rmarkdown, rstudioapi, shiny, usethis, vctrs (>= 0.1.0), xml2",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"tfruns","tfruns","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4",NA,"R (>= 3.1)","utils, jsonlite (>= 1.2), base64enc, yaml, config, magrittr,
+"266","tfruns","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4",NA,"R (>= 3.1)","utils, jsonlite (>= 1.2), base64enc, yaml, config, magrittr,
 whisker, tidyselect, rlang, rstudioapi (>= 0.7), reticulate",NA,"testthat, knitr",NA,"Apache License 2.0",NA,NA,NA,NA,"no","4.0.3"
-"tibble","tibble","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0.4",NA,"R (>= 3.1.0)","cli, crayon (>= 1.3.4), ellipsis (>= 0.2.0), fansi (>= 0.4.0),
+"267","tibble","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.0.4",NA,"R (>= 3.1.0)","cli, crayon (>= 1.3.4), ellipsis (>= 0.2.0), fansi (>= 0.4.0),
 lifecycle (>= 0.2.0), magrittr, methods, pillar (>= 1.4.3),
 pkgconfig, rlang (>= 0.4.3), utils, vctrs (>= 0.3.2)",NA,"bench, bit64, blob, covr, dplyr, evaluate, formattable, hms,
 htmltools, import, knitr, lubridate, mockr, nycflights13,
 purrr, rmarkdown, testthat (>= 2.1.0), tidyr, withr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"tidygraph","tidygraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"tibble, dplyr (>= 0.8.5), igraph, magrittr, utils, rlang, R6,
+"268","tidygraph","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0",NA,NA,"tibble, dplyr (>= 0.8.5), igraph, magrittr, utils, rlang, R6,
 Rcpp, tools, stats, tidyr, pillar","Rcpp","network, data.tree, ape, graph, methods, testthat, covr,
 seriation, netrankr, influenceR, NetSwan",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"tidymodels","tidymodels","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.2",NA,"R (>= 3.1)","broom (>= 0.7.2), cli (>= 2.2.0), dials (>= 0.0.9), dplyr (>=
+"269","tidymodels","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.2",NA,"R (>= 3.1)","broom (>= 0.7.2), cli (>= 2.2.0), dials (>= 0.0.9), dplyr (>=
 1.0.2), ggplot2 (>= 3.3.2), infer (>= 0.5.3), magrittr (>=
 2.0.0), modeldata (>= 0.1.0), parsnip (>= 0.1.4), purrr (>=
 0.3.4), recipes (>= 0.1.15), rlang (>= 0.4.8), rsample (>=
 0.0.8), rstudioapi (>= 0.13), tibble (>= 3.0.4), tidyr (>=
 1.1.2), tune (>= 0.1.2), workflows (>= 0.2.1), yardstick (>=
 0.0.7)",NA,"covr, glue, knitr, rmarkdown, testthat, xml2",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"tidyr","tidyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.2",NA,"R (>= 3.1)","dplyr (>= 0.8.2), ellipsis (>= 0.1.0), glue, magrittr, purrr,
+"270","tidyr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.2",NA,"R (>= 3.1)","dplyr (>= 0.8.2), ellipsis (>= 0.1.0), glue, magrittr, purrr,
 rlang, tibble (>= 2.1.1), tidyselect (>= 1.1.0), utils, vctrs
 (>= 0.3.0), lifecycle","cpp11 (>= 0.2.1)","covr, jsonlite, knitr, repurrrsive (>= 1.0.0), rmarkdown,
 readr, testthat (>= 2.1.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"tidyselect","tidyselect","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.2)","ellipsis, glue (>= 1.3.0), purrr (>= 0.3.2), rlang (>= 0.4.6),
+"271","tidyselect","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.0",NA,"R (>= 3.2)","ellipsis, glue (>= 1.3.0), purrr (>= 0.3.2), rlang (>= 0.4.6),
 vctrs (>= 0.2.2)",NA,"covr, crayon, dplyr, knitr, magrittr, rmarkdown, testthat (>=
 2.3.0), tibble (>= 2.1.3), withr",NA,"GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"tidyverse","tidyverse","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.0",NA,"R (>= 3.2)","broom (>= 0.5.2), cli (>= 1.1.0), crayon (>= 1.3.4), dbplyr
+"272","tidyverse","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.0",NA,"R (>= 3.2)","broom (>= 0.5.2), cli (>= 1.1.0), crayon (>= 1.3.4), dbplyr
 (>= 1.4.2), dplyr (>= 0.8.3), forcats (>= 0.4.0), ggplot2 (>=
 3.2.1), haven (>= 2.2.0), hms (>= 0.5.2), httr (>= 1.4.1),
 jsonlite (>= 1.6), lubridate (>= 1.7.4), magrittr (>= 1.5),
@@ -558,104 +590,104 @@ modelr (>= 0.1.5), pillar (>= 1.4.2), purrr (>= 0.3.3), readr
 (>= 1.3.1), readxl (>= 1.3.1), reprex (>= 0.3.0), rlang (>=
 0.4.1), rstudioapi (>= 0.10), rvest (>= 0.3.5), stringr (>=
 1.4.0), tibble (>= 2.1.3), tidyr (>= 1.0.0), xml2 (>= 1.2.2)",NA,"covr, feather, glue, knitr, rmarkdown, testthat",NA,"GPL-3 | file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"timeDate","timeDate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3043.102",NA,"R (>= 2.15.1), graphics, utils, stats, methods",NA,NA,"date, RUnit",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"tinytest","tinytest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.3",NA,NA,"parallel, utils",NA,NA,NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
-"tinytex","tinytex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.27",NA,NA,"xfun (>= 0.19)",NA,"testit, rstudioapi",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"tune","tune","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.2",NA,"R (>= 2.10)","dplyr (>= 1.0.0), rlang (>= 0.4.0), tibble (>= 2.1.3), purrr
+"273","timeDate","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3043.102",NA,"R (>= 2.15.1), graphics, utils, stats, methods",NA,NA,"date, RUnit",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
+"274","tinytest","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.3",NA,NA,"parallel, utils",NA,NA,NA,"GPL-3",NA,NA,NA,NA,"no","4.0.3"
+"275","tinytex","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.27",NA,NA,"xfun (>= 0.19)",NA,"testit, rstudioapi",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"276","tune","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.2",NA,"R (>= 2.10)","dplyr (>= 1.0.0), rlang (>= 0.4.0), tibble (>= 2.1.3), purrr
 (>= 0.3.2), dials (>= 0.0.9), recipes (>= 0.1.15), utils,
 ggplot2, glue, cli (>= 2.0.0), yardstick (>= 0.0.7), rsample
 (>= 0.0.8), tidyr, GPfit, foreach, parsnip (>= 0.1.4),
 workflows (>= 0.2.1), hardhat (>= 0.1.5), vctrs (>= 0.3.0),
 generics (>= 0.1.0)",NA,"testthat, knitr, covr, kernlab, randomForest, modeldata,
 xml2, spelling",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"tweenr","tweenr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,"R (>= 3.2.0)","Rcpp (>= 0.12.3), grDevices, farver, magrittr, rlang","Rcpp","testthat, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"usethis","usethis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.2)","cli, clipr (>= 0.3.0), crayon, curl (>= 2.7), desc, fs (>=
+"277","tweenr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.1",NA,"R (>= 3.2.0)","Rcpp (>= 0.12.3), grDevices, farver, magrittr, rlang","Rcpp","testthat, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
+"278","usethis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.0.0",NA,"R (>= 3.2)","cli, clipr (>= 0.3.0), crayon, curl (>= 2.7), desc, fs (>=
 1.3.0), gert (>= 1.0.2), gh (>= 1.2.0), glue (>= 1.3.0),
 jsonlite, lifecycle, purrr, rappdirs, rlang (>= 0.4.3),
 rprojroot (>= 1.2), rstudioapi, stats, utils, whisker, withr
 (>= 2.3.0), yaml",NA,"covr, knitr, magick, mockr, rmarkdown, roxygen2, spelling (>=
 1.2), styler (>= 1.2.0), testthat (>= 3.0.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"utf8","utf8","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.4",NA,"R (>= 2.10)",NA,NA,"knitr, rmarkdown, testthat",NA,"Apache License (== 2.0) | file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"uuid","uuid","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1-4",NA,"R (>= 2.9.0)",NA,NA,NA,NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"vcd","vcd","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-8",NA,"R (>= 2.4.0), grid","stats, utils, MASS, grDevices, colorspace, lmtest",NA,"KernSmooth, mvtnorm, kernlab, HSAUR3, coin",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
-"vctrs","vctrs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.5",NA,"R (>= 3.3)","ellipsis (>= 0.2.0), digest, glue, rlang (>= 0.4.7)",NA,"bit64, covr, crayon, dplyr (>= 0.8.5), generics, knitr,
+"279","utf8","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.1.4",NA,"R (>= 2.10)",NA,NA,"knitr, rmarkdown, testthat",NA,"Apache License (== 2.0) | file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"280","uuid","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1-4",NA,"R (>= 2.9.0)",NA,NA,NA,NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"281","vcd","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.4-8",NA,"R (>= 2.4.0), grid","stats, utils, MASS, grDevices, colorspace, lmtest",NA,"KernSmooth, mvtnorm, kernlab, HSAUR3, coin",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.3"
+"282","vctrs","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.5",NA,"R (>= 3.3)","ellipsis (>= 0.2.0), digest, glue, rlang (>= 0.4.7)",NA,"bit64, covr, crayon, dplyr (>= 0.8.5), generics, knitr,
 pillar (>= 1.4.4), pkgdown, rmarkdown, testthat (>= 2.3.0),
 tibble, withr, xml2, waldo (>= 0.2.0), zeallot",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"vip","vip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,NA,"ggplot2 (>= 0.9.0), gridExtra, magrittr, plyr, stats, tibble,
+"283","vip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.2",NA,NA,"ggplot2 (>= 0.9.0), gridExtra, magrittr, plyr, stats, tibble,
 utils",NA,"DT, C50, caret, Ckmeans.1d.dp, covr, Cubist, doParallel,
 dplyr, earth, fastshap, gbm, glmnet, h2o, htmlwidgets, keras,
 knitr, lattice, mlbench, mlr, mlr3, neuralnet, NeuralNetTools,
 nnet, parsnip, party, partykit, pdp, pls, randomForest, ranger,
 rmarkdown, rpart, RSNNS, sparkline, sparklyr (>= 0.8.0),
 tinytest, varImp, xgboost",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"viridis","viridis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.1",NA,"R (>= 2.10), viridisLite (>= 0.3.0)","stats, ggplot2 (>= 1.0.1), gridExtra",NA,"hexbin (>= 1.27.0), scales, MASS, knitr, dichromat,
+"284","viridis","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.1",NA,"R (>= 2.10), viridisLite (>= 0.3.0)","stats, ggplot2 (>= 1.0.1), gridExtra",NA,"hexbin (>= 1.27.0), scales, MASS, knitr, dichromat,
 colorspace, rasterVis, httr, mapproj, vdiffr, svglite (>=
 1.2.0), testthat, covr, rmarkdown, rgdal",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.2"
-"viridisLite","viridisLite","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 2.10)",NA,NA,"hexbin (>= 1.27.0), ggplot2 (>= 1.0.1), testthat, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
-"waldo","waldo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,NA,"cli, diffobj, fansi, glue, methods, rematch2, rlang, tibble",NA,"testthat, covr, R6",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"warp","warp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,"R (>= 3.2)",NA,NA,"covr, testthat (>= 2.1.0), knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"webshot","webshot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.2",NA,"R (>= 3.0)","magrittr, jsonlite, callr",NA,"httpuv, knitr, rmarkdown, shiny",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.0"
-"whisker","whisker","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4",NA,NA,NA,NA,"markdown",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
-"withr","withr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.0",NA,"R (>= 3.2.0)","graphics, grDevices, stats",NA,"covr, DBI, knitr, lattice, methods, rmarkdown, RSQLite,
+"285","viridisLite","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.3.0",NA,"R (>= 2.10)",NA,NA,"hexbin (>= 1.27.0), ggplot2 (>= 1.0.1), testthat, covr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.0"
+"286","waldo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.3",NA,NA,"cli, diffobj, fansi, glue, methods, rematch2, rlang, tibble",NA,"testthat, covr, R6",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"287","warp","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.0",NA,"R (>= 3.2)",NA,NA,"covr, testthat (>= 2.1.0), knitr, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"288","webshot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.5.2",NA,"R (>= 3.0)","magrittr, jsonlite, callr",NA,"httpuv, knitr, rmarkdown, shiny",NA,"GPL-2",NA,NA,NA,NA,"no","4.0.0"
+"289","whisker","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.4",NA,NA,NA,NA,"markdown",NA,"GPL-3",NA,NA,NA,NA,"no","4.0.0"
+"290","withr","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.3.0",NA,"R (>= 3.2.0)","graphics, grDevices, stats",NA,"covr, DBI, knitr, lattice, methods, rmarkdown, RSQLite,
 testthat (>= 2.1.0)",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.3"
-"workflows","workflows","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,"R (>= 3.2)","cli (>= 2.0.0), ellipsis (>= 0.2.0), generics, glue, hardhat
+"291","workflows","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.2.1",NA,"R (>= 3.2)","cli (>= 2.0.0), ellipsis (>= 0.2.0), generics, glue, hardhat
 (>= 0.1.4), parsnip (>= 0.1.3), rlang (>= 0.4.1), tidyselect
 (>= 1.1.0)",NA,"covr, knitr, magrittr, modeldata (>= 0.0.2), recipes,
 rmarkdown, testthat (>= 2.3.0)",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"xfun","xfun","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.19",NA,NA,"stats, tools",NA,"testit, parallel, codetools, rstudioapi, tinytex, mime,
+"292","xfun","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.19",NA,NA,"stats, tools",NA,"testit, parallel, codetools, rstudioapi, tinytex, mime,
 markdown, knitr, htmltools, remotes, pak, rmarkdown",NA,"MIT + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"xgboost","xgboost","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0.1",NA,"R (>= 3.3.0)","Matrix (>= 1.1-0), methods, data.table (>= 1.9.6), magrittr
+"293","xgboost","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.2.0.1",NA,"R (>= 3.3.0)","Matrix (>= 1.1-0), methods, data.table (>= 1.9.6), magrittr
 (>= 1.5), stringi (>= 0.5.2)",NA,"knitr, rmarkdown, ggplot2 (>= 1.0.1), DiagrammeR (>= 0.9.0),
 Ckmeans.1d.dp (>= 3.3.1), vcd (>= 1.3), testthat, lintr, igraph
 (>= 1.0.1), jsonlite, float, crayon",NA,"Apache License (== 2.0) | file LICENSE",NA,NA,NA,NA,"yes","4.0.2"
-"XML","XML","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.99-0.5",NA,"R (>= 4.0.0), methods, utils",NA,NA,"bitops, RCurl",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
-"xml2","xml2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.2",NA,"R (>= 3.1.0)","methods",NA,"covr, curl, httr, knitr, magrittr, mockery, rmarkdown,
+"294","XML","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","3.99-0.5",NA,"R (>= 4.0.0), methods, utils",NA,NA,"bitops, RCurl",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.3"
+"295","xml2","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.3.2",NA,"R (>= 3.1.0)","methods",NA,"covr, curl, httr, knitr, magrittr, mockery, rmarkdown,
 testthat (>= 2.1.0)",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"xopen","xopen","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,"R (>= 3.1)","processx",NA,"ps, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"xtable","xtable","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-4",NA,"R (>= 2.10.0)","stats, utils",NA,"knitr, plm, zoo, survival",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.0"
-"xts","xts","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.12.1",NA,"zoo (>= 1.7-12)","methods","zoo","timeSeries, timeDate, tseries, chron, fts, tis, RUnit",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
-"yaml","yaml","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.1",NA,NA,NA,NA,"RUnit",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
-"yardstick","yardstick","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.7",NA,"R (>= 2.10)","dplyr (>= 0.8.5), generics, pROC (>= 1.15.0), rlang (>=
+"296","xopen","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.0.0",NA,"R (>= 3.1)","processx",NA,"ps, testthat",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"297","xtable","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-4",NA,"R (>= 2.10.0)","stats, utils",NA,"knitr, plm, zoo, survival",NA,"GPL (>= 2)",NA,NA,NA,NA,"no","4.0.0"
+"298","xts","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.12.1",NA,"zoo (>= 1.7-12)","methods","zoo","timeSeries, timeDate, tseries, chron, fts, tis, RUnit",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.3"
+"299","yaml","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.2.1",NA,NA,NA,NA,"RUnit",NA,"BSD_3_clause + file LICENSE",NA,NA,NA,NA,"yes","4.0.0"
+"300","yardstick","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.0.7",NA,"R (>= 2.10)","dplyr (>= 0.8.5), generics, pROC (>= 1.15.0), rlang (>=
 0.4.0), tidyselect, utils",NA,"covr, crayon, ggplot2, kableExtra, knitr, purrr, rmarkdown,
 testthat, tidyr",NA,"GPL-2",NA,NA,NA,NA,"yes","4.0.3"
-"zeallot","zeallot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,NA,NA,NA,"testthat, knitr, rmarkdown, purrr, magrittr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
-"zip","zip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.1",NA,NA,NA,NA,"covr, processx, R6, testthat, withr",NA,"CC0",NA,NA,NA,NA,"yes","4.0.3"
-"zoo","zoo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-8",NA,"R (>= 3.1.0), stats","utils, graphics, grDevices, lattice (>= 0.20-27)",NA,"AER, coda, chron, fts, ggplot2 (>= 3.0.0), mondate, scales,
+"301","zeallot","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","0.1.0",NA,NA,NA,NA,"testthat, knitr, rmarkdown, purrr, magrittr",NA,"MIT + file LICENSE",NA,NA,NA,NA,"no","4.0.3"
+"302","zip","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","2.1.1",NA,NA,NA,NA,"covr, processx, R6, testthat, withr",NA,"CC0",NA,NA,NA,NA,"yes","4.0.3"
+"303","zoo","\\UCLCMDDPRAFSS21/Home/ZELKING1/Documents/R/win-library/4.0","1.8-8",NA,"R (>= 3.1.0), stats","utils, graphics, grDevices, lattice (>= 0.20-27)",NA,"AER, coda, chron, fts, ggplot2 (>= 3.0.0), mondate, scales,
 strucchange, timeDate, timeSeries, tis, tseries, xts",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.2"
-"base","base","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"methods",NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
-"BiocGenerics","BiocGenerics","C:/Program Files/R/R-4.0.0/library","0.34.0",NA,"R (>= 3.6.0), methods, utils, graphics, stats, parallel","methods, utils, graphics, stats, parallel",NA,"Biobase, S4Vectors, IRanges, GenomicRanges, DelayedArray,
+"304","base","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"methods",NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
+"305","BiocGenerics","C:/Program Files/R/R-4.0.0/library","0.34.0",NA,"R (>= 3.6.0), methods, utils, graphics, stats, parallel","methods, utils, graphics, stats, parallel",NA,"Biobase, S4Vectors, IRanges, GenomicRanges, DelayedArray,
 Biostrings, Rsamtools, AnnotationDbi, oligoClasses, oligo,
 affyPLM, flowClust, affy, DESeq2, MSnbase, annotate, RUnit",NA,"Artistic-2.0",NA,NA,NA,NA,"no","4.0.0"
-"BiocManager","BiocManager","C:/Program Files/R/R-4.0.0/library","1.30.10",NA,NA,"utils",NA,"BiocStyle, BiocVersion, remotes, testthat, withr, curl, knitr",NA,"Artistic-2.0",NA,NA,NA,NA,"no","4.0.2"
-"BiocVersion","BiocVersion","C:/Program Files/R/R-4.0.0/library","3.11.1",NA,"R (>= 4.0.0)",NA,NA,NA,NA,"Artistic-2.0",NA,NA,NA,NA,"no","4.0.0"
-"boot.1","boot","C:/Program Files/R/R-4.0.0/library","1.3-24","recommended","R (>= 3.0.0), graphics, stats",NA,NA,"MASS, survival",NA,"Unlimited",NA,NA,NA,NA,"no","4.0.0"
-"class.1","class","C:/Program Files/R/R-4.0.0/library","7.3-16","recommended","R (>= 3.0.0), stats, utils","MASS",NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"cluster","cluster","C:/Program Files/R/R-4.0.0/library","2.1.0","recommended","R (>= 3.3.0)","graphics, grDevices, stats, utils",NA,"MASS, Matrix",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"codetools","codetools","C:/Program Files/R/R-4.0.0/library","0.2-16","recommended","R (>= 2.1)",NA,NA,NA,NA,"GPL",NA,NA,NA,NA,"no","4.0.0"
-"compiler","compiler","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
-"datasets","datasets","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
-"foreign.1","foreign","C:/Program Files/R/R-4.0.0/library","0.8-78","recommended","R (>= 4.0.0)","methods, utils, stats",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"graph","graph","C:/Program Files/R/R-4.0.0/library","1.66.0",NA,"R (>= 2.10), methods, BiocGenerics (>= 0.13.11)","stats, stats4, utils",NA,"SparseM (>= 0.36), XML, RBGL, RUnit, cluster","Rgraphviz","Artistic-2.0",NA,NA,NA,NA,"yes","4.0.0"
-"graphics","graphics","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"grDevices",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"grDevices","grDevices","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"KernSmooth",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"grid","grid","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"grDevices, utils",NA,"lattice",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"KernSmooth.1","KernSmooth","C:/Program Files/R/R-4.0.0/library","2.23-16","recommended","R (>= 2.5.0), stats",NA,NA,"MASS",NA,"Unlimited",NA,NA,NA,NA,"yes","4.0.0"
-"lattice","lattice","C:/Program Files/R/R-4.0.0/library","0.20-41","recommended","R (>= 3.0.0)","grid, grDevices, graphics, stats, utils",NA,"KernSmooth, MASS, latticeExtra","chron","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"MASS.1","MASS","C:/Program Files/R/R-4.0.0/library","7.3-51.5","recommended","R (>= 3.1.0), grDevices, graphics, stats, utils","methods",NA,"lattice, nlme, nnet, survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"Matrix","Matrix","C:/Program Files/R/R-4.0.0/library","1.2-18","recommended","R (>= 3.2.0)","methods, graphics, grid, stats, utils, lattice",NA,"expm, MASS","MatrixModels, graph, SparseM, sfsmisc","GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.0"
-"methods","methods","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils, stats",NA,"codetools",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"mgcv","mgcv","C:/Program Files/R/R-4.0.0/library","1.8-31","recommended","R (>= 2.14.0), nlme (>= 3.1-64)","methods, stats, graphics, Matrix, splines, utils",NA,"parallel, survival, MASS",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"nlme.1","nlme","C:/Program Files/R/R-4.0.0/library","3.1-147","recommended","R (>= 3.4.0)","graphics, stats, utils, lattice",NA,"Hmisc, MASS",NA,"GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.0"
-"nnet.1","nnet","C:/Program Files/R/R-4.0.0/library","7.3-13","recommended","R (>= 3.0.0), stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"parallel","parallel","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"tools, compiler",NA,"methods","snow, nws, Rmpi","Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"Rgraphviz.1","Rgraphviz","C:/Program Files/R/R-4.0.0/library","2.32.0",NA,"R (>= 2.6.0), methods, utils, graph, grid","stats4, graphics, grDevices",NA,"RUnit, BiocGenerics, XML",NA,"EPL",NA,NA,NA,NA,"yes","4.0.0"
-"rpart","rpart","C:/Program Files/R/R-4.0.0/library","4.1-15","recommended","R (>= 2.15.0), graphics, stats, grDevices",NA,NA,"survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"spatial.1","spatial","C:/Program Files/R/R-4.0.0/library","7.3-11","recommended","R (>= 3.0.0), graphics, stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
-"splines","splines","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"graphics, stats",NA,"Matrix, methods",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"stats","stats","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils, grDevices, graphics",NA,"MASS, Matrix, SuppDists, methods, stats4",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"stats4","stats4","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"graphics, methods, stats",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
-"survival.1","survival","C:/Program Files/R/R-4.0.0/library","3.1-12","recommended","R (>= 3.4.0)","graphics, Matrix, methods, splines, stats, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
-"tcltk","tcltk","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"tools","tools","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"codetools, methods, xml2, curl, commonmark",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
-"translations","translations","C:/Program Files/R/R-4.0.0/library","4.0.0",NA,NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
-"utils","utils","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"methods, xml2, commonmark",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"306","BiocManager","C:/Program Files/R/R-4.0.0/library","1.30.10",NA,NA,"utils",NA,"BiocStyle, BiocVersion, remotes, testthat, withr, curl, knitr",NA,"Artistic-2.0",NA,NA,NA,NA,"no","4.0.2"
+"307","BiocVersion","C:/Program Files/R/R-4.0.0/library","3.11.1",NA,"R (>= 4.0.0)",NA,NA,NA,NA,"Artistic-2.0",NA,NA,NA,NA,"no","4.0.0"
+"308","boot","C:/Program Files/R/R-4.0.0/library","1.3-24","recommended","R (>= 3.0.0), graphics, stats",NA,NA,"MASS, survival",NA,"Unlimited",NA,NA,NA,NA,"no","4.0.0"
+"309","class","C:/Program Files/R/R-4.0.0/library","7.3-16","recommended","R (>= 3.0.0), stats, utils","MASS",NA,NA,NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"310","cluster","C:/Program Files/R/R-4.0.0/library","2.1.0","recommended","R (>= 3.3.0)","graphics, grDevices, stats, utils",NA,"MASS, Matrix",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"311","codetools","C:/Program Files/R/R-4.0.0/library","0.2-16","recommended","R (>= 2.1)",NA,NA,NA,NA,"GPL",NA,NA,NA,NA,"no","4.0.0"
+"312","compiler","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
+"313","datasets","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
+"314","foreign","C:/Program Files/R/R-4.0.0/library","0.8-78","recommended","R (>= 4.0.0)","methods, utils, stats",NA,NA,NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"315","graph","C:/Program Files/R/R-4.0.0/library","1.66.0",NA,"R (>= 2.10), methods, BiocGenerics (>= 0.13.11)","stats, stats4, utils",NA,"SparseM (>= 0.36), XML, RBGL, RUnit, cluster","Rgraphviz","Artistic-2.0",NA,NA,NA,NA,"yes","4.0.0"
+"316","graphics","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"grDevices",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"317","grDevices","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"KernSmooth",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"318","grid","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"grDevices, utils",NA,"lattice",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"319","KernSmooth","C:/Program Files/R/R-4.0.0/library","2.23-16","recommended","R (>= 2.5.0), stats",NA,NA,"MASS",NA,"Unlimited",NA,NA,NA,NA,"yes","4.0.0"
+"320","lattice","C:/Program Files/R/R-4.0.0/library","0.20-41","recommended","R (>= 3.0.0)","grid, grDevices, graphics, stats, utils",NA,"KernSmooth, MASS, latticeExtra","chron","GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"321","MASS","C:/Program Files/R/R-4.0.0/library","7.3-51.5","recommended","R (>= 3.1.0), grDevices, graphics, stats, utils","methods",NA,"lattice, nlme, nnet, survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"322","Matrix","C:/Program Files/R/R-4.0.0/library","1.2-18","recommended","R (>= 3.2.0)","methods, graphics, grid, stats, utils, lattice",NA,"expm, MASS","MatrixModels, graph, SparseM, sfsmisc","GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.0"
+"323","methods","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils, stats",NA,"codetools",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"324","mgcv","C:/Program Files/R/R-4.0.0/library","1.8-31","recommended","R (>= 2.14.0), nlme (>= 3.1-64)","methods, stats, graphics, Matrix, splines, utils",NA,"parallel, survival, MASS",NA,"GPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"325","nlme","C:/Program Files/R/R-4.0.0/library","3.1-147","recommended","R (>= 3.4.0)","graphics, stats, utils, lattice",NA,"Hmisc, MASS",NA,"GPL (>= 2) | file LICENCE",NA,NA,NA,NA,"yes","4.0.0"
+"326","nnet","C:/Program Files/R/R-4.0.0/library","7.3-13","recommended","R (>= 3.0.0), stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"327","parallel","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"tools, compiler",NA,"methods","snow, nws, Rmpi","Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"328","Rgraphviz","C:/Program Files/R/R-4.0.0/library","2.32.0",NA,"R (>= 2.6.0), methods, utils, graph, grid","stats4, graphics, grDevices",NA,"RUnit, BiocGenerics, XML",NA,"EPL",NA,NA,NA,NA,"yes","4.0.0"
+"329","rpart","C:/Program Files/R/R-4.0.0/library","4.1-15","recommended","R (>= 2.15.0), graphics, stats, grDevices",NA,NA,"survival",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"330","spatial","C:/Program Files/R/R-4.0.0/library","7.3-11","recommended","R (>= 3.0.0), graphics, stats, utils",NA,NA,"MASS",NA,"GPL-2 | GPL-3",NA,NA,NA,NA,"yes","4.0.0"
+"331","splines","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"graphics, stats",NA,"Matrix, methods",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"332","stats","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils, grDevices, graphics",NA,"MASS, Matrix, SuppDists, methods, stats4",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"333","stats4","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"graphics, methods, stats",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
+"334","survival","C:/Program Files/R/R-4.0.0/library","3.1-12","recommended","R (>= 3.4.0)","graphics, Matrix, methods, splines, stats, utils",NA,NA,NA,"LGPL (>= 2)",NA,NA,NA,NA,"yes","4.0.0"
+"335","tcltk","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,"utils",NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"336","tools","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"codetools, methods, xml2, curl, commonmark",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"
+"337","translations","C:/Program Files/R/R-4.0.0/library","4.0.0",NA,NA,NA,NA,NA,NA,"Part of R 4.0.0",NA,NA,NA,NA,NA,"4.0.0"
+"338","utils","C:/Program Files/R/R-4.0.0/library","4.0.0","base",NA,NA,NA,"methods, xml2, commonmark",NA,"Part of R 4.0.0",NA,NA,NA,NA,"yes","4.0.0"

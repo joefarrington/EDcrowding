@@ -54,3 +54,38 @@ s[, .SD[which.max(dttm)], by = list(model_features, timeslice, tuning_round)] %>
 params = scores[tsk_ids == "val" & 
                   tuning_round == "alpha",
                 .SD[which.min(logloss)], by = list(model_features, timeslice)]
+
+
+
+# Comparing XGB with RF ---------------------------------------------------
+
+
+
+load("~/EDcrowding/predict-admission/data-output/rf_scores_2021-04-14.rda")
+rf_scores = scores
+
+rf_scores =  rf_scores[tsk_ids == "val" & tuning_round == "sample.fraction" & model_features == model_features
+                       , .SD[which.min(logloss)], by = list(timeslice)]
+
+load("~/EDcrowding/predict-admission/data-output/xgb_scores_2021-04-19.rda")
+xgb_scores = scores
+
+xgb_scores = xgb_scores[tsk_ids == "val" & tuning_round == "reduce_lr" & model_features == model_features
+                        , .SD[which.min(logloss)], by = list(timeslice)]
+
+# Process -----------------------------------------------------------------
+
+p1 = bind_rows(rf_scores[, .(timeslice, tsk_ids, model_features, logloss, bbrier, auc, classifier = "RF" )],
+               xgb_scores[, .(timeslice, tsk_ids, model_features, logloss, bbrier, auc, classifier = "XGB" )]) %>% 
+  ggplot(aes(x = timeslice, y = logloss, col = classifier, group = classifier)) + geom_line() + geom_point() +
+  labs(title = "Comparing logloss results by timeslice for XGBoost and Random Forest")
+
+p2 = bind_rows(rf_scores[, .(timeslice, tsk_ids, model_features, logloss, bbrier, auc, classifier = "RF" )],
+               xgb_scores[, .(timeslice, tsk_ids, model_features, logloss, bbrier, auc, classifier = "XGB" )]) %>% 
+  ggplot(aes(x = timeslice, y = auc, col = classifier, group = classifier)) + geom_line() + geom_point() +
+  labs(title = "Comparing AUC results by timeslice for XGBoost and Random Forest")
+
+library(gridExtra)
+grid.arrange(p1, p2,
+             ncol = 1, nrow = 2)
+

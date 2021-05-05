@@ -11,7 +11,6 @@ library(dplyr)
 library(tidyverse)
 library(lubridate)
 library(data.table)
-library(tidymodels)
 
 
 # Create functions --------------------------------------------------------
@@ -23,7 +22,7 @@ rpt <- function(dataframe) {
 
 # function to create design matrix
 
-create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff) {
+create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_real, cutoff, nextcutoff) {
   
   # locations - note this section will not include patients who have no location data up to cutoff + margin
   
@@ -129,7 +128,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
       # using max allows for possibility of two measurements in same minute
       summarise(latest_value = max(value_as_real, na.rm = TRUE))  %>%
-      pivot_wider(names_from = obs_name, names_prefix = "p_latest_", values_from = latest_value)
+      pivot_wider(names_from = obs_name, names_prefix = "o_latest_", values_from = latest_value)
   )
     
   # 
@@ -159,10 +158,11 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
   
   lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
   
-  # add score for each lab test in APACHE
+  # add latest score for each lab test in APACHE and those identified by ED clinicians
   lab_cutoff_csn_val <- data.table(
     lab_results_cutoff %>%
-      filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC")) %>% 
+      filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC",
+                                  "HTRT", "Lac", "pCO2", "HCO3", "pH")) %>% 
       group_by(csn, test_lab_code) %>%
       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
       # using max allows for possibility of two measurements in same minute
@@ -170,7 +170,6 @@ create_timeslice <- function (moves, dm, obs_real, lab_real, cutoff, nextcutoff)
       pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)
   )
   
-
   
   ## combine everything
   
@@ -218,13 +217,13 @@ load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda
 
 
 # lab data
-file_date = '2021-04-14'
+file_date = '2021-05-01'
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 
-# keep only lab orders that are used more than 50 times
-battery_count = lab_orders_real[, .N, by = battery_code]
-lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
+# # keep only lab orders that are used more than 50 times - moved this to clean-lab-data.R
+# battery_count = lab_orders_real[, .N, by = battery_code]
+# lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
 
 
 
@@ -291,11 +290,12 @@ dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
        
 # Train test split --------------------------------------
 
-dm[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
-                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
-                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
-                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
-                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
+# note - changed this to be first_ED_admission from presentation time on 4.5.21
+dm[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
+                         first_ED_admission < '2019-12-13 00:00:00' ~ "Val",
+                         first_ED_admission < '2020-03-19 00:00:00' ~ "Test",
+                         first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
+                         first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
                          TRUE ~ "Test",)]
 
 
@@ -358,7 +358,7 @@ for (i in seq(1, length(timeslices) -1, 1)) {
                        nchar(as.character(timeslices[i])) == 2 ~ paste0("0", timeslices[i]),
                       TRUE ~ as.character(timeslices[i]))
   name_ <- paste0("dm", filenum)
-  ts <- create_timeslice(loc, dm, obs_real, lab_real, timeslices[i], timeslices[i+1])
+  ts <- create_timeslice(loc, dm, obs_real, lab_orders_real, lab_results_real, timeslices[i], timeslices[i+1])
   assign(name_, ts)
 }
 

@@ -65,51 +65,51 @@ save(obs_raw, file = paste0('EDcrowding/predict-admission/data-raw/obs_raw_',tod
 
 
 # # Get and process lab orders ------------------------------------------------
-# 
-# sqlQuery <- "select hv.encounter as csn, lo.lab_order_id, lo.order_datetime, lo.request_datetime, lo.lab_battery_id, lb.battery_code
-#   from star.hospital_visit hv,
-#   star.lab_order lo,
-#   star.lab_battery lb
-#   where hv.hospital_visit_id = lo.hospital_visit_id
-#   and hv.patient_class in ('EMERGENCY', 'INPATIENT')
-#   and lo.lab_battery_id = lb.lab_battery_id
-#       order by csn, lo.order_datetime;"
-# 
-# sqlQuery <- gsub('\n','',sqlQuery)
-# lab_orders_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
-# 
-# lab_orders_raw = data.table(lab_orders_raw)
-# 
-# save(lab_orders_raw, file = paste0('EDcrowding/predict-admission/data-raw/lab_orders_raw_',today(),'.rda'))
-# 
-# 
-# # Get and process lab results -------------------------------------------------------------
-# 
-# 
-# 
-# sqlQuery <- "  select hv.encounter as csn, lr.lab_order_id, lr.abnormal_flag, lr.comment, lr.units, lr.range_high, lr.range_low, lr.result_last_modified_time, lr.value_as_real, lr.value_as_text, ltd.test_lab_code
-#     from star.hospital_visit hv,
-#       star.lab_result lr,
-#     star.lab_order lo,
-#     star.lab_test_definition ltd
-#   where hv.hospital_visit_id = lo.hospital_visit_id
-#     and lr.lab_order_id = lo.lab_order_id
-#     and ltd.lab_test_definition_id = lr.lab_test_definition_id
-#     and hv.patient_class in ('EMERGENCY', 'INPATIENT')
-#       order by csn, lr.result_last_modified_time"
-# 
-# sqlQuery <- gsub('\n','',sqlQuery)
-# lab_results_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
-# 
-# # add battery code for lab results
-# 
-# lab_results_raw = data.table(lab_results_raw)
-# lab_results_raw = merge(lab_results_raw, lab_orders_raw[, .(csn, lab_order_id, battery_code)], by = c("csn", "lab_order_id"), all.x = TRUE)
-# 
-# 
-# save(lab_results_raw, file = paste0('EDcrowding/predict-admission/data-raw/lab_results_raw_',today(),'.rda'))
-# 
-# 
+
+sqlQuery <- "select hv.encounter as csn, lo.lab_order_id, lo.order_datetime, lo.request_datetime, lo.lab_battery_id, lb.battery_code
+  from star.hospital_visit hv,
+  star.lab_order lo,
+  star.lab_battery lb
+  where hv.hospital_visit_id = lo.hospital_visit_id
+  and hv.patient_class in ('EMERGENCY', 'INPATIENT')
+  and lo.lab_battery_id = lb.lab_battery_id
+      order by csn, lo.order_datetime;"
+
+sqlQuery <- gsub('\n','',sqlQuery)
+lab_orders_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+lab_orders_raw = data.table(lab_orders_raw)
+
+save(lab_orders_raw, file = paste0('EDcrowding/predict-admission/data-raw/lab_orders_raw_',today(),'.rda'))
+
+
+# Get and process lab results -------------------------------------------------------------
+
+
+
+sqlQuery <- "  select hv.encounter as csn, lr.lab_order_id, lr.abnormal_flag, lr.comment, lr.units, lr.range_high, lr.range_low, lr.result_last_modified_time, lr.value_as_real, lr.value_as_text, ltd.test_lab_code
+    from star.hospital_visit hv,
+      star.lab_result lr,
+    star.lab_order lo,
+    star.lab_test_definition ltd
+  where hv.hospital_visit_id = lo.hospital_visit_id
+    and lr.lab_order_id = lo.lab_order_id
+    and ltd.lab_test_definition_id = lr.lab_test_definition_id
+    and hv.patient_class in ('EMERGENCY', 'INPATIENT')
+      order by csn, lr.result_last_modified_time"
+
+sqlQuery <- gsub('\n','',sqlQuery)
+lab_results_raw <- as_tibble(dbGetQuery(ctn, sqlQuery))
+
+# add battery code for lab results
+
+lab_results_raw = data.table(lab_results_raw)
+lab_results_raw = merge(lab_results_raw, lab_orders_raw[, .(csn, lab_order_id, battery_code)], by = c("csn", "lab_order_id"), all.x = TRUE)
+
+
+save(lab_results_raw, file = paste0('EDcrowding/predict-admission/data-raw/lab_results_raw_',today(),'.rda'))
+
+
 
 
 
