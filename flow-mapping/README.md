@@ -2,16 +2,13 @@
 
 This is a series of files to extract data from Star and analyse patient moves between locations.  The focus is on moves within ED. 
 
-Flow schema tables are materialised database tables derived from a one-off extract from Star that was done in early September 2020. They are quick to run but not updated. Star is based on views and very slow to run, but up to date. Use this for data later than September 2020.
-
-
 ## Order to run files in
 
 ### 1. Retrieve data
 
 get-ED-data-from-Star.R
 
-These two files retrieve and process data from the relevant schema.  
+Retrieve and process data from EMAP.  
 
 output (all as tibbles)
 - ED_bed_moves_raw
@@ -29,7 +26,7 @@ plus other files saved from the SQL extracts
 
 create-data.tables.R
 
-Does further processing on the bed moves data to (a) identify exits from ED to various locations of interest and (b) create a simplified edge list (ie rows with from and to nodes) that will be used for  network maps
+Does further processing on the bed moves data to (a) identify exits from ED to various locations of interest and (b) create a simplified edge list (ie rows with from and to nodes) that will be used for network maps
 
 input
 - ED_bed_moves_raw

@@ -1,6 +1,6 @@
 # About this folder
 
-This is a series of files to extract data from Star and predict admissions from ED. 
+This is a series of files to train models to predict admissions from ED. 
 
 ## Order to run files in
 
@@ -24,6 +24,7 @@ Input
 
 Output
 - obs_real - all data from selected flowsheet measurements in long matrix
+- obs_to_include (needed for real-time prediction)
 
 Note that this excludes any csns that did not have obs measurements
 
@@ -40,6 +41,7 @@ Input
 Output
 - lab_orders_real
 - lab_results_real
+- lab_orders_to_include (needed for real-time prediction)
 
 Note that all of these files exclude any csns that did not have lab measurements
 
@@ -53,48 +55,44 @@ Input
 
 output- a series of design matrices for ML
 
+### 5.  run-ML.R
 
-### 5. Various exploring files [now out of date - will need to be updated with new input files]
+Runs XGBoost
 
-explore-flowsheet-and-lab-data.R
-explore-durations.R
+Inputs
+- design matrices from generate-timeslices.R
 
-These are doing exploratory data analysis to decide which variables to attach to matrix. Produce multiple charts
+Outputs
+- scores for all tuning rounds
+- saved learners for MLR
+- save features used in each model (needed for real-time prediction)
+- feature importances for each model
 
+### 6. Scripts used for aggregate predictions
 
-### 7. Machine learning scripts
+These look at csn-level data over history and use it to create empirical parameters (probable time to admission, time-varying Poisson arrivals) used in aggregating predictions. Run these only if new csn-level data is available or training/val/test set dates change
 
-- run_xgboost_with_defaults.R 
-- run_xgboost_with_defaults_post_Surge1.R 
+- calc-not-yet-arrived
+- calc-time-to-admission
 
-- run_xgboost_tune_all.R
+### 7. predict-and-plot-CORU-chart.R
 
-tunes all params using a maximum entropy grid (NOTE I have edited this due to an error with num_ED_rows_excl_OTF being included erroneously in the model, but haven't tested this). Code includes charts showing performance of models
+Loads models and creates an aggregate distribution and evaluates it
 
-- run_xgboost_tune_by_step.R
+### 8. compare-models
 
-follows a series of steps to tune the best model; steps currently hardcoded
+Need to create this file based on compare-models-with-and-without-location
 
-- xgboost_model_evaluation_experimenting.R - includes brier test
-- xgboost_model_evaluation.R
+### plot-ED-examples
 
-various code to evaluate models
+Used to create plots of example ED patients for use in presentations only
 
-- xgboost_model_batch_with_workflow.R
-- exboost_model_evaluation_with_trees.4
+### Other files 
 
-I have left these in, but they may now be superceded
+- run-LR-using-stats
+- run-RF
 
+### Saved in the explore folder in case useful - not in current pipeline
 
-
-### 8. Evaluation at the aggregate level
-
-From the predictions made in xgboost, this yields the performance measure for different metrics: distribution evaluation, hosmer-lemeshow statistic, madcap
-
-- evalute-model-aggregate-level-2.R ; contains my code
-- evalute-model-aggregate-level.R ; contains Enoch's original code (and functions)
-
-
-### 9. Other models
-
-- run_glm.R = as it sounds
+- create-lab-test-clusters - no longer needed now that lab batteries are used instead
+- 

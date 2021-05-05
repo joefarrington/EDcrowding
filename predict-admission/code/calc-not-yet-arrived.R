@@ -122,16 +122,16 @@ not_in_ED_yet_all[time_window == 4, mean(N), by = .(weekend, time_of_report, epo
 
 
 
-poisson_file = "~/EDcrowding/real-time/data-output/poisson_not_yet_arrived.rda"
+poisson_file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda"
 
 if (file.exists(poisson_file)) {
   load(poisson_file)
-  save(poisson_not_yet_arrived, file = paste0("~/EDcrowding/real-time/data-output/poisson_means_archived_on_",Sys.Date(),".rda"))
+  save(poisson_not_yet_arrived, file = paste0("~/EDcrowding/real-time/data-raw/poisson_means_archived_on_",Sys.Date(),".rda"))
 }
 
 poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
                                   by = .(epoch, weekend, in_set, time_of_report, time_window)] 
-save(poisson_not_yet_arrived, file = "~/EDcrowding/real-time/data-output/poisson_not_yet_arrived.rda")
+save(poisson_not_yet_arrived, file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda")
 
 
 
