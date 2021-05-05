@@ -73,7 +73,7 @@ one_hot <- function(dt, cols="auto", dropCols=TRUE, dropUnusedLevels=FALSE){
 
 # Make predictions --------------------------------------------------------
 
-make_predictions = function(time_pts, summ) {
+make_predictions = function(time_pts, summ, file_date, model_date,  model_features,  use_dataset) {
   
   in_ED_all = data.table()
   
@@ -107,11 +107,7 @@ make_predictions = function(time_pts, summ) {
   # Get data to provide to model 
   
   timeslices <- gsub("task", "", unique(in_ED_all$timeslice))
-  file_date = '2021-04-19'
-  model_date = '2021-04-19'
-  model_features = "alop"
-  use_dataset = "Post"
-  
+
   preds_all_ts <- data.table()
   
   for (ts_ in timeslices) {
@@ -177,10 +173,6 @@ make_predictions = function(time_pts, summ) {
     ts = bind_cols(ts, missing_cols)
     colnames(ts) = c(ts_cols, missing_features)
     
-    # # assign to named data table
-    # name_tsp <- paste0("dm", ts_, "p")
-    # assign(name_tsp, ts)
-    # 
     # create task
     tsk = TaskClassif$new(id = name_ts, backend = ts, target="adm") 
     tsk$col_roles$name = "csn"
@@ -189,11 +181,15 @@ make_predictions = function(time_pts, summ) {
     assign(name_tsk, tsk)
     
     
+    
     # load learner
     inFile = paste0("~/EDcrowding/predict-admission/data-output/learner_", name_tsk, "_", model_date, ".rda")
     load(inFile)
     
-    # get predictions
+    # get predictions - if doing real-time- predictions
+    # pred_values = as.data.table(predict(learner, ts, predict_type = "prob"))
+    # setnames(pred_values, c("1", "0"), c("prob.1", "prob.0"))
+    # 
     pred_values = as.data.table(learner$predict(tsk, row_ids = dt$row_id))
     pred_values$timeslice = name_tsk
     pred_values$csn = csns
@@ -224,7 +220,7 @@ get_prob_dist = function(time_window, time_pts, in_ED_all, preds_all_ts, tta_pro
   }
 
   for (i in (1:length(time_pts))) {
-      
+
     in_ED = in_ED_all[time_pt == time_pts[i]]
 
     if (nrow(in_ED) == 0) {
@@ -451,7 +447,7 @@ plot_CORU_chart = function(time_window, time_pts, prob_dist, subtitle) {
   plot_data = bind_rows(lower_M, mid_M, upper_M, lower_E_prob, mid_E_prob, upper_E_prob)
   p = plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geom_point() +
     labs(title = "Proportion of demand values <= threshold X on predicted cdf",
-         # subtitle = subtitle,
+         subtitle = subtitle,
          x = "X",
          y = NULL) +
     theme_classic() +
@@ -461,6 +457,102 @@ plot_CORU_chart = function(time_window, time_pts, prob_dist, subtitle) {
   return(p)
 }
 
+
+# Plot CORU chart central line only ---------------------------------------
+
+
+plot_CORU_chart_mid_only = function(time_window, time_pts, prob_dist, subtitle) {
+  
+  # collect all predicted distributions for each time point of interest
+  distr_coll = prob_dist[[1]]
+  
+  # now treat the full set of cdfs (all time points) as a single discrete variable
+  distr_coll[, upper_M_discrete_value := cdf]
+  distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
+  distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
+  
+  # outFile = paste0("EDcrowding/predict-admission/data-output/predicted_distribution_",today(),".csv")
+  # write.csv(distr_coll, file = outFile, row.names = FALSE)
+  
+  
+  # # for the array of low cdf values (now considered a discrete distribution) work out its cdf
+  # 
+  # lower_M = distr_coll[, .(value = lower_M_discrete_value), probs]
+  # setorder(lower_M, value)
+  # lower_M[, cum_weight := cumsum(probs)]
+  # lower_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  # lower_M[, dist := "model lower"]
+  # 
+  # # same for high cdf values
+  # 
+  # upper_M = distr_coll[, .(value = upper_M_discrete_value), probs]
+  # setorder(upper_M, value)
+  # upper_M[, cum_weight := cumsum(probs)]
+  # upper_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  # upper_M[, dist := "model upper"]
+  
+  # same for mid point
+  
+  mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
+  setorder(mid_M, value)
+  mid_M[, cum_weight := cumsum(probs)]
+  mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+  mid_M[, dist := "model mid"]
+  
+  
+  # compare the observed values against their predicted distribution 
+  # and find their position on the cdf; combine this into a distribution
+  
+  adm_coll = prob_dist[[2]]
+  
+  
+  adm_coll = merge(adm_coll, 
+                   distr_coll[, .(sample_time, num_adm = num_adm_pred, 
+                                  lower_E = lower_M_discrete_value, 
+                                  upper_E = upper_M_discrete_value)], 
+                   by = c("sample_time", "num_adm"))
+
+  
+  # # for the array of low cdf values (now considered a discrete distribution) work out its cdf
+  # 
+  # lower_E = adm_coll[, .(value = lower_E)]
+  # setorder(lower_E, value)
+  # lower_E_prob = lower_E[, .N, by = value]
+  # lower_E_prob[, cum_weight := N/length(time_pts)]
+  # lower_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  # lower_E_prob[, dist := "actual lower"]
+  # 
+  # # same for high cdf values
+  # 
+  # upper_E = adm_coll[, .(value = upper_E)]
+  # setorder(upper_E, value)
+  # upper_E_prob = upper_E[, .N, by = value]
+  # upper_E_prob[, cum_weight := N/length(time_pts)]
+  # upper_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  # upper_E_prob[, dist := "actual upper"]
+  
+  # same for mid point
+  
+  mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
+  setorder(mid_E, value)
+  mid_E_prob = mid_E[, .N, by = value]
+  mid_E_prob[, cum_weight := N/length(time_pts)]
+  mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+  mid_E_prob[, dist := "actual mid"]
+  
+  
+  plot_data = bind_rows( mid_M, mid_E_prob)
+  p = plot_data %>% ggplot(aes(x = value, y = cum_weight_normed, colour = dist)) + geom_point() +
+    labs(title = "Proportion of demand values <= threshold X on predicted cdf",
+         subtitle = subtitle,
+         x = "X",
+         y = NULL) +
+    theme_classic() +
+    scale_color_manual(values = c("deeppink" , "black", guide = NULL, name = NULL)) +
+    theme(legend.position = "none") 
+  
+  return(p)
+}
 
 # Plot Czado chart --------------------------------------------------------
 
@@ -505,87 +597,67 @@ czado_nonrandomized_pit_cumulative = function(upper = adm_coll$upper_E,
 
 # Load data ---------------------------------------------------------------
 
+file_date = '2021-05-01'
+model_date = '2021-05-04'
+model_features = "alop"
+use_dataset = "Post"
+
+
 # summary of csns to get minimum and maxium
 load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
+# load("~/summ_2021-04-13.rda")
 summ = summ[!is.na(discharge_time)]
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
-# added this while using only part of the dataset - need to change it later
-summ = summ[date(presentation_time) >= '2020-03-19']
 
-# load file for poisson distributions - generated empirically 
-poisson_file <- paste0("~/EDcrowding/flow-mapping/data-output/poisson_means.rda")
+summ[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
+                           presentation_time < '2019-12-13 00:00:00' ~ "Val",
+                           presentation_time < '2020-03-19 00:00:00' ~ "Test",
+                           presentation_time < '2020-12-01 00:00:00' ~ "Train",
+                           presentation_time < '2020-12-29 00:00:00' ~ "Val",
+                           TRUE ~ "Test",)]
+
+
+# load file for poisson distributions - generated empirically using calc-not-yet-arrived.R
+poisson_file <- paste0("~/EDcrowding/real-time/data-output/poisson_not_yet_arrived.rda")
 load(poisson_file)
 
 
-# Get probability distribution for time to admission for each timeslice ----------------------------
-
-# now using left_ED and first_ED_admission to tighten the distribution
-summ[adm %in% c("direct_adm", "indirect_adm"), ED_duration := difftime(left_ED, first_ED_admission, units = "mins")]
-
-summ[,task000 := 1]
-summ[,task015 := if_else(ED_duration > 15, 1, 0)]
-summ[,task030 := if_else(ED_duration > 30, 1, 0)]
-summ[,task060 := if_else(ED_duration > 60, 1, 0)]
-summ[,task090 := if_else(ED_duration > 90, 1, 0)]
-summ[,task120 := if_else(ED_duration > 120, 1, 0)]
-summ[,task180 := if_else(ED_duration > 180, 1, 0)]
-summ[,task240 := if_else(ED_duration > 240, 1, 0)]
-summ[,task300 := if_else(ED_duration > 300, 1, 0)]
-summ[,task360 := if_else(ED_duration > 360, 1, 0)]
-summ[,task480 := if_else(ED_duration > 480, 1, 0)]
-
-# get time to admission after beginning of each timeslice
-tta = data.table(summ %>% filter(!is.na(ED_duration)) %>% 
-                   select(csn, task000:task480, ED_duration) %>% 
-                   pivot_longer(task000:task480, names_to = "timeslice", values_to = "in_timeslice"))
-tta = tta[in_timeslice ==1]
-tta[, tta_after_ts_start := as.numeric(ED_duration - as.numeric(gsub("task","", timeslice)))]
-
-# cut this to get whole number of hours until admission (was cutting at floor, now cutting at ceiling)
-tta[, tta_hr := ceiling(tta_after_ts_start/60)]
-
-# cut the distribution at 24 hours _ NB not sure this is right but this will increase the probability at earlier points, only very marginal
-tta = tta[tta_hr <= 24]
-
-# generate number of visits in timeslice in total
-tta[, num_ts := sum(in_timeslice), by = timeslice]
-
-# generate cumulative probability of being admitted within a number of hours after timeslice
-tta_prob = data.table(tta %>% filter(tta_hr >= 0) %>% 
-                        group_by(timeslice, num_ts, tta_hr) %>% 
-                        summarise(num_with_tta_in_hr = n()))
-tta_prob[, prob := num_with_tta_in_hr/num_ts]
-tta_prob[, cdf := cumsum(prob), by = timeslice]
+# load file for time to admission - generated empirically using calc-time-to-admission.R
+tta_file <- paste0("~/EDcrowding/real-time/data-output/tta_prob.rda")
+load(tta_file)
 
 
 # CORU plots for training data ------------------------------------------------------------
 
-start_of_set = with_tz(as.POSIXct('2020-12-01'), tz = "UTC")
-end_of_set = with_tz(as.POSIXct('2020-12-29'), tz = "UTC")
+start_of_set = with_tz(as.POSIXct('2020-03-20'), tz = "UTC")
+end_of_set = with_tz(as.POSIXct('2020-11-30'), tz = "UTC")
 next_dt = start_of_set
 
 time_pts = POSIXct()
-# each sample to be more than 12 hours and less than 24 hours after the previous one
 while (next_dt < end_of_set) {
   next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
   time_pts <- c(time_pts, next_pt)
   next_dt = next_dt + days(1)
 }
 
-
-preds_train = make_predictions(time_pts, summ)
+preds_train = make_predictions(time_pts, summ[presentation_time > start_of_set], 
+                                file_date, model_date,  model_features,  use_dataset)
 # make_predictions returns two datasets: in_ED_all and preds_all_ts
 # input these to chart
 
 time_window = NA
-prob_dist_train_NA = get_prob_dist(time_window, time_pts_train, preds_train[[1]], preds_train[[2]], tta_prob)
-p_train_NA = plot_CORU_chart(time_window, time_pts_train, prob_dist_train_NA, 
-                        paste0("Post COVID training set; random sample of ", length(time_pts_train), " time points"))
+prob_dist_train_NA = get_prob_dist(time_window, time_pts, in_ED_all = preds_train[[1]], 
+                                   preds_all_ts = preds_train[[2]], tta_prob)
+p_train_NA = plot_CORU_chart(time_window, time_pts, prob_dist_train_NA, 
+                        subtitle = paste0("Post COVID training set; aop model; time points at 06:00, 12:00, 16:00, 22:00"))
+
+p_train_NA = p_train_NA + labs(subtitle = paste0("Post COVID training set; aop model (without location); time points at 06:00, 12:00, 16:00, 22:00"))
 
 # plots for various time windows
 for (time_window in c(2, 3, 4, 6, 8, 12)) {
-  prob_dist_train = get_prob_dist(time_window, time_pts_train, preds_train[[1]], preds_train[[2]], tta_prob)
+  prob_dist_train = get_prob_dist(time_window, time_pts_train, preds_train[[1]], preds_train[[2]], tta_prob, 
+                                  file_date, model_date,  model_features,  use_dataset)
   p_train = plot_CORU_chart(time_window, time_pts_train, prob_dist_train, 
                           paste0(time_window, " hour time window"))
   p_train = p_train + labs(title =  paste0(time_window, " hour time window"),
@@ -603,32 +675,29 @@ grid.arrange(p_train_2, p_train_3, p_train_4, p_train_6, p_train_8, p_train_12, 
 
 # Validation data - no time window ----------------------------------------
 
-set.seed(17L)
-
 start_of_set = with_tz(as.POSIXct('2020-12-01'), tz = "UTC")
 end_of_set = with_tz(as.POSIXct('2020-12-29'), tz = "UTC")
-#  find the first random date
-time_pts_val <- get_random_dttm(start_of_set + hours(4), 
-                            start_of_set + hours(8)) 
-last_pt <- time_pts_val 
+next_dt = start_of_set
 
-# each sample to be more than 12 hours and less than 24 hours after the previous one
-while (last_pt + hours(12) < end_of_set) {
-  next_pt <- get_random_dttm(last_pt + hours(4), last_pt + hours(8))
-  time_pts_val <- c(time_pts_val, next_pt)
-  last_pt <- next_pt
+time_pts = POSIXct()
+while (next_dt < end_of_set) {
+  next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
+  time_pts <- c(time_pts, next_pt)
+  next_dt = next_dt + days(1)
 }
 
-preds_val = make_predictions(time_pts_val, summ)
+time_pts_val = time_pts
+preds_val = make_predictions(time_pts_val, summ, 
+                             file_date, model_date,  model_features,  use_dataset)
 # preds returns two datasets: in_ED_all and preds_ts_all
 # input these to chart
 
 time_window = NA
 prob_dist = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
-p_val_NA = plot_CORU_chart(time_window, prob_dist, 
+p_val_NA = plot_CORU_chart(time_window, time_pts_val, prob_dist, 
                         paste0("Post COVID validation set; random sample of ", length(time_pts_val), " time points"))
 
-
+p_val_NA = p_val_NA + labs(subtitle = paste0("Post COVID validation set; aop model (without location); time points at 06:00, 12:00, 16:00, 22:00"))
 
 # plot comparing training and validation set
 library(gridExtra)
@@ -636,7 +705,8 @@ grid.arrange(p_train_NA, p_val_NA, ncol = 2, nrow = 1)
 
 # plots for various time windows
 for (time_window in c(2, 3, 4, 6, 8, 12)) {
-  prob_dist_val = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
+  prob_dist_val = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob, 
+                                file_date, model_date,  model_features,  use_dataset)
   p_val = plot_CORU_chart(time_window, time_pts_val, prob_dist_val, 
                      paste0(time_window, " hour time window"))
   p_val = p_val + labs(title =  paste0(time_window, " hour time window"),
@@ -647,6 +717,106 @@ for (time_window in c(2, 3, 4, 6, 8, 12)) {
 }
 
 grid.arrange(p_val_2, p_val_3, p_val_4, p_val_6, p_val_8, p_val_12, ncol = 3, nrow = 2)
+
+
+
+# Comparing training set months -------------------------------------------
+
+
+start_of_set = with_tz(as.POSIXct('2020-11-16'), tz = "UTC")
+end_of_set = with_tz(as.POSIXct('2020-11-30'), tz = "UTC")
+next_dt = start_of_set
+
+time_pts = POSIXct()
+while (next_dt < end_of_set) {
+  next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
+  time_pts <- c(time_pts, next_pt)
+  next_dt = next_dt + days(1)
+}
+
+time_pts_val = time_pts
+preds_val = make_predictions(time_pts_val, summ,  file_date, model_date,  model_features,  use_dataset)
+# preds returns two datasets: in_ED_all and preds_ts_all
+# input these to chart
+
+time_window = NA
+prob_dist = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
+# p_nov4 = plot_CORU_chart_mid_only(time_window, time_pts_val, prob_dist, 
+#                            paste0("Post COVID validation set; random sample of ", length(time_pts_val), " time points"))
+# 
+# p_nov4 = p_nov4 + labs(subtitle = paste0(start_of_set, " to ", end_of_set, " ; time points at 06:00, 12:00, 16:00, 22:00"))
+
+
+
+# Plotting mid of both distributions aginst each other --------------------
+# collect all predicted distributions for each time point of interest
+distr_coll = prob_dist[[1]]
+
+# now treat the full set of cdfs (all time points) as a single discrete variable
+distr_coll[, upper_M_discrete_value := cdf]
+distr_coll[, lower_M_discrete_value := lag(cdf), by = sample_time]
+distr_coll[num_adm_pred == 0, lower_M_discrete_value := 0]
+
+mid_M = distr_coll[, .(value = (upper_M_discrete_value+lower_M_discrete_value)/2, probs)]
+setorder(mid_M, value)
+mid_M[, cum_weight := cumsum(probs)]
+mid_M[, cum_weight_normed := cumsum(probs)/length(time_pts)]
+
+
+
+# compare the observed values against their predicted distribution 
+adm_coll = prob_dist[[2]]
+adm_coll = merge(adm_coll, 
+                 distr_coll[, .(sample_time, num_adm = num_adm_pred, 
+                                lower_E = lower_M_discrete_value, 
+                                upper_E = upper_M_discrete_value)], 
+                 by = c("sample_time", "num_adm"))
+
+mid_E = adm_coll[, .(value = (upper_E+lower_E)/2)]
+setorder(mid_E, value)
+mid_E_prob = mid_E[, .N, by = value]
+mid_E_prob[, cum_weight := N/length(time_pts)]
+mid_E_prob[, cum_weight_normed := cumsum(cum_weight)]
+
+# select only some values from mid M to get a better plot
+include <- (seq(1, nrow(mid_M), 1) %% round(nrow(mid_M)/nrow(mid_E_prob))) == 0
+include[length(include)] <- TRUE
+
+mid_M$cum_weight_normed[include]
+
+dist4 = data.table(mid_M = mid_M$cum_weight_normed[include], mid_E = mid_E_prob$cum_weight_normed) 
+dist4 %>% ggplot(aes(x = mid_E, y = mid_M)) + geom_point()
+
+# trying the KS test - see https://rdrr.io/cran/dgof/man/ks.test.html
+library(dgov)
+ks.test(dist4$mid_E, dist4$mid_M)
+
+
+# More plots comparing training and validation ----------------------------
+
+
+# plot comparing training and validation set
+library(gridExtra)
+grid.arrange(p_nov1, p_nov2, p_nov3, p_nov4, ncol = 2, nrow = 2)
+
+# plots for various time windows
+for (time_window in c(2, 3, 4, 6, 8, 12)) {
+  prob_dist_val = get_prob_dist(time_window, time_pts_val, preds_val[[1]], preds_val[[2]], tta_prob)
+  p_val = plot_CORU_chart(time_window, time_pts_val, prob_dist_val, 
+                          paste0(time_window, " hour time window"))
+  p_val = p_val + labs(title =  paste0(time_window, " hour time window"),
+                       subtitle = paste0("Post COVID validation set; ", length(time_pts_val), " time points"))
+  
+  plot_name = paste0("p_val_", get("time_window"))
+  assign(plot_name, p_val)
+}
+
+grid.arrange(p_val_2, p_val_3, p_val_4, p_val_6, p_val_8, p_val_12, ncol = 3, nrow = 2)
+
+
+
+
+
 
 # Other exploration -------------------------------------------------------
 
@@ -766,7 +936,7 @@ plot_Czado_chart = function(time_pts, prob_dist, subtitle) {
 cz = plot_Czado_chart(time_pts_train, prob_dist_train, subtitle = "Training set")
 grid.arrange(cz[[1]], cz[[2]], ncol = 2, nrow = 1)
 
-cz = plot_Czado_chart(time_pts_val, prob_dist_val, subtitle = "Validation set")
+cz = plot_Czado_chart(time_pts_val, prob_dist, subtitle = "Validation set")
 grid.arrange(cz[[1]], cz[[2]], ncol = 2, nrow = 1)
 
 

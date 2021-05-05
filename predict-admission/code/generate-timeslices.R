@@ -290,11 +290,12 @@ dm[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
        
 # Train test split --------------------------------------
 
-dm[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
-                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
-                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
-                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
-                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
+# note - changed this to be first_ED_admission from presentation time on 4.5.21
+dm[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
+                         first_ED_admission < '2019-12-13 00:00:00' ~ "Val",
+                         first_ED_admission < '2020-03-19 00:00:00' ~ "Test",
+                         first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
+                         first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
                          TRUE ~ "Test",)]
 
 

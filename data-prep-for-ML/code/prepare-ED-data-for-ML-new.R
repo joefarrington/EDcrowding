@@ -44,6 +44,9 @@ covid_start <- as.POSIXct('2020-03-19 00:00:00')
 
 # Pre-process data ----------------------------------------------------
 
+
+# !!!!!!!!! need to change this to first_ED_admission !!!!!!!!!!!!!!! ???
+
 summ = summ[admission_time >= matrix_start_date]
 summ = summ[admission_time < matrix_end_date]
 

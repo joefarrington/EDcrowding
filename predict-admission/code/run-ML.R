@@ -24,18 +24,18 @@ file_date <- "2021-05-01"
 
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
-model_features = "alop"
+model_features = "aop"
 use_dataset = "Post"
 
-base_model = TRUE
+base_model = FALSE
 # check_eval_metric =  FALSE # keep eval_metric as log_loss
-tune_nr = TRUE
-tune_trees = TRUE
+tune_nr = FALSE
+tune_trees = FALSE
 # tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
-recal_nr = TRUE
-tune_samples = TRUE
+recal_nr = FALSE
+tune_samples = FALSE
 # tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
-reduce_lr = TRUE
+reduce_lr = FALSE
 final_preds = TRUE
 
 
@@ -350,7 +350,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
 
 # Load saved data ----------------------------------------------
 
-scores_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_scores_",today(),".rda")
+scores_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_scores_",today(),".rda")
 
 if (file.exists(scores_file)) {
   load(scores_file)
@@ -358,7 +358,7 @@ if (file.exists(scores_file)) {
   scores <- data.table()
 }
 
-preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_preds_",today(),".rda")
+preds_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_preds_",today(),".rda")
 
 if (file.exists(preds_file)) {
   load(preds_file)
@@ -367,7 +367,7 @@ if (file.exists(preds_file)) {
 }
 
 
-imps_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_imps_",today(),".rda")
+imps_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_imps_",today(),".rda")
 
 if (file.exists(imps_file)) {
   load(imps_file)
@@ -1032,7 +1032,7 @@ if (reduce_lr) {
 
 s = data.table(scores[tsk_ids == "val"  & model_features == model_features & dataset == use_dataset])
 
-s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
+s1 = s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
   filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
   ggplot(aes(x = factor(tuning_round,
                         levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
@@ -1042,12 +1042,25 @@ s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
   theme(axis.text.x=element_text(angle=45,hjust=1)) +
   labs(title = "XGBoost Log loss values after each round of tuning (scores on validation set)",
        x = "Tuning round",
-       y = "Log loss value")
+       y = "Log loss value") + theme_grey(base_size = 16) +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) 
 
 
+s2 = s[, .SD[which.max(auc)], by = list(timeslice, tuning_round)] %>%
+  filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
+  ggplot(aes(x = factor(tuning_round,
+                        levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
+             y = auc,
+             group = "tuning_round")) +
+  geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) +
+  labs(title = "XGBoost AUC scores after each round of tuning (scores on validation set)",
+       x = "Tuning round",
+       y = "AUC score") + theme_grey(base_size = 16) +
+  theme(axis.text.x=element_text(angle=45,hjust=1)) 
 
-
-
+library(gridExtra)
+grid.arrange(s1, s2, nrow = 2)
 # Save preds from final model ---------------------------------------------
 
 
@@ -1061,7 +1074,7 @@ if (final_preds) {
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
 
     params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset &
-                      tuning_round == "reduce_lr",
+                      tuning_round == "nrounds",
                     .SD[which.min(logloss)], by = list(timeslice)]
 
     learner <- update_learner(learner,
@@ -1098,14 +1111,14 @@ if (final_preds) {
 
     # save learner data for future prediction
 
-    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/learner_",name_tsk,"_",today(),".rda")
+    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_learner_",name_tsk,"_",today(),".rda")
     save(learner, file = learner_file)
 
     #assign to named data table
     name_tsp <- paste0("dm", ts_, "p")
     ts = get(name_tsp)
     
-    features_file <- paste0("~/EDcrowding/predict-admission/data-output/features_",name_tsk,"_",today(), ".rda")
+    features_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_features_",name_tsk,"_",today(), ".rda")
     feature_list <- colnames(ts)
     
     save(feature_list, file =features_file)
@@ -1162,4 +1175,3 @@ p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_qu
 library(gridExtra)
 grid.arrange(p1, p2,
              ncol = 2, nrow = 1)
-~

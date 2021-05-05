@@ -4,6 +4,8 @@
 flow-mapping/data-raw/*
 predict-admission/data-raw/*
 predict-admission/data-output/*
+real-time/data-raw/*
+real-time/data-output/*
 data/secure/*
 data/*
 
