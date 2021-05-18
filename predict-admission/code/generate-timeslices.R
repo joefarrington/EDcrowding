@@ -176,9 +176,9 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
   print("Combining together")
   
   # just use csn from summ to start with - add the other summ fields (which may have genuine NAs) later
-  matrix_cutoff <- merge(dm[duration > cutoff, .(csn, adm)], loc_cutoff_csn, all.x = TRUE) 
-  matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn, all.x = TRUE)
-  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn, all.x = TRUE)
+  matrix_cutoff <- merge(dm[duration > cutoff, .(csn, adm)], loc_cutoff_csn, all.x = TRUE, by = "csn") 
+  matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn, all.x = TRUE, by = "csn")
+  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn, all.x = TRUE, by = "csn")
   
   
   # need to fill in the NA values as zeroes for people without any observation measurements
@@ -203,7 +203,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
 # load data
 # =========
 
-file_date = '2021-04-13'
+file_date = '2021-05-17'
 
 load(paste0("~/EDcrowding/flow-mapping/data-raw/moves_", file_date,".rda"))
 load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
@@ -212,12 +212,12 @@ load(paste0("~/EDcrowding/flow-mapping/data-raw/visits_all_", file_date,".rda"))
 
 
 # observation data
-file_date = '2021-04-14'
+file_date = '2021-05-17'
 load(paste0("~/EDcrowding/predict-admission/data-raw/obs_real_", file_date,".rda"))
 
 
 # lab data
-file_date = '2021-05-01'
+file_date = '2021-05-17'
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_orders_real_", file_date,".rda"))
 load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_date,".rda"))
 
@@ -225,7 +225,20 @@ load(paste0("~/EDcrowding/predict-admission/data-raw/lab_results_real_", file_da
 # battery_count = lab_orders_real[, .N, by = battery_code]
 # lab_orders_real = lab_orders_real[battery_code %in% battery_count[N>50, battery_code]]
 
-
+# covid surge data
+# alternative is to use dates of lockdowns https://commonslibrary.parliament.uk/research-briefings/cbp-9068/
+library(readr)
+covid_cases <- data.table(read_csv("~/EDcrowding/real-time/data-raw/data_2021-May-16 deaths.csv"))
+setorder(covid_cases, date)
+covid_cases[, rolling7 := frollmean(newDeaths28DaysByDeathDate, 7)]
+surge_level = 75
+covid_cases[, surge := if_else(rolling7 > surge_level, TRUE, FALSE)]
+covid_cases %>% ggplot(aes(x = date, y = rolling7, fill = surge)) + geom_bar(stat = "identity") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y %m") +
+  geom_hline(yintercept = surge_level) + 
+  labs(title = "7 day rolling average death rates, with suggested cutoff for surge periods", 
+       subtitle = "Source: https://coronavirus.data.gov.uk/details/deaths",
+       y = "7 day rolling average")
 
 # Create admission details--------------------------------------------------
 
@@ -296,13 +309,14 @@ dm[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
                          first_ED_admission < '2020-03-19 00:00:00' ~ "Test",
                          first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
                          first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
-                         TRUE ~ "Test",)]
+                         first_ED_admission < '2021-05-01 00:00:00' ~ "Test",
+                         TRUE ~ "After")]
 
 
-dm[, epoch := case_when(date(presentation_time) >= '2020-03-19' ~ "Post",
-                        TRUE ~ "Pre")]
+dm[, epoch := case_when(date(first_ED_admission) < '2020-03-19' ~ "Pre",
+                        date(first_ED_admission) < '2021-05-01' ~ "Post",
+                        TRUE ~ "After")]
 
-# For now, only process from start of Covid only
 print("Rows in design matrix before COVID")
 rpt(dm[epoch == "Pre"])
 print("Rows in design matrix after COVID")
@@ -320,6 +334,14 @@ rpt(dm[epoch == "Post"])
 setkey(dm, csn)
 
 
+# set COVID surge info
+
+dm[, date := date(first_ED_admission)]
+dm = merge(dm, covid_cases[,.(date, surge)], by = "date", all.x = TRUE)
+dm[, covid_surge := case_when(in_set == "Pre" ~ NA,
+                        TRUE ~ surge)]
+dm[, surge := NULL]
+dm[, date := NULL]
 
 # Prepare location data --------------------------------------------------
 
@@ -350,7 +372,7 @@ setkey(loc, csn)
 # Create timeslices -------------------------------------------------------
 
 
-timeslices <- c(0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 480+4*60)
+timeslices <- c(0, 15, 30, 60, 90, 120, 180, 240, 300, 360, 480, 720, 24*60, 48*60)
 
 for (i in seq(1, length(timeslices) -1, 1)) {
   print(paste0("Processing timeslice ", timeslices[i]))
@@ -375,6 +397,8 @@ save(dm240, file = paste0("EDcrowding/predict-admission/data-raw/dm240_",today()
 save(dm300, file = paste0("EDcrowding/predict-admission/data-raw/dm300_",today(),".rda"))
 save(dm360, file = paste0("EDcrowding/predict-admission/data-raw/dm360_",today(),".rda"))
 save(dm480, file = paste0("EDcrowding/predict-admission/data-raw/dm480_",today(),".rda"))
+save(dm720, file = paste0("EDcrowding/predict-admission/data-raw/dm720_",today(),".rda"))
+# save(dm1440, file = paste0("EDcrowding/predict-admission/data-raw/dm1440_",today(),".rda"))
 
 dm[, row_id := seq_len(nrow(dm))]
 save(dm, file = paste0("EDcrowding/predict-admission/data-raw/dm_",today(),".rda"))

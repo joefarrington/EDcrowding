@@ -22,8 +22,8 @@ rpt <- function(dataframe) {
 
 
 # Load data ---------------------------------------------------------------
-load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-04-13.rda")
-load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-04-13.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_bed_moves_raw_2021-05-17.rda")
+load("~/EDcrowding/flow-mapping/data-raw/ED_csn_summ_raw_2021-05-17.rda")
 
 
 moves <- data.table(ED_bed_moves_raw %>% 

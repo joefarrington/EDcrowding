@@ -16,9 +16,9 @@ library(readr)
 
 # Load data ---------------------------------------------------------------
 
-load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-04-14.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
+load("~/EDcrowding/predict-admission/data-raw/obs_raw_2021-05-17.rda")
+load("~/EDcrowding/flow-mapping/data-raw/moves_2021-05-17.rda")
+load("~/EDcrowding/flow-mapping/data-raw/summ_2021-05-17.rda")
 
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
@@ -28,9 +28,10 @@ summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge
 
 vo_mapping <- read_csv("~/Emap Mapping Spreadsheet - all questions.csv") %>% data.table()
 
-vo_mapping = vo_mapping[,.(`Friendly name`, `epic id`)]
-setnames(vo_mapping, "Friendly name", "obs_name")
-setnames(vo_mapping, "epic id", "id_in_application")
+vo_mapping = vo_mapping[,.(`Friendly name`, `epic id`, `OMOP ID`)]
+vo_mapping[, obs_name := `Friendly name`]
+vo_mapping[, id_in_application := `epic id`]
+
 
 # these 5 types have multiple mappings
 vo_mapping[,.N, by = id_in_application][N>1]
@@ -67,7 +68,7 @@ obs_real = obs_real[(!is.na(obs_name))]
 
 # remove observations whare are used less than 500 times
 obs_real[, times_used := .N, by = obs_name]
-obs_real = obs_real[times_used > 500]
+obs_real = obs_real[times_used > 1000]
 
 # remove reported symptoms as this is free text and not widely used (only 1825 csns from Jan 2020 to end Feb 2021)
 obs_real = obs_real[obs_name != "Reportedsymptomsonadmission"]
@@ -143,11 +144,14 @@ obs_real <- obs_real[, .(csn, observation_datetime, value_as_real, obs_name, ela
 obs_real[, obs_name := gsub("\\(|\\)|\\-|\\>|\\?|\\/","", obs_name)]
 obs_real[, obs_name := gsub("Currenttemperature>37.5orhistoryoffeverinthelast24hours","Fever", obs_name)]
 
-
 outFile = paste0("EDcrowding/predict-admission/data-raw/obs_real_",today(),".rda")
 save(obs_real, file = outFile)
 
 # save record of which obs were included for real-time prediction
-obs_to_include = unique(obs_real$obs_name)
+obs_to_include = vo_mapping[obs_name %in% unique(obs_real$obs_name), .(obs_name, `Friendly name`, `epic id`, `OMOP ID`)]
 outFile = paste0("EDcrowding/real-time/data-raw/obs_to_include.rda")
 save(obs_to_include, file = outFile)
+
+# # save for Nel
+# outFile = paste0("EDcrowding/real-time/data-raw/obs_to_include.csv")
+# write_csv(obs_to_include, file = outFile)

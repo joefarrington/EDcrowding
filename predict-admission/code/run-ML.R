@@ -20,11 +20,11 @@
 
 # set date of file to include
 
-file_date <- "2021-05-01"
+file_date <- "2021-05-17"
 
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
-model_features = "aop"
+model_features = "alop"
 use_dataset = "Post"
 
 base_model = FALSE
@@ -36,7 +36,7 @@ recal_nr = FALSE
 tune_samples = FALSE
 # tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
 reduce_lr = FALSE
-final_preds = TRUE
+final_preds = TRUE # NB - check which prior round final_preds is looking for
 
 
 
@@ -187,6 +187,7 @@ tune_learner <- function(name_tsk, tsk, learner, tsk_train_ids, tuning_round, sc
                      tuning_round = tuning_round,
                      logloss = rr$aggregate(msr("classif.logloss")),
                      bbrier = rr$aggregate(msr("classif.bbrier")), # binary brier score
+                     prauc = rr$aggregate(msr("classif.prauc")),
                      auc = rr$aggregate(msr("classif.auc")),
                      acc = rr$aggregate(msr("classif.acc")),
                      tp = rr$aggregate(msr("classif.tp")),
@@ -323,6 +324,7 @@ save_results <- function(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk
                      tuning_round = tuning_round,
                      logloss = pred_val$score(msr("classif.logloss")),
                      bbrier = pred_val$score(msr("classif.bbrier")), # binary brier score
+                     prauc = pred_val$score(msr("classif.prauc")),
                      auc = pred_val$score(msr("classif.auc")),
                      acc = pred_val$score(msr("classif.acc")),
                      tp = pred_val$score(msr("classif.tp")),
@@ -380,7 +382,7 @@ if (file.exists(imps_file)) {
 # Load data and encode factors --------------------------------------------------------------
 
 #timeslices <- c("000")
-timeslices <- c("000", "015", "030", "060",  "090", "120", "180", "240", "300", "360", "480")
+timeslices <- c("000", "015", "030", "060",  "090", "120", "180", "240", "300", "360", "480", "720")
 
 
 
@@ -394,20 +396,33 @@ for (ts_ in timeslices) {
   dt = get(name_ts)
 
   #  select dataset (pre or post covid or both if use_dataset is null)
-  if (!is.null(use_dataset)) {
-    dt = dt[a_epoch == use_dataset]
+  if (use_dataset != "Pre + Post") {
+    
+    dt = dt[a_epoch == use_dataset & in_set %in% c("Train", "Val")]
     dt[, a_epoch := NULL]
+    
+    dt[, row_id := seq_len(nrow(dt))]
+    assign(paste0("task", ts_, "_val_ids"), dt[in_set == "Val", row_id])
+    assign(paste0("task", ts_, "_train_ids"), dt[in_set == "Train", row_id])
+    
+  } else {
+    
+    # in the combined dataset, the pre Covid test set is included as part of the training set
+    dt = dt[(a_epoch %in% c("Pre", "Post") & in_set %in% c("Train", "Val")) | (a_epoch == "Pre" & in_set == "Test") ]
+    dt[, a_epoch := as.factor(a_epoch)]
+    
+    dt[, row_id := seq_len(nrow(dt))]
+    # in the combined dataset, validation set is post-Covid validation set only, and rest is used for training
+    assign(paste0("task", ts_, "_val_ids"), dt[in_set == "Val"  & a_epoch == "Post", row_id])
+    assign(paste0("task", ts_, "_train_ids"), dt[!(in_set == "Val" & a_epoch == "Post"), row_id])
   }
   
-  dt[, row_id := seq_len(nrow(dt))]
+  
   
   # create vectors identifying test, val and training ids
-  assign(paste0("task", ts_, "_test_ids"), dt[in_set == "Test", row_id])
-  assign(paste0("task", ts_, "_val_ids"), dt[in_set == "Val", row_id])
-  assign(paste0("task", ts_, "_train_ids"), dt[in_set == "Train", row_id])
+  # assign(paste0("task", ts_, "_test_ids"), dt[in_set == "Test", row_id])
+
   
-  # remove train-val-test label and row_id so not included in features
-  dt[, in_set := NULL]
   dt[, row_id := NULL]
 
 
@@ -428,8 +443,12 @@ for (ts_ in timeslices) {
   }
   
   # encode factors
-  ts <- one_hot(cols = "auto", dt = as.data.table(dt),  dropUnusedLevels=TRUE)
+  ts <- one_hot(cols = "auto", dt = dt,  dropUnusedLevels=TRUE)
   ts[,adm:=as.factor(adm)] 
+  
+  
+  # remove train-val-test label and row_id so not included in features
+  ts[, in_set := NULL]
   
   # assign to named data table
   name_tsp <- paste0("dm", ts_, "p")
@@ -507,6 +526,7 @@ if (base_model) {
 if (tune_nr) {
   
   for (ts_ in timeslices) {
+  # for (ts_ in timeslices[4:12]) {
     name_tsk <- paste0("task", ts_)
     tsk = get(name_tsk)
     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
@@ -1079,6 +1099,7 @@ if (final_preds) {
 
     learner <- update_learner(learner,
                               nrounds = params$nrounds,
+                              eval_metric = params$eval_metric,
                               max_depth = params$max_depth,
                               min_child_weight = params$min_child_weight,
                               gamma = params$gamma,
@@ -1111,67 +1132,70 @@ if (final_preds) {
 
     # save learner data for future prediction
 
-    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_learner_",name_tsk,"_",today(),".rda")
+    learner_file  <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features,
+                            "_", gsub(" +", "", use_dataset), "_learner_",name_tsk,"_",today(),".rda")
     save(learner, file = learner_file)
 
     #assign to named data table
     name_tsp <- paste0("dm", ts_, "p")
     ts = get(name_tsp)
     
-    features_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features, "_features_",name_tsk,"_",today(), ".rda")
+    features_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features,
+                            "_", gsub(" +", "", use_dataset), "_features_",name_tsk,"_",today(), ".rda")
     feature_list <- colnames(ts)
     
     save(feature_list, file =features_file)
     
   } 
   
-  
+  save(scores, file = scores_file) 
   
 }
 
 
+
 # Plot importances --------------------------------------------------------
 
-imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                                    "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       importance > 0.005] %>%
-  ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances by timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature")
-
-
-p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       timeslice == "task030"  &
-       importance > 0.01] %>%
-  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances for 30  min timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature") +
-  theme(legend.position = "bottom")
-
-
-p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
-                                        "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
-                                        "a_sex_U") &
-       timeslice == "task120"  &
-       importance > 0.01] %>%
-  ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
-  scale_fill_gradient(low="white", high="red") +
-  labs(title = "Feature importances for 120  min timeslice",
-       fill = "Importance",
-       x = "Timeslice",
-       y = "Feature") +
-  theme(legend.position = "bottom") +
-  scale_x_continuous(limits = c(0,0.25))
-
-library(gridExtra)
-grid.arrange(p1, p2,
-             ncol = 2, nrow = 1)
+# imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                                     "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        importance > 0.005] %>%
+#   ggplot(aes(x = gsub("task","", timeslice), y = reorder(feature, desc(feature)), fill = importance)) + geom_tile() +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances by timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature")
+# 
+# 
+# p1 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        timeslice == "task030"  &
+#        importance > 0.01] %>%
+#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances for 30  min timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature") +
+#   theme(legend.position = "bottom")
+# 
+# 
+# p2 = imps[tsk_ids == "all" & !feature %in% c("a_quarter_1", "a_quarter_2", "a_quarter_3", "a_quarter_4",
+#                                         "a_tod_1", "a_tod_2", "a_tod_3", "a_tod_4", "a_tod_5", "a_tod_6",
+#                                         "a_sex_U") &
+#        timeslice == "task120"  &
+#        importance > 0.01] %>%
+#   ggplot(aes(x = importance, y = reorder(feature, desc(feature)), fill = importance)) + geom_bar(stat = "identity") +
+#   scale_fill_gradient(low="white", high="red") +
+#   labs(title = "Feature importances for 120  min timeslice",
+#        fill = "Importance",
+#        x = "Timeslice",
+#        y = "Feature") +
+#   theme(legend.position = "bottom") +
+#   scale_x_continuous(limits = c(0,0.25))
+# 
+# library(gridExtra)
+# grid.arrange(p1, p2,
+#              ncol = 2, nrow = 1)

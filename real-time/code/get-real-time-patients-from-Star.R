@@ -362,6 +362,8 @@ get_prob_dist = function(time_window, preds_all_ts, poisson_means, tta_probs) {
                by = "timeslice", all.x = TRUE)
     
     # temp fix where there is no match with time_window
+    # to fix, use this to get cdf tta_probs[timeslice == 360 & tta_hr > time_window, .SD[which.min(tta_hr), cdf]]
+    # and find a way to match with timeslice
     df[is.na(prob_adm_in_time_window), prob_adm_in_time_window := mean(df$prob_adm_in_time_window, na.rm = TRUE)]
     
     df[, prob.1 := prob.1 * prob_adm_in_time_window]
@@ -965,7 +967,7 @@ for (i in seq(1, length(timeslices) -1, 1)) {
 
 # Make predictions --------------------------------------------------------
 
-model_date = '2021-04-29'
+model_date = '2021-04-29' # only change this once the lab_real processing includes new lab values added on 5 May
 
 pred_file = paste0("~/EDcrowding/real-time/data-output/real_time_preds.rda")
 
@@ -1019,7 +1021,7 @@ save(preds_all_ts, file = pred_file)
 # Predict distribution ----------------------------------------------------
 
 # load poisson means for not-yet-arrived
-poisson_file = "~/EDcrowding/real-time/data-output/poisson_means.rda"
+poisson_file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda"
 load(poisson_file)
 
 # load probabilities of time to admit
@@ -1036,16 +1038,27 @@ is_weekend = if_else(weekdays(time_of_extract, abbreviate = TRUE) %in% c("Sun", 
 
 
 distr_all = get_prob_dist(time_window = NA, preds_all_ts[extract_dttm == time_of_extract],
-                      poisson_means[epoch == "Post" & in_set == "Train" & time_of_report == get_report & weekend == is_weekend],
-                      tta_prob_2[epoch == "Post" & in_set == "Train" & time_of_report == get_report])
+                      poisson_not_yet_arrived[epoch == "Post" & in_set == "Train" & time_of_report == get_report & weekend == is_weekend],
+                      tta_prob[epoch == "Post" & in_set == "Train" & time_of_report == get_report])
 
 distr_all = data.table(distr_all)
 
-distr_all[, N := case_when(num_adm_pred > 35 ~ "> 35",
-                           num_adm_pred < 5 ~ "< 5",
+# distr_all[, N := case_when(num_adm_pred > 35 ~ "> 35",
+#                            num_adm_pred < 5 ~ "< 5",
+#                            TRUE ~ as.character(num_adm_pred))]
+# distr_all[, N := factor(N, levels = c("< 5", as.character(seq(5, 35, 1)), "> 35"))]
+distr_all[, N := case_when(num_adm_pred > 30 ~ "> 30",
                            TRUE ~ as.character(num_adm_pred))]
-distr_all[, N := factor(N, levels = c("< 5", as.character(seq(5, 35, 1)), "> 35"))]
-unique(distr_all$dist)
+distr_all[, N := factor(N, levels = c(as.character(seq(0, 30, 1)), "> 30"))]
+
+
+distr_all[, dist_ := factor(dist, levels = c("In ED now; admission in 4 hours",
+                                             "In ED now; admission in 8 hours",
+                                             "In ED now; admission at some point",
+                                             "Including not yet arrived; admission in 4 hours",
+                                             "Including not yet arrived; admission in 8 hours"))]
+          
+# unique(distr_all$dist)
 
 
 # Charts ------------------------------------------------------------------
@@ -1103,6 +1116,23 @@ moves_now %>% filter(is.na(discharge)) %>%
            size = 6)
 
 
+# chart in hours - last 12 hours with timeslices
+moves_now %>% filter(is.na(discharge)) %>% 
+  left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
+  filter(time_since_arrival <= 12*60) %>% 
+  mutate(time_since_arrival = time_since_arrival) %>% 
+  ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18)) +
+  labs(y = "Current location", x = "Minutes since arrival",
+       title = paste("Patients in ED at ", substr(time_of_extract, 1, 16), "- arrivals in last 12 hours")) +
+  theme_grey(base_size = 18) +
+  geom_vline(xintercept = timeslices, linetype = "dashed")  + # theme(panel.grid.minor = element_blank()) +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = timeslices, limits = c(0,12*60)) #+
+# annotate("text", x = 16, y = "Waiting/TRIAGE", 
+#          label = paste("Number in ED now:", nrow(summ), "\nAdmissions yesterday :", adm_yest$count, "\nAdmissions last 24 hrs:",  adm_last_24$count),
+#          size = 6)
+
+
 # chart in hours - last 3 days
 moves_now %>% filter(is.na(discharge)) %>% 
   left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
@@ -1119,11 +1149,12 @@ moves_now %>% filter(is.na(discharge)) %>%
            size = 6)
 
 # chart with predictions
-p1 = moves_now %>% filter(is.na(discharge)) %>% 
+# p1 = 
+  moves_now %>% filter(is.na(discharge)) %>% 
   left_join(summ_now %>% select(csn, time_since_arrival, OTF_now, under_18), by = "csn") %>% 
   mutate(extract_dttm = time_of_extract) %>% 
   left_join(preds_all_ts, by = c("csn", "extract_dttm"))  %>% 
-  filter(time_since_arrival <= 24*60) %>% 
+  filter(time_since_arrival <= 12*60) %>% 
   mutate(time_since_arrival = time_since_arrival/60) %>% 
   ggplot(aes(x = as.numeric(time_since_arrival), y = fct_rev(room5))) + geom_point(size = 4, aes(shape = under_18, col = prob.1)) +
   labs(y = "Current location", x = "Hours since arrival",
@@ -1133,22 +1164,25 @@ p1 = moves_now %>% filter(is.na(discharge)) %>%
   theme_grey(base_size = 18) +
   # geom_vline(xintercept = timeslices/60)  + theme(panel.grid.minor = element_blank()) +
   theme(legend.position = "bottom") +
-  scale_x_continuous(breaks = seq(0,24,4)) +
+  scale_x_continuous(breaks = seq(0,12,1), limits = c(0, 8)) +
   scale_colour_gradient2(low = "blue", mid = "yellow", high = "red", limits = c(0,1), breaks = c(0,0.5, 1)) + 
   theme(legend.text=element_text(size=10))
 
-p2 = distr_all %>% filter(grepl("Including", dist)) %>% 
-  mutate(dist = gsub("Including not yet arrived; a", "A", dist)) %>% 
+# p2 = 
+  distr_all %>% #filter(grepl("Including", dist)) %>% 
+  # mutate(dist = gsub("Including not yet arrived; a", "A", dist)) %>% 
   ggplot(aes(x = N,y = 1, fill = probs)) + geom_tile() +
   theme_grey(base_size = 14)+ 
-  scale_fill_gradient(low="white", high="blue", breaks = c(0, .05, .1, 0.15))   + theme(axis.title.y=element_blank(),
+  scale_fill_gradient(low="white", high="blue", breaks = c(0,  .1, .2))   + theme(axis.title.y=element_blank(),
                                                                                         axis.text.y=element_blank(),
                                                                                         axis.ticks.y=element_blank()) +
-  labs(title = "Predicted number of admissions from ED (including patients who have not yet arrived)",
+  labs(
+       title = paste("Predicted number of admissions from ED at ", substr(time_of_extract, 1, 16)),
+       subtitle = "Excludes OTF and under 18s",
        fill = "Probability of\nthis number of beds", 
        x = "Number of admissions") +
   theme(legend.position = "bottom") +
-  facet_wrap(dist~ ., nrow = 5) 
+  facet_wrap(dist_~ ., nrow = 5) 
 
 
 library(gridExtra)

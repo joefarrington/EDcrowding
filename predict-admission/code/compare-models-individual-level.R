@@ -1,4 +1,5 @@
 
+# Compare with and without location features ------------------------------
 
 
 
@@ -88,4 +89,14 @@ p2 = bind_rows(rf_scores[, .(timeslice, tsk_ids, model_features, logloss, bbrier
 library(gridExtra)
 grid.arrange(p1, p2,
              ncol = 1, nrow = 2)
+
+
+# Compare pre and post Covid ----------------------------------------------
+
+load("~/EDcrowding/predict-admission/data-output/xgb_alop_scores_2021-05-18.rda")
+
+scores[tsk_ids == "val" & tuning_round == "final_preds"] %>% 
+  pivot_longer(logloss:auc) %>%  filter(name != "bbrier") %>% 
+  ggplot(aes(x = timeslice, y = value, group = dataset, col = dataset)) + 
+    geom_point() + geom_line() + facet_wrap(name~., ncol = 1, scales = "free_y")
 

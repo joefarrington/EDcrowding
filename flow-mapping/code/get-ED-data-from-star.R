@@ -253,11 +253,13 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 # Update department when it's null (was the case for T01ECU in December 2020)
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% mutate(T01ECU = grepl("^T01ECU", room)) 
+ED_bed_moves_raw <- ED_bed_moves_raw %>% mutate(SDEC = grepl("SDEC", room))
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>%
   mutate(department = case_when(T01ECU ~ "T01ECU",
+                                SDEC & department == "null" ~ "ED",
                                 TRUE ~ department))
-ED_bed_moves_raw <- ED_bed_moves_raw %>% select(-T01ECU)
+ED_bed_moves_raw <- ED_bed_moves_raw %>% select(-T01ECU, -SDEC)
 
 ED_bed_moves_raw <- ED_bed_moves_raw %>% 
   mutate(ED_row = case_when(department == "ED" | department == "UCHT00CDU" ~ 1,
@@ -433,12 +435,19 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
 print("After removing csns with admission after discharge")
 print(rpt(ED_csn_summ_raw))
 print(paste0("ED_bed_moves_raw: ",ED_bed_moves_raw %>% select(csn) %>% n_distinct()))
+# 
+# # temp code
+# 
+# ED_bm_temp = ED_bed_moves_raw %>% left_join(ED_csn_summ_raw %>% select(csn, admission_time, discharge_time)) 
 
 # where discharge on bed moves is null but csn has a discharge time, update this
 
 ED_bed_moves_raw = ED_bed_moves_raw %>% left_join(ED_csn_summ_raw %>% select(csn, discharge_time)) %>% 
   mutate(discharge = case_when(is.na(discharge) & !is.na(discharge_time) ~ discharge_time,
                                TRUE ~ discharge))
+
+
+
 
 # NB - the above will create some rows with admission > discharge; most are less than one minute
 rpt(ED_bed_moves_raw %>% filter(difftime(discharge, admission, units = "mins") <0)) # 297
@@ -470,8 +479,39 @@ ED_bed_moves_raw <- ED_bed_moves_raw %>%
   ungroup()
 
 lead_row_mismatch_csn <- ED_bed_moves_raw %>% 
-  filter(discharge != next_admission) %>% select(csn) %>% distinct()
+  filter(discharge != next_admission & csn == next_csn) %>% select(csn) %>% distinct()
 rpt(lead_row_mismatch_csn) # Mismatch timestamps in moves between locations
+
+# lead_row_mismatch <- ED_bed_moves_raw %>% inner_join(ED_csn_summ_raw %>% select(csn, admission_time)) %>%  inner_join(lead_row_mismatch_csn) %>% 
+#   arrange(admission_time, csn, admission)
+# 
+# x = lead_row_mismatch %>% group_by(month = substr(admission_time, 1,7)) %>% summarise(N = n_distinct(csn))
+# x %>% ggplot(aes(x = month, y = N)) + geom_bar(stat = "identity") + labs(title = "Mismatched admission and discharge times (number of csns by month)")
+# 
+
+# update bed moves where mismatch is less than 2 seconds
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(mismatch = difftime(discharge, next_admission, units = "mins"))
+
+ED_bed_moves_raw <- ED_bed_moves_raw %>% 
+  mutate(discharge = case_when(csn == next_csn & mismatch < 2/60 & mismatch != 0 & mismatch > - 2/60 ~ next_admission,
+                               TRUE ~ discharge))
+
+lead_row_mismatch_csn <- ED_bed_moves_raw %>% 
+  filter(discharge != next_admission & csn == next_csn) %>% select(csn) %>% distinct()
+rpt(lead_row_mismatch_csn) # Mismatch timestamps in moves between locations - should now be reduced
+
+
+# 
+# lead_row_mismatch <- ED_bed_moves_raw %>% inner_join(ED_csn_summ_raw %>% select(csn, admission_time)) %>%  inner_join(lead_row_mismatch_csn) %>% 
+#   arrange(admission_time, csn, admission)
+# 
+# write_csv(lead_row_mismatch, file = "mismatched admission times.csv")
+# 
+# x = lead_row_mismatch %>% group_by(month = substr(admission_time, 1,7)) %>% summarise(N = n_distinct(csn))
+# x %>% ggplot(aes(x = month, y = N)) + geom_bar(stat = "identity") + labs(title = "Mismatched admission and discharge times (number of csns by month) excluding less than 2 second mismatches")
+
 
 ED_csn_summ_raw <- ED_csn_summ_raw %>% 
   anti_join(lead_row_mismatch_csn  %>% select(csn))
@@ -600,12 +640,12 @@ print(rpt(ED_csn_summ_raw))
 print(rpt(ED_bed_moves_raw))
 
 
-ED_csn_summ_raw <- ED_csn_summ_raw %>%  
-  mutate(epoch = case_when(presentation_time < '2020-03-31' ~ "Pre_Covid",
-                           presentation_time < '2020-05-31' ~ 'Surge1',
-                           presentation_time < '2020-12-24' ~ 'Post_Surge1',
-                           TRUE ~ 'Surge2')) %>% 
-  mutate(epoch = factor(epoch, levels = c("Pre_Covid", "Surge1", "Post_Surge1", "Surge2")))
+# ED_csn_summ_raw <- ED_csn_summ_raw %>%  
+#   mutate(epoch = case_when(presentation_time < '2020-03-31' ~ "Pre_Covid",
+#                            presentation_time < '2020-05-31' ~ 'Surge1',
+#                            presentation_time < '2020-12-24' ~ 'Post_Surge1',
+#                            TRUE ~ 'Surge2')) %>% 
+#   mutate(epoch = factor(epoch, levels = c("Pre_Covid", "Surge1", "Post_Surge1", "Surge2")))
 
 
 
