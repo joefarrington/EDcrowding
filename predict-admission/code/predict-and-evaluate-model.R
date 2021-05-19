@@ -6,18 +6,13 @@ library(tidyverse)
 library(data.table)
 library(lubridate)
 library(polynom)
+library(Metrics)
+library(rsq)
 
 # for mlr3
 library(mlr3)
 library(mlr3learners)
 library(mlr3proba)
-
-# for shapley plot
-
-# library(GGally)
-# library(precrec)
-# library(paradox)
-# library(mlr3tuning)
 library(mlr3fselect)
 library(mlr3misc)
 
@@ -230,10 +225,11 @@ make_predictions = function(time_pts, summ, file_date, model_date,  model_featur
 get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_not_yet_arrived) {
   
   distr_coll = data.table()
-  adm_coll = data.table()
-  noone_in_ED = POSIXct()
-
+  pt_estimates_coll = data.table()
+  
   for (i in (1:length(time_pts))) {
+    
+    print(i)
 
     in_ED = in_ED_all[time_pt == time_pts[i]]
     num_adm_ = seq(0,nrow(in_ED), 1)
@@ -242,11 +238,43 @@ get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_no
                            TRUE ~ substr(time_pts[i], 12,16))
     
     is_weekend = if_else(weekdays(time_pts[i], abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0)
+    
+    # if there is noone in ED
 
     if (nrow(in_ED) == 0) {
-      noone_in_ED = c(noone_in_ED, time_pts[i])
       
-      # add time varying poission here
+      # only need to do time varying poission 
+      
+      for (time_window in c(4, 8)) {
+        time_window_ = time_window
+        probs_not_yet_arrived = dpois(seq(0, 20 ,1),
+                                      lambda = poisson_not_yet_arrived[time_window == time_window_ &
+                                                                         weekend == is_weekend &
+                                                                         time_of_report == get_report,
+                                                                       poisson_mean])
+        
+        distr = data.table(bind_cols(time_of_report = time_pts[i],
+                                     num_adm_pred = seq(0, 20 ,1),
+                                     probs = probs_not_yet_arrived, cdf = cumsum(probs_not_yet_arrived),
+                                     dist = paste("Including not yet arrived:", time_window, "hours")))
+        
+        
+        
+        pt_estimates_coll_ = data.table(bind_cols(time_of_report = time_pts[i],
+                                                  num_in_ED = nrow(df_), 
+                                                  truth = nrow(summ[first_ED_admission > time_pts[i] &
+                                                                      adm %in% c("direct_adm", "indirect_adm") &
+                                                                      left_ED <= time_pts[i] + hours(time_window)]),
+                                                  expected_value = distr[, .SD[which.max(probs)], by = time_of_report][, num_adm_pred],
+                                                  quantile5 = distr[, .SD[which(cdf < .05)], by = time_of_report][, max(num_adm_pred)],
+                                                  quantile95 = distr[, .SD[which(cdf < .95)], by = time_of_report][, max(num_adm_pred)],
+                                                  dist = paste("Including not yet arrived:", time_window, "hours")))
+        
+        distr_coll = bind_rows(distr_coll, distr)
+        pt_estimates_coll = bind_rows(pt_estimates_coll, pt_estimates_coll_)
+      }
+      
+
       
     } else {
       
@@ -257,21 +285,29 @@ get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_no
       df[, truth := case_when(adm %in% c("direct_adm", "indirect_adm") ~ 1,
                               TRUE ~ 0)]
       
-      distr = bind_cols(time_of_report = time_pts[i],
+      distr = data.table(bind_cols(time_of_report = time_pts[i],
                              num_adm_pred = num_adm_,
                              probs = probs_in_ED, cdf = cumsum(probs_in_ED),
-                             dist = "In ED: admission at some point")
+                             dist = "In ED: admission at some point"))
       
-      adm_coll = bind_cols(time_of_report = time_pts[i],
+      pt_estimates_coll_ = data.table(bind_cols(time_of_report = time_pts[i],
                            num_in_ED = nrow(df), 
-                           num_adm = sum(df$truth),
-                           dist = "In ED: admission at some point")
+                           truth = sum(df$truth),
+                           expected_value = distr[, .SD[which.max(probs)], by = time_of_report][, num_adm_pred],
+                           quantile5 = distr[, .SD[which(cdf < .05)], by = time_of_report][, max(num_adm_pred)],
+                           quantile95 = distr[, .SD[which(cdf < .95)], by = time_of_report][, max(num_adm_pred)],
+                           dist = "In ED: admission at some point"))
+      
+      distr_coll = bind_rows(distr_coll, distr)
+      pt_estimates_coll = bind_rows(pt_estimates_coll, pt_estimates_coll_)
+      
       
       for (time_window in c(4, 8)) {
         
         df_ = merge(df[, .(prob.1, csn, timeslice = as.numeric(gsub("task", "", timeslice)), adm, left_ED)], 
                    tta_prob[tta_hr == time_window & time_of_report == get_report, .(timeslice, prob_adm_in_time_window = cdf)], 
                    by = "timeslice", all.x = TRUE)
+        df_[prob_adm_in_time_window == 0, prob_adm_in_time_window := 0.0001]
         df_[, prob.1 := prob.1 * prob_adm_in_time_window]
         probs_in_ED = poly_prod(df_) 
         
@@ -279,27 +315,30 @@ get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_no
                                   difftime(left_ED, time_pts[i], units = "hours") <= 4 ~ 1,
                                 TRUE ~ 0)]
         
-        distr = bind_cols(time_of_report = time_pts[i],
+        distr = data.table(bind_cols(time_of_report = time_pts[i],
                                num_adm_pred = num_adm_,
                                probs = probs_in_ED, cdf = cumsum(probs_in_ED),
-                               dist = paste("In ED:", time_window, "hours"))
+                               dist = paste("In ED:", time_window, "hours")))
         
-        adm_ = bind_cols(time_of_report = time_pts[i],
-                             num_in_ED = nrow(df), 
-                             num_adm = sum(df_$truth),
-                             dist = paste("In ED:", time_window, "hours"))
+        pt_estimates_coll_ = data.table(bind_cols(time_of_report = time_pts[i],
+                             num_in_ED = nrow(df_), 
+                             truth = sum(df_$truth),
+                             expected_value = distr[, .SD[which.max(probs)], by = time_of_report][, num_adm_pred],
+                             quantile5 = distr[, .SD[which(cdf < .05)], by = time_of_report][, max(num_adm_pred)],
+                             quantile95 = distr[, .SD[which(cdf < .95)], by = time_of_report][, max(num_adm_pred)],
+                             dist = paste("In ED:", time_window, "hours")))
         
         distr_coll = bind_rows(distr_coll, distr)
-        adm_coll = bind_rows(adm_coll, adm_)
+        pt_estimates_coll = bind_rows(pt_estimates_coll, pt_estimates_coll_)
         
         # include people who have not yet arrived
         time_window_ = time_window
-        probs_not_yet_arrived = dpois(c(num_adm_ , seq(max(num_adm_), max(num_adm_+20),1)),
+        probs_not_yet_arrived = dpois(c(num_adm_ , seq(max(num_adm_) + 1, max(num_adm_+20),1)),
                                       lambda = poisson_not_yet_arrived[time_window == time_window_ &
                                                                weekend == is_weekend &
                                                                  time_of_report == get_report,
                                                              poisson_mean])
-        dist_ = data.table()
+        dist_nya = data.table()
         
         for (i in 1:length(probs_in_ED)) {
           for (j in 1:length(probs_not_yet_arrived)) {
@@ -308,12 +347,31 @@ get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_no
             prob_tot_ = probs_in_ED[i] * probs_not_yet_arrived [j]
             row = data.table(num_adm_pred = tot_adm_, prob_tot = prob_tot_)
             
-            dist_ = bind_rows(dist_, row)
+            dist_nya = bind_rows(dist_nya, row)
           }
         }
         
-        distr_coll = bind_rows(distr_coll, distr_) # add other columns to distr_
-        # calculate actual number of admission from summ and save to adm_coll
+        dist_nya = dist_nya[, .(probs = sum(prob_tot)), by = num_adm_pred]
+
+        distr = data.table(bind_cols(time_of_report = time_pts[i],
+                                     num_adm_pred = seq(0, nrow(dist_nya)-1, 1),
+                                     probs = dist_nya$probs, cdf = cumsum(dist_nya$probs),
+                                     dist = paste("Including not yet arrived:", time_window, "hours")))
+        
+        
+        
+        pt_estimates_coll_ = data.table(bind_cols(time_of_report = time_pts[i],
+                                       num_in_ED = nrow(df_), 
+                                       truth = nrow(summ[first_ED_admission > time_pts[i] &
+                                                      adm %in% c("direct_adm", "indirect_adm") &
+                                                      left_ED <= time_pts[i] + hours(time_window)]),
+                                       expected_value = distr[, .SD[which.max(probs)], by = time_of_report][, num_adm_pred],
+                                       quantile5 = distr[, .SD[which(cdf < .05)], by = time_of_report][, max(num_adm_pred)],
+                                       quantile95 = distr[, .SD[which(cdf < .95)], by = time_of_report][, max(num_adm_pred)],
+                                       dist = paste("Including not yet arrived:", time_window, "hours")))
+        
+        distr_coll = bind_rows(distr_coll, distr)
+        pt_estimates_coll = bind_rows(pt_estimates_coll, pt_estimates_coll_)
         
       }
     }
@@ -321,7 +379,9 @@ get_prob_dist = function(time_pts, in_ED_all, preds_all_ts, tta_prob, poisson_no
 
   }
   
-  return(list(distr_coll, adm_coll, noone_in_ED))
+  pt_estimates_coll[, quantile5 := if_else(quantile5 < 0, 0, quantile5)]
+  
+  return(list(distr_coll, pt_estimates_coll))
   
 }
 
@@ -348,6 +408,11 @@ summ[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
 
 summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
+
+
+# Create set of time points to evaluate over ------------------------------
+
+
 if (tsk_ids == "Val") {
   if (use_dataset == "Pre") {
     # pre-Covid validation used for Pre only
@@ -365,7 +430,7 @@ next_dt = start_of_set
 
 time_pts = POSIXct()
 while (next_dt < end_of_set) {
-  next_pt <- next_dt + c(hours(6), hours(12), hours(15) + minutes(30), hours(22))
+  next_pt <- next_dt + c(hours(6), hours(12), hours(16), hours(22))
   time_pts <- c(time_pts, next_pt)
   next_dt = next_dt + days(1)
 }
@@ -382,9 +447,29 @@ tta_hr_file = "EDcrowding/real-time/data-raw/tta_prob.rda"
 load(tta_hr_file)
 
 # individual predictions
+file_date = '2021-05-19'
 preds = make_predictions(time_pts, summ, file_date, model_date,  model_features,  use_dataset)
 
 # aggregate predictions
 prob_dist = get_prob_dist(time_pts, in_ED_all = preds[[1]], preds_all_ts = preds[[2]], 
                           tta_prob[epoch == use_dataset & in_set == tsk_ids], 
                           poisson_not_yet_arrived[epoch == use_dataset & in_set == tsk_ids])
+
+prob_dist_file = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features, "_", use_dataset, "_", 
+                        tsk_ids, "_", Sys.Date(),".rda")
+
+save(prob_dist, file = prob_dist_file)
+
+
+
+# Evaluate point estimates ------------------------------------------------
+
+
+
+rmse(pt_estimates_coll$truth, pt_estimates_coll$expected_value)
+mae(pt_estimates_coll$truth, pt_estimates_coll$expected_value)
+
+
+rsq <- function (x, y) cor(x, y) ^ 2
+rsq(pt_estimates_coll$truth, pt_estimates_coll$expected_value)
+cor(pt_estimates_coll$truth, pt_estimates_coll$expected_value)

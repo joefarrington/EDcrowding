@@ -158,11 +158,23 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
   
   lab_cutoff_csn <- data.table(merge(lab_cutoff_csn, lab_cutoff_csn_battery))
   
+  # add number out of range results for each lab test in APACHE and those identified by ED clinicians
+  lab_cutoff_csn_oor = data.table(lab_results_cutoff %>% 
+    filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC",
+                                "HTRT", "Lac", "pCO2", "HCO3", "pH", "ALB")) %>% 
+    group_by(csn, test_lab_code) %>%
+    summarise(low = sum(oor_low), 
+              high = sum(oor_high)) %>%
+    pivot_longer(low:high) %>% 
+      mutate(test_lab_code = paste0(name, "_", test_lab_code)) %>% select(-name) %>% 
+    pivot_wider(names_from = test_lab_code, names_prefix = "p_num_oor_", values_from = value)
+  )
+  
   # add latest score for each lab test in APACHE and those identified by ED clinicians
   lab_cutoff_csn_val <- data.table(
     lab_results_cutoff %>%
       filter(test_lab_code %in% c("K", "NA", "CREA", "HCTU", "WCC",
-                                  "HTRT", "Lac", "pCO2", "HCO3", "pH")) %>% 
+                                  "HTRT", "Lac", "pCO2", "HCO3", "pH", "ALB")) %>% 
       group_by(csn, test_lab_code) %>%
       filter(elapsed_mins == max(elapsed_mins), !is.na(value_as_real)) %>%
       # using max allows for possibility of two measurements in same minute
@@ -170,6 +182,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
       pivot_wider(names_from = test_lab_code, names_prefix = "p_latest_", values_from = latest_value)
   )
   
+
   
   ## combine everything
   
@@ -191,6 +204,7 @@ create_timeslice <- function (moves, dm, obs_real, lab_orders_real, lab_results_
   # add other info where there may be genuine NAs
   matrix_cutoff <- merge(matrix_cutoff, dm[duration > cutoff], by = c("csn", "adm")) 
   matrix_cutoff <- merge(matrix_cutoff, obs_cutoff_csn_val, by = "csn", all.x = TRUE) 
+  matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_oor, by = "csn", all.x = TRUE) 
   matrix_cutoff <- merge(matrix_cutoff, lab_cutoff_csn_val, by = "csn", all.x = TRUE)
   matrix_cutoff[, duration := NULL]
   
@@ -243,7 +257,7 @@ covid_cases %>% ggplot(aes(x = date, y = rolling7, fill = surge)) + geom_bar(sta
 # Create admission details--------------------------------------------------
 
 
-dm <- summ[,.(csn, age, sex, presentation_time, adm, arrival_method, first_outside_proper_admission, last_ED_discharge, min_I, first_ED_admission)]
+dm <- summ[,.(csn, age, sex, presentation_time, adm, arrival_method, first_outside_proper_admission, last_inside_discharge, min_I, first_ED_admission)]
 
 dm[, tod := factor((hour(presentation_time) %/% 4)+1)]
 dm[, quarter := factor(case_when( month(presentation_time) <= 3 ~ 1,
@@ -270,7 +284,9 @@ dm[, beforeED := if_else(beforeED <0, 0, beforeED) ]
 # NB - using first inside admission for duration - includes time spent in CDU
 # NB - first ED admission exludes any time as an inpatient prior to arriving in ED
 
-dm[, duration := case_when(is.na(first_outside_proper_admission) ~ as.numeric(difftime(last_ED_discharge, first_ED_admission, units = "mins")),
+dm[, duration := case_when(is.na(first_outside_proper_admission) ~ 
+                             as.numeric(difftime(last_inside_discharge, # changed from last_ED_discharge on 19.5.21
+                                                 first_ED_admission, units = "mins")),
                                TRUE ~ as.numeric(difftime(first_outside_proper_admission, first_ED_admission, units = "mins")))]
 print("Rows in design matrix initially")
 rpt(dm)
@@ -361,7 +377,7 @@ print("Rows in loc")
 rpt(loc)
 
 loc[, c("admission", "discharge", "first_ED_admission", "first_outside_proper_admission") := NULL]
-dm[, c("presentation_time", "first_outside_proper_admission", "min_I", "first_ED_admission", "last_ED_discharge") := NULL]
+dm[, c("presentation_time", "first_outside_proper_admission", "min_I", "first_ED_admission", "last_inside_discharge") := NULL]
 
 cols = colnames(copy(dm)[, c("csn", "adm", "duration", "in_set") := NULL])
 cols_ = paste("a", cols, sep="_")
