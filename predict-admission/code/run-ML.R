@@ -20,22 +20,22 @@
 
 # set date of file to include
 
-file_date <- "2021-05-17"
+file_date <- "2021-05-19"
 
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
-use_dataset = "Post"
+use_dataset = "Pre" # combined format is "Pre + Post"
 
 base_model = FALSE
 # check_eval_metric =  FALSE # keep eval_metric as log_loss
 tune_nr = FALSE
-tune_trees = FALSE
+tune_trees = TRUE
 # tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
 recal_nr = FALSE
-tune_samples = FALSE
+tune_samples = TRUE
 # tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
-reduce_lr = FALSE
+reduce_lr = TRUE
 final_preds = TRUE # NB - check which prior round final_preds is looking for
 
 
@@ -51,9 +51,6 @@ library(lubridate)
 library(mlr3)
 library(mlr3learners)
 library(mlr3proba)
-
-# for shapley plot
-
 library(GGally)
 library(precrec)
 library(paradox)
@@ -546,22 +543,7 @@ if (tune_nr) {
       
       save(scores, file = scores_file) 
     }
-  } 
-  
-  best_param_val = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset &
-                                       tuning_round == "nrounds",
-                                     .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)])
-  # print ("Best results:")
-  # scores <- data.table(scores)
-  # print(scores[tsk_ids == "val" & tuning_round == "nrounds" & model_features == model_features & dataset == use_dataset 
-  #              , .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, nrounds)])
-  # 
-  # scores[tsk_ids == "val" & tuning_round == "nrounds" & model_features == model_features & dataset == use_dataset] %>%
-  #   pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-  #   ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
-  #   labs(y = "logloss", title = "Results of tuning nrounds of XGBoost for each timeslice - logloss scores")
-  # 
-
+  }
 }
 
 
@@ -579,6 +561,10 @@ if (tune_trees) {
     nrounds = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
                                   tuning_round == "nrounds",
                                 .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)])
+    
+    # after evaluating the size of gains in nrounds, I choose to cap nrounds at 30
+    # see report-on-tuning.R for more
+    if (nrounds > 30) { nrounds = 30}
     
     # tune max_depth
     for(max_depth in c(2, 5, 8, 12, 16, 20)) { # first round
@@ -757,61 +743,61 @@ if (tune_trees) {
 # Recalibrate nrounds -----------------------------------------------------
 
 
-if (recal_nr) {
-  
-  for (ts_ in timeslices) {
-    name_tsk <- paste0("task", ts_)
-    tsk = get(name_tsk)
-    tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
-    tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
-    
-    max_depth = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
-                                    tuning_round == "tune_trees",
-                                  .SD[which.min(logloss)], by = list(timeslice)][,.(max_depth)])
-    
-    
-    min_child_weight = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
-                                           tuning_round == "tune_trees",
-                                         .SD[which.min(logloss)], by = list(timeslice)][,.(min_child_weight)])
-    
-    retry_nr = seq(min(scores[tsk_ids == "val"& model_features == model_features  & dataset == use_dataset &  tuning_round == "tune_trees",
-                               .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)]), 
-                   max(scores[tsk_ids == "val"& model_features == model_features & dataset == use_dataset &  tuning_round == "tune_trees",
-                               .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)]), 
-                   10)
-    
-    # tune nrounds again trying all values of nrounds from the minimum to the maximum best in previous rounds
-    for(nrounds in retry_nr) { 
-      
-      # get scores on training set using cross-validation
-      scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
-                             tuning_round = "recal_nr", 
-                             nrounds = nrounds,
-                             max_depth = max_depth, 
-                             min_child_weight = min_child_weight, 
-                             # gamma = gamma, 
-                             scores, model_features, use_dataset)
-      
-      
-      # train on full training set and save results on validation set
-      scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
-                             tuning_round = "recal_nr", scores, model_features, use_dataset)
-    }
-    
-    save(scores, file = scores_file) 
-    
-  } 
-  
-  scores[tsk_ids == "val" & tuning_round %in% c( "recal_nr", "nrounds") & model_features == model_features & dataset == use_dataset,
-         .SD[which.min(logloss)], by = list(timeslice, tuning_round)][,.(timeslice, tuning_round, nrounds, logloss)]
-
-
-  scores[tsk_ids == "val" & tuning_round == "recal_nr" & model_features == model_features & dataset == use_dataset] %>%
-    pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
-    ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
-    labs(y = "logloss", title = "Results of recalibrating nrounds of XGBoost for each timeslice - logloss scores")
-  
-}
+# if (recal_nr) {
+#   
+#   for (ts_ in timeslices) {
+#     name_tsk <- paste0("task", ts_)
+#     tsk = get(name_tsk)
+#     tsk_train_ids = get(paste0(name_tsk, "_train_ids"))
+#     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
+#     
+#     max_depth = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
+#                                     tuning_round == "tune_trees",
+#                                   .SD[which.min(logloss)], by = list(timeslice)][,.(max_depth)])
+#     
+#     
+#     min_child_weight = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
+#                                            tuning_round == "tune_trees",
+#                                          .SD[which.min(logloss)], by = list(timeslice)][,.(min_child_weight)])
+#     
+#     retry_nr = seq(min(scores[tsk_ids == "val"& model_features == model_features  & dataset == use_dataset &  tuning_round == "tune_trees",
+#                                .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)]), 
+#                    max(scores[tsk_ids == "val"& model_features == model_features & dataset == use_dataset &  tuning_round == "tune_trees",
+#                                .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)]), 
+#                    10)
+#     
+#     # tune nrounds again trying all values of nrounds from the minimum to the maximum best in previous rounds
+#     for(nrounds in retry_nr) { 
+#       
+#       # get scores on training set using cross-validation
+#       scores <- tune_learner(name_tsk, tsk, learner, tsk_train_ids, 
+#                              tuning_round = "recal_nr", 
+#                              nrounds = nrounds,
+#                              max_depth = max_depth, 
+#                              min_child_weight = min_child_weight, 
+#                              # gamma = gamma, 
+#                              scores, model_features, use_dataset)
+#       
+#       
+#       # train on full training set and save results on validation set
+#       scores <- save_results(name_tsk, tsk, learner, tsk_train_ids, tsk_val_ids, tsk_ids = "val",
+#                              tuning_round = "recal_nr", scores, model_features, use_dataset)
+#     }
+#     
+#     save(scores, file = scores_file) 
+#     
+#   } 
+#   
+#   scores[tsk_ids == "val" & tuning_round %in% c( "recal_nr", "nrounds") & model_features == model_features & dataset == use_dataset,
+#          .SD[which.min(logloss)], by = list(timeslice, tuning_round)][,.(timeslice, tuning_round, nrounds, logloss)]
+# 
+# 
+#   scores[tsk_ids == "val" & tuning_round == "recal_nr" & model_features == model_features & dataset == use_dataset] %>%
+#     pivot_longer(logloss:tn) %>% filter(name %in% c("logloss")) %>%
+#     ggplot(aes(x = nrounds, y = value)) + geom_line() + facet_grid(. ~ timeslice) +
+#     labs(y = "logloss", title = "Results of recalibrating nrounds of XGBoost for each timeslice - logloss scores")
+#   
+# }
 
 
 # Tune subsamples and col samples -----------------------------------------
@@ -826,15 +812,15 @@ if (tune_samples) {
     
     
     nrounds = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
-                                    tuning_round == "recal_nr",
+                                    tuning_round == "tune_trees",
                                   .SD[which.min(logloss)], by = list(timeslice)][,.(nrounds)])
     
     max_depth = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
-                                    tuning_round == "recal_nr",
+                                    tuning_round == "tune_trees",
                                   .SD[which.min(logloss)], by = list(timeslice)][,.(max_depth)])
     
     min_child_weight = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
-                                           tuning_round == "recal_nr",
+                                           tuning_round == "tune_trees",
                                          .SD[which.min(logloss)], by = list(timeslice)][,.(min_child_weight)])
     # 
     # gamma = as.numeric(scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset & 
@@ -1048,39 +1034,39 @@ if (reduce_lr) {
   #        .SD[which.min(logloss)], by = list(timeslice)][,.(timeslice, alpha)]
 }
 
-# Looking at improvement on validation set with tuning --------------------
-
-s = data.table(scores[tsk_ids == "val"  & model_features == model_features & dataset == use_dataset])
-
-s1 = s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
-  filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
-  ggplot(aes(x = factor(tuning_round,
-                        levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
-             y = logloss,
-             group = "tuning_round")) +
-  geom_line() + geom_point() + facet_grid(. ~ timeslice) +
-  theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(title = "XGBoost Log loss values after each round of tuning (scores on validation set)",
-       x = "Tuning round",
-       y = "Log loss value") + theme_grey(base_size = 16) +
-  theme(axis.text.x=element_text(angle=45,hjust=1)) 
-
-
-s2 = s[, .SD[which.max(auc)], by = list(timeslice, tuning_round)] %>%
-  filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
-  ggplot(aes(x = factor(tuning_round,
-                        levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
-             y = auc,
-             group = "tuning_round")) +
-  geom_line() + geom_point() + facet_grid(. ~ timeslice) +
-  theme(axis.text.x=element_text(angle=45,hjust=1)) +
-  labs(title = "XGBoost AUC scores after each round of tuning (scores on validation set)",
-       x = "Tuning round",
-       y = "AUC score") + theme_grey(base_size = 16) +
-  theme(axis.text.x=element_text(angle=45,hjust=1)) 
-
-library(gridExtra)
-grid.arrange(s1, s2, nrow = 2)
+# # Looking at improvement on validation set with tuning --------------------
+# 
+# s = data.table(scores[tsk_ids == "val"  & model_features == model_features & dataset == use_dataset])
+# 
+# s1 = s[, .SD[which.min(logloss)], by = list(timeslice, tuning_round)] %>%
+#   filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
+#   ggplot(aes(x = factor(tuning_round,
+#                         levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
+#              y = logloss,
+#              group = "tuning_round")) +
+#   geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+#   theme(axis.text.x=element_text(angle=45,hjust=1)) +
+#   labs(title = "XGBoost Log loss values after each round of tuning (scores on validation set)",
+#        x = "Tuning round",
+#        y = "Log loss value") + theme_grey(base_size = 16) +
+#   theme(axis.text.x=element_text(angle=45,hjust=1)) 
+# 
+# 
+# s2 = s[, .SD[which.max(auc)], by = list(timeslice, tuning_round)] %>%
+#   filter(!tuning_round %in% c("colsample_bytree", "max_depth", "min_child_weight", "subsample")) %>%
+#   ggplot(aes(x = factor(tuning_round,
+#                         levels = c("base", "nrounds", "tune_trees", "gamma", "recal_nr", "tune_samples", "alpha", "reduce_lr")),
+#              y = auc,
+#              group = "tuning_round")) +
+#   geom_line() + geom_point() + facet_grid(. ~ timeslice) +
+#   theme(axis.text.x=element_text(angle=45,hjust=1)) +
+#   labs(title = "XGBoost AUC scores after each round of tuning (scores on validation set)",
+#        x = "Tuning round",
+#        y = "AUC score") + theme_grey(base_size = 16) +
+#   theme(axis.text.x=element_text(angle=45,hjust=1)) 
+# 
+# library(gridExtra)
+# grid.arrange(s1, s2, nrow = 2)
 # Save preds from final model ---------------------------------------------
 
 
