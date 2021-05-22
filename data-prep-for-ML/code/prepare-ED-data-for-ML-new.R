@@ -24,35 +24,35 @@ rpt <- function(dataframe) {
 
 # Load data ---------------------------------------------------------------
 
+file_date = '2021-05-17'
+load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
+load(paste0("~/EDcrowding/flow-mapping/data-raw/moves_", file_date,".rda"))
+load(paste0("~/EDcrowding/flow-mapping/data-raw/edgedf_", file_date,".rda"))
 
-load("~/EDcrowding/flow-mapping/data-raw/edgedf_2021-04-13.rda")
-load("~/EDcrowding/flow-mapping/data-raw/moves_2021-04-13.rda")
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
-
-# # temporarily for old data
-# load("~/EDcrowding/data-prep-for-ML/data-raw/edgedf_2021-03-03.rda")
-# load("~/EDcrowding/data-prep-for-ML/data-raw/moves_2021-03-03.rda")
-# load("~/EDcrowding/data-prep-for-ML/data-raw/summ_2021-03-03.rda")
 
 # Set parameters ----------------------------------------------------------
 
 
 matrix_start_date <- as.POSIXct("2019-05-01 00:00:00")
-matrix_end_date <- as.POSIXct('2021-04-13 00:00:00')
+matrix_end_date <- as.POSIXct('2021-05-01 00:00:00')
 covid_start <- as.POSIXct('2020-03-19 00:00:00')
 
 
 # Pre-process data ----------------------------------------------------
 
 
-# !!!!!!!!! need to change this to first_ED_admission !!!!!!!!!!!!!!! ???
+# changed this to first_ED_admission on 22.5.21
 
-summ = summ[admission_time >= matrix_start_date]
-summ = summ[admission_time < matrix_end_date]
+summ = summ[first_ED_admission >= matrix_start_date]
+summ = summ[first_ED_admission < matrix_end_date]
+
+# added this on 22.5.21
+moves = moves[csn %in% summ$csn]
+edgedf = edgedf[csn %in% summ$csn]
 
 # to see implications of this cut point as a chart
 summ[, adm := if_else(adm %in% c("direct_adm", "indirect_adm"), 1, 0)]
-summ[, .N, by = list(date(presentation_time), adm)] %>%
+summ[, .N, by = list(date(first_ED_admission), adm)] %>%
   ggplot(aes(x = date, y = N, fill = as.character(adm))) +
   scale_x_date(date_breaks = "3 months" , date_labels = "%Y-%m") +
   geom_bar(stat = "identity") +
@@ -63,9 +63,9 @@ summ[, .N, by = list(date(presentation_time), adm)] %>%
 rpt(summ)
 
 
-# # I considered merging wtih summ to get first outside ED exit; this is to avoid double counting of cases where there is more than one exit
-# # but then we lose people with first outside admission prior to ED - commenting this out for now
-# rpt(moves[num_ED_exit > 1]) 
+# # # I considered merging wtih summ to get first outside ED exit; this is to avoid double counting of cases where there is more than one exit
+# # # but then we lose people with first outside admission prior to ED - commenting this out for now
+# rpt(moves[num_ED_exit > 1])
 # edgedf = merge(edgedf, summ[,.(csn, adm, first_outside_proper_admission)], by = "csn")
 # edgedf[, drop_row := (adm %in% c("indirect_adm", "direct_adm") & dttm > first_outside_proper_admission)]
 # edgedf = edgedf[!(drop_row)]
@@ -96,10 +96,11 @@ rpt(edgedf[from_dept %in% c("ED", "UCHT00CDU") & to_new == "Admitted"])
 
 
 # split into before and after covid
-edgedf_before_covid <- edgedf[csn %in% summ[presentation_time < covid_start, csn]]
+
+edgedf_before_covid <- edgedf[csn %in% summ[first_ED_admission < covid_start, csn]] # changed this to first_ED_admission on 22.5.21
 rpt(edgedf_before_covid)
 
-edgedf_after_covid <- edgedf[csn %in% summ[presentation_time >= covid_start, csn]]
+edgedf_after_covid <- edgedf[csn %in% summ[first_ED_admission >= covid_start, csn]]
 rpt(edgedf_after_covid)
 
 #  after covid, Diagnostics becomes a very infrequently used location
@@ -182,6 +183,9 @@ get_nums_by_dttm <- function(date_range, moves, edgdf) {
   
   adm_during_hour = data.table()
   for (i in 2:length(date_range)) {
+    
+    # for debugging
+    summ[first_outside_proper_admission > as.POSIXct('2019-11-26 11:00:00') & first_outside_proper_admission <= as.POSIXct('2019-11-26 16:00:00')]
     
     # get hours between presentation and admission for each person admitted in hour
     wait = data.table(summ[first_outside_proper_admission > date_range[i-1] & first_outside_proper_admission <= date_range[i], 
