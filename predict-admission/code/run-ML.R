@@ -25,15 +25,15 @@ file_date <- "2021-05-19"
 
 # choose features to include - a - admission features; l = location; o = observation; p = pathology
 model_features = "alop"
-use_dataset = "Pre" # combined format is "Pre + Post"
+use_dataset = "Post" # combined format is "Pre + Post"
 
 base_model = FALSE
 # check_eval_metric =  FALSE # keep eval_metric as log_loss
 tune_nr = FALSE
-tune_trees = TRUE
+tune_trees = FALSE
 # tune_gamma = FALSE # no longer tuning gamma; treat it as zero since in earlier versions tuning showed no variation
-recal_nr = FALSE
-tune_samples = TRUE
+recal_nr = FALSE # have now capped nrounds at 30 so will skip this step (24.5.21)
+tune_samples = FALSE
 # tune_alpha = FALSE # not necessary; we are achieving regularisation in others ways
 reduce_lr = TRUE
 final_preds = TRUE # NB - check which prior round final_preds is looking for
@@ -1080,7 +1080,7 @@ if (final_preds) {
     tsk_val_ids = get(paste0(name_tsk, "_val_ids"))
 
     params = scores[tsk_ids == "val" & timeslice == name_tsk & model_features == model_features & dataset == use_dataset &
-                      tuning_round == "nrounds",
+                      tuning_round == "reduce_lr",
                     .SD[which.min(logloss)], by = list(timeslice)]
 
     learner <- update_learner(learner,

@@ -40,6 +40,9 @@ pe_Post[, dataset := use_dataset]
 pe_all = bind_rows(pe_Pre, pe_Post)
 
 
+pe_all[, dist_ := case_when((is.na(time_window) & !inc_nya) ~ paste("In ED only"),
+                            !inc_nya ~ paste("In ED only; admitted in", time_window, "hours"),
+                              TRUE ~ paste(dist, "in", time_window, "hours"))]
 
 
 # Evaluate point estimates ------------------------------------------------
@@ -47,14 +50,17 @@ pe_all = bind_rows(pe_Pre, pe_Post)
 
 pe_results = data.table()
 
+
 for (dataset_ in unique(pe_all$dataset)) {
   
-  for (dist_ in unique(pe_all$dist)) {
+  for (dist__ in unique(pe_all$dist_)) {
     
-    pe_subset = pe_all[dataset == dataset_ & dist == dist_]
+    pe_subset = pe_all[dataset == dataset_ & dist_ == dist__]
     
     res_ = data.table(dataset = dataset_,
-                      dist = dist_,
+                      dist = unique(pe_subset$dist),
+                      dist_ = dist__,
+                      time_window = unique(pe_subset$time_window), 
                       rmse = rmse(pe_subset$truth, pe_subset$expected_value),
                       mae = mae(pe_subset$truth, pe_subset$expected_value),
                       rsq = rsq(pe_subset$truth, pe_subset$expected_value))
@@ -63,14 +69,20 @@ for (dataset_ in unique(pe_all$dataset)) {
   }
   
 }
+pe_results[, dist := as.factor(dist)]
+pe_results[, dataset := factor(dataset, levels = c("Pre", "Post", "Pre + Post"))]
+setorderv(pe_results, c("dataset", "dist"))
 
+outFile = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features, "_point_estimates_", 
+                 tsk_ids, "_", Sys.Date(),".csv")
+write.csv(pe_results %>% select(-dist_) %>% filter(!is.na(time_window)) %>% pivot_wider(names_from = time_window, values_from = rmse:rsq), file = outFile, row.names = FALSE)
 
 
 # Plot results ------------------------------------------------------------
 
   
 
-pe_Pre[grep("Inc", dist)] %>% 
+pe_all[(inc_nya & time_window == 4 & dataset == "Pre")] %>% 
   ggplot(aes(x = time_of_report)) +
   geom_point(aes(y = truth, col = "truth")) +
   geom_point(aes(y = expected_value, col = "expected value")) +
@@ -79,7 +91,23 @@ pe_Pre[grep("Inc", dist)] %>%
   geom_ribbon(aes(ymax = quantile95, ymin = quantile5), fill = 'grey', alpha = 0.5) +
   scale_x_datetime(breaks = "days") +
   theme(axis.text.x=element_text(angle=90,hjust=1)) +
-  facet_grid(.~dist)
+  facet_wrap(.~dist, nrow = 4) +
+  labs(title = "Pre Covid validation set") +
+  theme(legend.position = "bottom")
+
+pe_all[(inc_nya & time_window == 4 & dataset == "Post")] %>% 
+  ggplot(aes(x = time_of_report)) +
+  geom_point(aes(y = truth, col = "truth")) +
+  geom_point(aes(y = expected_value, col = "expected value")) +
+  geom_line(aes(y = truth, col = "truth")) +
+  geom_line(aes(y = expected_value, col = "expected value")) +
+  geom_ribbon(aes(ymax = quantile95, ymin = quantile5), fill = 'grey', alpha = 0.5) +
+  scale_x_datetime(breaks = "days") +
+  theme(axis.text.x=element_text(angle=90,hjust=1)) +
+  facet_wrap(.~dist, nrow = 4) +
+  labs(title = "Post Covid validation set") +
+  theme(legend.position = "bottom")
+
 
 
 # Compare with actual -----------------------------------------------------
