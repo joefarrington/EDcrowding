@@ -16,33 +16,32 @@ rsq <- function (x, y) cor(x, y) ^ 2
 # Load data ---------------------------------------------------------------
 
 tsk_ids = "val"
-model_features = "alop"
-use_dataset = "Pre"
+model_features = c("alop", "aop")
+use_dataset = c("Pre", "Post")
+model_output_date = '2021-05-25'
 
-prob_dist_file = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features, "_", use_dataset, "_", 
-                        tsk_ids, "_", Sys.Date(),".rda")
-load(prob_dist_file)
+pe_all = data.table()
 
-pe_Pre = prob_dist[[2]]
-pe_Pre[, dataset := use_dataset]
+for (model_features_ in model_features) {
+  for (dataset_ in use_dataset) {
+    
+    prob_distributionfile = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features_, "_", dataset_, "_", 
+                            tsk_ids, "_", model_output_date,".rda")
+    load(prob_distributionfile)
+    
+    pe = prob_dist[[2]]
+    
+    pe[, dataset := dataset_]
+    pe[, model_features := model_features_]
+    
+    pe_all = bind_rows(pe_all, pe)
+  }
+}
 
-
-use_dataset = "Post"
-
-prob_dist_file = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features, "_", use_dataset, "_", 
-                        tsk_ids, "_", Sys.Date(),".rda")
-load(prob_dist_file)
-
-pe_Post = prob_dist[[2]]
-pe_Post[, dataset := use_dataset]
-
-# later add other results
-pe_all = bind_rows(pe_Pre, pe_Post)
-
-
-pe_all[, dist_ := case_when((is.na(time_window) & !inc_nya) ~ paste("In ED only"),
-                            !inc_nya ~ paste("In ED only; admitted in", time_window, "hours"),
-                              TRUE ~ paste(dist, "in", time_window, "hours"))]
+# create aggregate distribution just for summing the results
+pe_all[, distribution := case_when((is.na(time_window) & !inc_nya) ~ paste("In ED only"),
+                            !inc_nya ~ paste("In ED only"),
+                              TRUE ~ paste(dist))]
 
 
 # Evaluate point estimates ------------------------------------------------
@@ -50,39 +49,52 @@ pe_all[, dist_ := case_when((is.na(time_window) & !inc_nya) ~ paste("In ED only"
 
 pe_results = data.table()
 
-
-for (dataset_ in unique(pe_all$dataset)) {
-  
-  for (dist__ in unique(pe_all$dist_)) {
-    
-    pe_subset = pe_all[dataset == dataset_ & dist_ == dist__]
-    
-    res_ = data.table(dataset = dataset_,
-                      dist = unique(pe_subset$dist),
-                      dist_ = dist__,
-                      time_window = unique(pe_subset$time_window), 
-                      rmse = rmse(pe_subset$truth, pe_subset$expected_value),
-                      mae = mae(pe_subset$truth, pe_subset$expected_value),
-                      rsq = rsq(pe_subset$truth, pe_subset$expected_value))
-    
-    pe_results = bind_rows(pe_results, res_)
+for (dataset_ in use_dataset)  {
+  for (model_features_ in model_features) {
+    for (distribution_ in unique(pe_all$distribution)) {
+      
+      pe_subset = pe_all[model_features == model_features_ & 
+                           dataset == dataset_ &
+                           distribution == distribution_]
+      
+      res_ = data.table(dataset = dataset_,
+                        model_features = model_features_,
+                        dist = unique(pe_subset$dist),
+                        distribution = distribution_,
+                        time_window = unique(pe_subset$time_window), 
+                        rmse = rmse(pe_subset$truth, pe_subset$expected_value),
+                        mae = mae(pe_subset$truth, pe_subset$expected_value),
+                        rsq = rsq(pe_subset$truth, pe_subset$expected_value))
+      
+      pe_results = bind_rows(pe_results, res_)
+    }
   }
-  
 }
+
 pe_results[, dist := as.factor(dist)]
 pe_results[, dataset := factor(dataset, levels = c("Pre", "Post", "Pre + Post"))]
-setorderv(pe_results, c("dataset", "dist"))
+pe_results[, inc_true := grepl("true", distribution)]
+pe_results[, time_window := ifelse(is.na(time_window), "none", as.character(time_window))]
+setorderv(pe_results, c("inc_true", "model_features", "dataset", "time_window", "dist"))
 
-outFile = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_", model_features, "_point_estimates_", 
+
+
+pe_wide = pe_results %>% select(-distribution) %>% filter(!inc_true) %>% pivot_wider(names_from = time_window, values_from = rmse:rsq) %>% select(-inc_true)
+pe_wide = pe_wide %>% select(model_features, dataset,  dist, rmse_4, mae_4, rsq_4, rmse_8, mae_8, rsq_8, everything())
+
+outFile = paste0("~/EDcrowding/predict-admission/model-output/model_eval_xgb_point_estimates_", 
                  tsk_ids, "_", Sys.Date(),".csv")
-write.csv(pe_results %>% select(-dist_) %>% filter(!is.na(time_window)) %>% pivot_wider(names_from = time_window, values_from = rmse:rsq), file = outFile, row.names = FALSE)
+write.csv(pe_wide, file = outFile, row.names = FALSE)
 
 
 # Plot results ------------------------------------------------------------
 
   
+pe_all[, inc_true := grepl("true", distribution)]
+pe_all[, dataset := factor(dataset, levels = c("Pre", "Post", "Pre + Post"))]
 
-pe_all[(inc_nya & time_window == 4 & dataset == "Pre")] %>% 
+
+pe_all[(inc_nya & !inc_true & !(grepl("Boost", distribution))  & model_features == "alop")] %>% 
   ggplot(aes(x = time_of_report)) +
   geom_point(aes(y = truth, col = "truth")) +
   geom_point(aes(y = expected_value, col = "expected value")) +
@@ -91,9 +103,16 @@ pe_all[(inc_nya & time_window == 4 & dataset == "Pre")] %>%
   geom_ribbon(aes(ymax = quantile95, ymin = quantile5), fill = 'grey', alpha = 0.5) +
   scale_x_datetime(breaks = "days") +
   theme(axis.text.x=element_text(angle=90,hjust=1)) +
-  facet_wrap(.~dist, nrow = 4) +
-  labs(title = "Pre Covid validation set") +
-  theme(legend.position = "bottom")
+  # facet_wrap(time_window~dataset, nrow = 2, scales = "free") +
+  facet_grid(time_window~dataset, scales = "free") +
+  labs(title = "Plots of expected values versus actual numbers admitted by time window and dataset",
+       subtitle = "Using empirical poisson for not yet admitted", 
+       x = "Validation set date", y = "Number admitted", legend = NULL) +
+  theme(legend.position = "bottom") + theme(legend.title = element_blank())
+# +
+#   theme(axis.title.x=element_blank(),
+#         axis.text.x=element_blank(),
+#         axis.ticks.x=element_blank())
 
 pe_all[(inc_nya & time_window == 4 & dataset == "Post")] %>% 
   ggplot(aes(x = time_of_report)) +

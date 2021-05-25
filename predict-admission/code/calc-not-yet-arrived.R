@@ -1,21 +1,42 @@
-# work out distribution of not yet arrived
+# Load libraries ----------------------------------------------------------
 
-# summary of csns to get minimum and maxium
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-04-13.rda")
-summ = summ[!is.na(discharge_time)]
-summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
 
-summ[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
-                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
-                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
-                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
-                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
-                         TRUE ~ "Test",)]
+library(dplyr)
+library(tidyverse)
+library(data.table)
+library(lubridate)
+
+
+
+# Load data ---------------------------------------------------------------
+
+file_date = '2021-05-17'
+  
+load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
+
+summ[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
+                           first_ED_admission < '2019-12-13 00:00:00' ~ "Val",
+                           first_ED_admission < '2020-03-19 00:00:00' ~ "Test",
+                           first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
+                           first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
+                           first_ED_admission < '2021-05-01 00:00:00' ~ "Test",
+                           TRUE ~ "After")]
+
+# summ[, left_ED := coalesce(first_outside_proper_admission, last_inside_discharge)]
+
+poisson_file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda"
+
+if (file.exists(poisson_file)) {
+  load(poisson_file)
+  save(poisson_not_yet_arrived, file = paste0("~/EDcrowding/real-time/data-raw/poisson_means_archived_on_",Sys.Date(),".rda"))
+}
+
+poisson_not_yet_arrived_old = poisson_not_yet_arrived
 
 # Generate time points  ------------------------------
 
 start_of_set = as.POSIXct('2019-05-01', tz = "UTC")
-end_of_set = as.POSIXct('2021-04-13', tz = "UTC")
+end_of_set = as.POSIXct('2021-05-01', tz = "UTC")
 next_dt = start_of_set
 
 time_pts = POSIXct()
@@ -25,8 +46,6 @@ while (next_dt < end_of_set) {
   time_pts <- c(time_pts, next_pt)
   next_dt = next_dt + days(1)
 }
-
-
 
 
 # Summarise number not in who get admitted later --------------------------
@@ -40,8 +59,9 @@ for (i in 1:length(time_pts)) {
     print(paste("Processed ", i, " dates"))
   }
   
-  for (time_window in c(2,3,4,6,8,12)) {
-    
+  for (time_window in c(4, 8)) {
+    # for (time_window in c(2,3,4,6,8,12)) {
+      
     not_in_ED_yet = data.table(time_window = time_window, 
                                N = summ[first_ED_admission >time_pts[i] & first_ED_admission < time_pts[i] + hours(time_window)
                          & first_outside_proper_admission < time_pts[i] + hours(time_window), .N])
@@ -73,6 +93,74 @@ not_in_ED_yet_all[, weekend:= if_else(weekdays(time_pt, abbreviate = TRUE) %in% 
 not_in_ED_yet_all[, time_of_report:= paste0(hour(time_pt), ":", substr(time_pt, 15, 16))]
 
 not_in_ED_yet_all[time_window == 4, mean(N), by = .(weekend, time_of_report, epoch)] 
+
+
+poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
+                                            by = .(epoch, weekend, in_set, time_of_report, time_window)] 
+
+
+
+# Calculate for combined dataset ------------------------------------------
+
+# there is a neater way of doing this from not_in_ED_yet_all 
+# for now I've just regenerated the time points I want
+
+# get the time points for the pre + post training set
+pre_post_time_pts = time_pts[time_pts < '2020-12-01 00:00:00']
+
+not_in_ED_yet_all = data.table()
+
+for (i in 1:length(pre_post_time_pts)) {
+  
+  if (i %% 100 == 0) {
+    print(paste("Processed ", i, " dates"))
+  }
+  
+  for (time_window in c(4, 8)) {
+    # for (time_window in c(2,3,4,6,8,12)) {
+    
+    not_in_ED_yet = data.table(time_window = time_window, 
+                               N = summ[first_ED_admission >pre_post_time_pts[i] &
+                                          first_ED_admission < pre_post_time_pts[i] + hours(time_window)
+                                        & first_outside_proper_admission < pre_post_time_pts[i] + hours(time_window), .N])
+    
+    not_in_ED_yet$time_pt <- pre_post_time_pts[i]
+    
+    not_in_ED_yet_all = bind_rows(not_in_ED_yet_all, not_in_ED_yet)
+    
+  }
+}
+
+not_in_ED_yet_all[, in_set :=  "Train"]
+not_in_ED_yet_all[, epoch := "Pre + Post"]
+
+not_in_ED_yet_all[, weekend:= if_else(weekdays(time_pt, abbreviate = TRUE) %in% c("Sun", "Sat"), 1,0)]
+not_in_ED_yet_all[, time_of_report:= paste0(hour(time_pt), ":", substr(time_pt, 15, 16))]
+
+ 
+poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
+                                            by = .(epoch, weekend, in_set, time_of_report, time_window)] 
+
+# validation set is same as post Covid validation set
+
+poisson_pre_post_val = poisson_not_yet_arrived_old[epoch == "Post" & in_set == "Val" & time_window %in% c(4, 8)]
+poisson_pre_post_val[, epoch := "Val"]
+poisson_not_yet_arrived = bind_rows(poisson_not_yet_arrived_old, poisson_not_yet_arrived, poisson_pre_post_val)
+
+# Save to file ------------------------------------------------------------
+
+
+
+
+save(poisson_not_yet_arrived, file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda")
+
+
+
+
+# Charts from old code ----------------------------------------------------
+
+
+
 # 
 # 
 # # compare pre and post COVID
@@ -117,21 +205,6 @@ not_in_ED_yet_all[time_window == 4, mean(N), by = .(weekend, time_of_report, epo
 # save data for reference in making predictions with Poisson 
 # multiplying by 4 because num_obs is used to later to plot Poisson chart (not sure if right)
 
-
-# Save to file ------------------------------------------------------------
-
-
-
-poisson_file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda"
-
-if (file.exists(poisson_file)) {
-  load(poisson_file)
-  save(poisson_not_yet_arrived, file = paste0("~/EDcrowding/real-time/data-raw/poisson_means_archived_on_",Sys.Date(),".rda"))
-}
-
-poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
-                                  by = .(epoch, weekend, in_set, time_of_report, time_window)] 
-save(poisson_not_yet_arrived, file = "~/EDcrowding/real-time/data-raw/poisson_not_yet_arrived.rda")
 
 
 

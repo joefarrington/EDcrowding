@@ -22,9 +22,9 @@ library(mlr3misc)
 
 file_date = '2021-05-17'
 dm_file_date = '2021-05-19'
-model_date = '2021-05-18'
+model_date = '2021-05-25' # alop models are currently 24.5 | aop models currently 25.5
 model_features = "alop"
-use_dataset = "Pre"
+use_dataset = "Pre + Post"
 tsk_ids = "Val"
 
 
@@ -192,7 +192,7 @@ make_predictions = function(time_pts, summ, dm_file_date, model_date,  model_fea
     # load learner
     
     learner_file <- paste0("~/EDcrowding/predict-admission/data-output/xgb_",model_features,
-                            # "_", gsub(" +", "", use_dataset),
+                            "_", gsub(" +", "", use_dataset),
                             "_learner_",name_tsk,"_",model_date, ".rda")
     load(learner_file)
     
