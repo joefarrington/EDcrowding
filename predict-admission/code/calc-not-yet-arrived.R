@@ -31,7 +31,7 @@ if (file.exists(poisson_file)) {
   save(poisson_not_yet_arrived, file = paste0("~/EDcrowding/real-time/data-raw/poisson_means_archived_on_",Sys.Date(),".rda"))
 }
 
-poisson_not_yet_arrived_old = poisson_not_yet_arrived
+
 
 # Generate time points  ------------------------------
 
@@ -98,7 +98,7 @@ not_in_ED_yet_all[time_window == 4, mean(N), by = .(weekend, time_of_report, epo
 poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs = .N), 
                                             by = .(epoch, weekend, in_set, time_of_report, time_window)] 
 
-
+poisson_not_yet_arrived_old = poisson_not_yet_arrived
 
 # Calculate for combined dataset ------------------------------------------
 
@@ -144,7 +144,7 @@ poisson_not_yet_arrived = not_in_ED_yet_all[, .(poisson_mean = mean(N), num_obs 
 # validation set is same as post Covid validation set
 
 poisson_pre_post_val = poisson_not_yet_arrived_old[epoch == "Post" & in_set == "Val" & time_window %in% c(4, 8)]
-poisson_pre_post_val[, epoch := "Val"]
+poisson_pre_post_val[, epoch := "Pre + Post"]
 poisson_not_yet_arrived = bind_rows(poisson_not_yet_arrived_old, poisson_not_yet_arrived, poisson_pre_post_val)
 
 # Save to file ------------------------------------------------------------

@@ -68,6 +68,11 @@ Outputs
 - save features used in each model (needed for real-time prediction)
 - feature importances for each model
 
+### 5a. Reporting on tuning
+
+Prints charts showing outputs from tuning, including charts showing
+- timeslice class balance
+
 ### 6. generate-prob-dist-and-pt-estimates.R
 
 Taking the saved learners from the previous script, this generates a variety of probability distributions based on an input set of dates and times (typically the dates and times of reporting points of interest in the validation or test set). These distributions are aggregated from individual probabilities to make predictions about the number of patients to be admitted, either at any point, or within a specified time window. This can include

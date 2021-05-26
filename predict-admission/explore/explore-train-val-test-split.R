@@ -25,52 +25,76 @@ library(data.table)
 
 # Load data ----------------------------------------------------------------
 
-# newest data
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-03-24.rda")
-summ_new = summ
-rpt(summ_new)
-max(summ_new$presentation_time)
 
-load("~/EDcrowding/flow-mapping/data-raw/summ_2021-01-25.rda")
-summ_old = summ
-summ_old = summ_old[presentation_time > '2019-05-01 00:00:00']
-min(summ_old$presentation_time)
+file_date = '2021-05-17'
 
-summ_old = summ_old[!csn %in% summ_new$csn]
-rpt(summ_old)
+load(paste0("~/EDcrowding/flow-mapping/data-raw/summ_", file_date,".rda"))
 
+summ[, in_set := case_when(first_ED_admission < '2019-11-19 00:00:00' ~ "Train",
+                           first_ED_admission < '2019-12-13 00:00:00' ~ "Val",
+                           first_ED_admission < '2020-03-19 00:00:00' ~ "Test",
+                           first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
+                           first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
+                           first_ED_admission < '2021-05-01 00:00:00' ~ "Test",
+                           TRUE ~ "After")]
 
-summ = bind_rows(summ_old, summ_new)
-rpt(summ)
+summ = summ[in_set != "After"]
+summ[, in_set := factor(in_set, levels = c("Train", "Val", "Test"))]
+
 
 # Mark pre and post epoch -------------------------------------------------
 
-summ[, epoch := case_when(presentation_time < '2020-03-19 00:00:00' ~ "Pre",
+summ[, epoch := case_when(first_ED_admission < '2020-03-19 00:00:00' ~ "Pre",
                          TRUE ~ "Post")]
-summ[, epoch := factor(epoch, levels = c("Pre", "Post"))]
-
-# Do train-test-val split  -----------------------------------------------------------------
-
-summ[, in_set := case_when(presentation_time < '2019-11-19 00:00:00' ~ "Train",
-                         presentation_time < '2019-12-13 00:00:00' ~ "Val",
-                         presentation_time < '2020-03-19 00:00:00' ~ "Test",
-                         presentation_time < '2020-12-01 00:00:00' ~ "Train",
-                         presentation_time < '2020-12-29 00:00:00' ~ "Val",
-                         TRUE ~ "Test")]
-
-summ[, in_set := factor(in_set, levels = c("Train", "Val", "Test"))]
+summ[, epoch := factor(epoch, levels = c("Pre", "Post", "Pre + Post"))]
 
 summ[, adm := if_else(adm %in% c("direct_dis", "indirect_dis"), "Discharged", "Admitted")]
 
+
+# Add pre + Post ----------------------------------------------------------
+
+pre_post = summ
+pre_post[, epoch := "Pre + Post"]
+
+pre_post[, in_set := case_when(first_ED_admission < '2020-12-01 00:00:00' ~ "Train",
+                           first_ED_admission < '2020-12-29 00:00:00' ~ "Val",
+                           first_ED_admission < '2021-05-01 00:00:00' ~ "Test",
+                           TRUE ~ "After")]
+
+pre_post[, in_set := factor(in_set, levels = c("Train", "Val", "Test"))]
+
+
 # number of arrivals
-summ[, .N, by = .(date(presentation_time), in_set)] %>% ggplot(aes(x = date, y = N, fill = in_set)) + 
+p1 = summ[, .N, by = .(date(presentation_time), in_set)] %>% ggplot(aes(x = date, y = N, fill = in_set)) + 
   geom_bar(stat = "identity") +
-  labs(title = "Number of visits by day",
+  labs(title = "Number of visits by day, with colour showing Pre and Post train-val-test split",
        x = "Date", 
        y = "Number of visits",
        fill = "Set") +
   geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) 
 
+
+
+# number of admissions with lines
+p2 = summ[, .N, by = .(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = fct_rev(adm))) + 
+  geom_bar(stat = "identity") +
+  geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) +
+  labs(title = "Number of admissions and discharges by day",
+       x = "Date", 
+       y = "Number of visits",
+       fill = "Disposition") 
+
+
+p3 = pre_post[, .N, by = .(date(presentation_time), in_set)] %>% ggplot(aes(x = date, y = N, fill = in_set)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Number of visits by day, with colour showing combined train-val-test split",
+       x = "Date", 
+       y = "Number of visits",
+       fill = "Set") +
+  geom_vline(xintercept = c(date("2020-12-01"), date("2020-12-29"))) 
+
+library(gridExtra)
+grid.arrange(p1, p3)
 
 # Raw nuumbers 
 summ[, .N, by = .(epoch, in_set)] %>% ggplot(aes(x = fct_rev(epoch), y = N, fill = in_set)) + geom_bar(stat = "identity") +
@@ -102,14 +126,6 @@ summ[, .N, by = .(epoch, in_set)] %>% ggplot(aes(x = fct_rev(epoch), y = N, fill
 
 
 
-# number of admissions with lines
-summ[, .N, by = .(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = fct_rev(adm))) + 
-  geom_bar(stat = "identity") +
-  geom_vline(xintercept = c(date("2019-11-19"), date("2019-12-13"), date("2020-03-19"), date("2020-12-01"), date("2020-12-29"))) +
-  labs(title = "Number of admissions and discharges by day",
-       x = "Date", 
-       y = "Number of visits",
-       fill = "Disposition") 
 
 # proportion of admissions with lines
 summ[, .N, by = .(date(presentation_time), adm)] %>% ggplot(aes(x = date, y = N, fill = fct_rev(adm))) + 

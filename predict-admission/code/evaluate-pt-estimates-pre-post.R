@@ -16,9 +16,10 @@ rsq <- function (x, y) cor(x, y) ^ 2
 # Load data ---------------------------------------------------------------
 
 tsk_ids = "val"
-model_features = c("alop", "aop")
-use_dataset = c("Pre", "Post")
-model_output_date = '2021-05-25'
+# model_features = c("alop", "aop") 
+model_features = c("alop")
+use_dataset = c("Pre", "Post", "Pre + Post")
+model_output_date = '2021-05-26'
 
 pe_all = data.table()
 
@@ -43,6 +44,11 @@ pe_all[, distribution := paste(dist, time_window)]
 
 
 # Evaluate point estimates ------------------------------------------------
+
+tsk_ids = "val"
+# model_features = c("alop", "aop") 
+model_features = c("alop")
+use_dataset = c("Pre", "Post", "Pre + Post")
 
 
 pe_results = data.table()

@@ -22,9 +22,9 @@ library(mlr3misc)
 
 file_date = '2021-05-17'
 dm_file_date = '2021-05-19'
-model_date = '2021-05-25' # alop models are currently 24.5 | aop models currently 25.5
+model_date = '2021-05-24' # alop models are currently 24.5 for Pre, Post | 26.5 for Pre + Pots | aop models currently 25.5
 model_features = "alop"
-use_dataset = "Pre + Post"
+use_dataset = "Post"
 tsk_ids = "Val"
 
 
@@ -157,6 +157,12 @@ make_predictions = function(time_pts, summ, dm_file_date, model_date,  model_fea
       }
     }
     
+    
+    # Pre + Post learners needs two flags a_epoch_Pre and a_epoch_Post
+    # therefore set a_epoch to be a factor
+    dt$a_epoch = factor(dt$a_epoch, levels = c("Pre", "Post"))
+    
+    
     # encode factors - note, if set dropUnusedLevels to false, no need to bring in additional features
     # this is only possible because validation set has been created at same time as training set 
     # therefore all values present in eaach factor will be present here
@@ -164,6 +170,7 @@ make_predictions = function(time_pts, summ, dm_file_date, model_date,  model_fea
     ts[,adm:=as.factor(adm)] 
     
     name_tsk <- paste0("task", ts_)
+
     
     
     # # add other features used in training the model that might be missing from this one-hot process
@@ -687,13 +694,13 @@ preds = make_predictions(time_pts, summ, dm_file_date, model_date,  model_featur
 # # for debugging
 # in_ED_all = preds[[1]]
 # preds_all_ts = preds[[2]]
-# tta_prob = tta_prob[epoch == use_dataset & in_set == tsk_ids]
-# poisson_not_yet_arrived = poisson_not_yet_arrived[epoch == use_dataset & in_set == tsk_ids]
+# tta_prob = tta_prob[epoch == use_dataset & in_set == "Train"]
+# poisson_not_yet_arrived = poisson_not_yet_arrived[epoch == use_dataset & in_set == "Train"]
 
 # aggregate predictions
 prob_dist = get_prob_dist(time_pts, in_ED_all = preds[[1]], preds_all_ts = preds[[2]], 
-                          tta_prob[epoch == use_dataset & in_set == tsk_ids], 
-                          poisson_not_yet_arrived[epoch == use_dataset & in_set == tsk_ids], 
+                          tta_prob[epoch == use_dataset & in_set == "Train"], 
+                          poisson_not_yet_arrived[epoch == use_dataset & in_set == "Train"], 
                           preds_nya_ngboost)
 
 
